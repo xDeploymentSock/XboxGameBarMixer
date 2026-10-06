@@ -70,6 +70,9 @@ MainPage::MainPage() {
             self->start_layout_request();
         }
     });
+    VideoHost().LayoutUpdated([weak = get_weak()](auto const&, auto const&) {
+        if (const auto self = weak.get(); self && self->overscan_viewport_active_) { self->update_coverage(); }
+    });
     fuser::widget::log(L"MainPage created.");
 }
 
@@ -83,6 +86,11 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
             // This isolated fixture has 44 extra view pixels above the video.
             // The measured host origin is -44, so the 1440-row viewport begins
             // at screen zero without enlarging or rescaling the Sunshine feed.
+            overscan_viewport_active_ = true;
+            VideoHost().HorizontalAlignment(HorizontalAlignment::Left);
+            VideoHost().VerticalAlignment(VerticalAlignment::Top);
+            VideoHost().Width(2560.0);
+            VideoHost().Height(1440.0);
             VideoHost().Margin({0.0, 44.0, 0.0, 0.0});
             SettingsCard().Margin({16.0, 60.0, 16.0, 16.0});
         }
@@ -120,7 +128,10 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
             if (const auto self = weak.get()) {
                 const auto ignored = self->Dispatcher().RunAsync(
                     Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
-                        if (const auto page = weak.get()) { page->update_coverage(); }
+                        if (const auto page = weak.get()) {
+                            page->update_overscan_viewport();
+                            page->update_coverage();
+                        }
                     });
                 (void)ignored;
             }
@@ -138,6 +149,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
                     if (const auto page = weak.get()) {
                         // DPI can change without a change to the logical XAML size.
                         page->layout_requests_.invalidate();
+                        page->update_overscan_viewport();
                         page->video_host_size_changed(nullptr, nullptr);
                         if (page->fitting_monitor_) {
                             page->report(L"Display changed during fitting. Click Fit my monitor again on the intended display.");
@@ -508,6 +520,54 @@ void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs
       catch (const std::exception& error) { report(to_hstring(error.what())); }
 }
 
+void MainPage::viewport_root_size_changed(IInspectable const&, SizeChangedEventArgs const&) {
+    update_overscan_viewport();
+    update_coverage();
+}
+
+bool MainPage::update_overscan_viewport() {
+    if (loading_profile_ || shutting_down_ || !widget_ || !overscan_viewport_active_) { return false; }
+    try {
+        const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+        const auto scale = display.RawPixelsPerViewPixel();
+        const auto extent = fuser::monitor_view_extent(display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
+        const auto client = Window::Current().CoreWindow().Bounds();
+        const auto bounds = widget_.WindowBounds();
+        // Ignore transient host/client/XAML disagreement during activation.
+        if (std::abs(client.X - bounds.X) * scale > 1.0 || std::abs(client.Y - bounds.Y) * scale > 1.0
+            || !fuser::matches_monitor_extent(bounds.Width, bounds.Height, {client.Width, client.Height}, scale)
+            || !fuser::matches_monitor_extent(ViewportRoot().ActualWidth(), ViewportRoot().ActualHeight(),
+                {client.Width, client.Height}, scale)) { return false; }
+        const auto viewport = fuser::contained_monitor_viewport(client.X, client.Y, client.Width, client.Height, extent);
+        if (!viewport) { return false; }
+        const auto margin = VideoHost().Margin();
+        if (VideoHost().Width() != viewport->width || VideoHost().Height() != viewport->height
+            || margin.Left != viewport->left || margin.Top != viewport->top) {
+            VideoHost().Width(viewport->width);
+            VideoHost().Height(viewport->height);
+            VideoHost().Margin({viewport->left, viewport->top, 0.0, 0.0});
+            SettingsCard().Margin({viewport->left + 16.0, viewport->top + 16.0, 16.0, 16.0});
+            fuser::widget::log(L"Inner viewport: left=" + to_hstring(viewport->left) + L" top=" + to_hstring(viewport->top)
+                + L" width=" + to_hstring(viewport->width) + L" height=" + to_hstring(viewport->height)
+                + L". No host resize or centering request.");
+        }
+        return true;
+    } catch (const hresult_error& error) { fuser::widget::log(L"Inner viewport unavailable: " + error.message()); }
+      catch (const std::exception& error) { fuser::widget::log(to_hstring(error.what())); }
+    return false;
+}
+
+void MainPage::restore_video_layout() {
+    if (!overscan_viewport_active_) { return; }
+    overscan_viewport_active_ = false;
+    VideoHost().Width(std::numeric_limits<double>::quiet_NaN());
+    VideoHost().Height(std::numeric_limits<double>::quiet_NaN());
+    VideoHost().HorizontalAlignment(HorizontalAlignment::Stretch);
+    VideoHost().VerticalAlignment(VerticalAlignment::Stretch);
+    VideoHost().Margin({0.0, 0.0, 0.0, 0.0});
+    SettingsCard().Margin({16.0, 16.0, 16.0, 16.0});
+}
+
 void MainPage::fit_monitor_click(IInspectable const&, RoutedEventArgs const&) {
     if (loading_profile_ || shutting_down_) { return; }
     if (!widget_) {
@@ -520,6 +580,12 @@ void MainPage::fit_monitor_click(IInspectable const&, RoutedEventArgs const&) {
         reset_pending_ = false;
         Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
             L"ResetWidgetPosition", box_value(false));
+        if (update_overscan_viewport()) {
+            layout_requests_.invalidate();
+            update_coverage();
+            report(L"Drawing fitted inside the existing larger widget. Game Bar placement is unchanged; check the outer white edges.");
+            return;
+        }
         layout_requests_.request(fuser::widget_layout_action::fit_monitor);
         report(fitting_monitor_ ? L"Fit queued after the current request; your latest action takes priority."
                                : L"Fitting this monitor now. Drag or resize the widget if Game Bar constrains it.");
@@ -595,7 +661,7 @@ fire_and_forget MainPage::run_startup_probe() {
         co_await resume_after(std::chrono::seconds{5});
         co_await resume_foreground(foreground);
         if (shutting_down_ || !widget_ || fitting_monitor_ || layout_requests_.has_pending()
-            || VideoHost().Margin().Top != 44.0) { co_return; }
+            || !overscan_viewport_active_) { co_return; }
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
         const auto extent = fuser::monitor_view_extent(display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
@@ -603,14 +669,11 @@ fire_and_forget MainPage::run_startup_probe() {
         const auto client = Window::Current().CoreWindow().Bounds();
         const auto visible = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().VisibleBounds();
         const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
-        const auto contains_viewport = [&](Rect const& rectangle) {
-            return rectangle.X <= 0.0F && rectangle.Y <= 0.0F
-                && rectangle.X + rectangle.Width >= extent.width
-                && rectangle.Y + rectangle.Height >= extent.height;
-        };
         const bool aligned = renderer_ && fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
             VideoHost().ActualWidth(), VideoHost().ActualHeight(), extent, scale)
-            && contains_viewport(client) && contains_viewport(visible);
+            && std::abs(client.X - bounds.X) * scale <= 1.0 && std::abs(client.Y - bounds.Y) * scale <= 1.0
+            && fuser::contained_monitor_viewport(client.X, client.Y, client.Width, client.Height, extent).has_value()
+            && fuser::contained_monitor_viewport(visible.X, visible.Y, visible.Width, visible.Height, extent).has_value();
         previous_geometry_ = L"";
         log_view_geometry();
         fuser::widget::log(L"Overscan viewport settled: geometryAligned=" + to_hstring(aligned)
@@ -668,8 +731,7 @@ void MainPage::full_screen_fit_click(IInspectable const&, RoutedEventArgs const&
 void MainPage::reset_position_click(IInspectable const&, RoutedEventArgs const&) {
     if (loading_profile_ || shutting_down_) { return; }
     try {
-        VideoHost().Margin({0.0, 0.0, 0.0, 0.0});
-        SettingsCard().Margin({16.0, 16.0, 16.0, 16.0});
+        restore_video_layout();
         const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
         values.Insert(L"CoverMonitor", box_value(false));
         values.Insert(L"ResetWidgetPosition", box_value(true));
@@ -717,10 +779,14 @@ void MainPage::update_coverage() {
             display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
         const auto bounds = widget_.WindowBounds();
         const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
-        const bool sized = fuser::matches_monitor_extent(bounds.Width, bounds.Height, expected, scale)
-            && fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
+        const bool sized = fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
+        const auto client = Window::Current().CoreWindow().Bounds();
+        const auto visible = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().VisibleBounds();
         const bool aligned = sized && fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
-            VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
+            VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale)
+            && std::abs(client.X - bounds.X) * scale <= 1.0 && std::abs(client.Y - bounds.Y) * scale <= 1.0
+            && fuser::contained_monitor_viewport(client.X, client.Y, client.Width, client.Height, expected).has_value()
+            && fuser::contained_monitor_viewport(visible.X, visible.Y, visible.Width, visible.Height, expected).has_value();
         const auto gaps = fuser::uncovered_monitor_edges(bounds.X + origin.X, bounds.Y + origin.Y,
             VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
         const auto prefix = aligned ? hstring{L"Monitor bounds match. "}
@@ -787,6 +853,7 @@ fire_and_forget MainPage::fit_monitor_async() {
     const auto request = layout_requests_.take(widget_.Pinned()
         && widget_.GameBarDisplayMode() == XboxGameBarDisplayMode::PinnedOnly);
     if (!request) { co_return; }
+    restore_video_layout();
     fitting_monitor_ = true;
     const bool resetting = request->action == fuser::widget_layout_action::reset_position;
     const bool custom = request->action == fuser::widget_layout_action::apply_dimensions;
@@ -946,6 +1013,7 @@ void MainPage::update_widget_state() {
             + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled()));
         layout_requests_.visibility_changed(widget_.Visible());
         layout_requests_.pinning_changed(widget_.Pinned());
+        update_overscan_viewport();
         start_layout_request();
     }
     update_coverage();

@@ -24,6 +24,20 @@ Both 0.2.0.14 widget builds passed with zero warnings/errors. Deployment and an 
 
 ## Live acceptance still required
 
+Microsoft's [Game Assist FAQ](https://support.microsoft.com/en-au/edge/microsoft-edge-game-assist-faq) says to move the pointer to the top screen edge directly above a widget when its title bar is hidden. This provides a possible way to expose Pin without resetting the oversized client. Its applicability to this custom widget remains a live hypothesis; the user has been asked to test the top edge near the upper-right corner with Game Bar open.
+
+The user reported that the title bar stays hidden. New live logs show the host shifting the oversized client to Y=-88 in foreground mode, with its bottom at 1396. The settled visible foreground client therefore does not contain the whole monitor. Dismissal restores the widget bound to Y=-44, where the client can contain all rows, but it remains unpinned and hidden. This contradicts any inference that 1484-row startup height alone establishes visible four-edge coverage. The containment contract explicitly rejects the foreground (-88,1484) case.
+
 Open **Software Fuser overscan test** through Win+G and draw the diagnostic, or run its probe. Check the outer white border at all four monitor edges including over the taskbar; the cyan box is intentionally inset. Record visible/pinned status and the settled geometry separately. The pin button may remain off-screen because the host title bar is outside the video viewport. Do not treat the extra height as a pin-control fix.
 
 Full success also requires pinning, black transparency, click-through, and retained placement after dismissing/reopening Game Bar. Native Windows UI tooling remains unavailable, so user observation is required for this visual check. No separate desktop renderer or feed rescaling is introduced.
+
+## Prepared retention change in 0.2.0.15
+
+The built 0.2.0.15 package retains the same overscan extension and 2560x1484 startup dimensions. Installed 0.2.0.14 is left available for the pending visual/pin check; 0.2.0.15 has not yet been deployed or live-verified.
+
+Its inner viewport is explicitly the monitor's video size. When settled widget, CoreWindow, and XAML client geometry agree and that client contains the entire original monitor, only the inner padding is adjusted to cancel the measured client offset. Moving a 1484-row client from Y=-44 to Y=0 changes top padding from 44 to zero, preserving the same 1440 video rows. Host callbacks make no resize or centering requests. A client missing an edge is rejected by the containment contract rather than treated as permission to shrink the source. The fixture remains scoped to the monitor whose global origin is (0,0).
+
+Fit uses this inner layout when the existing oversized client contains the monitor. Other explicit host-sizing experiments restore the normal stretched XAML layout before making their requests; Reset also restores that layout. Coverage text evaluates the actual video rectangle and client containment, so the larger outer client is not falsely described as a mismatched video size. A layout observation refreshes those measurements after padding has been arranged.
+
+The new containment regression first failed before implementation. Release and Debug core contracts then passed 1/1, checking the measured extra-height rectangle, host movement, horizontal padding, retention of the final source row's screen coordinate, and rejection of clipped or invalid clients. Final widget builds passed in both configurations with zero warnings/errors. These results validate the implementation contracts and packaging; they do not establish pinning, visible four-edge coverage, or live retention.

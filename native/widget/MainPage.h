@@ -26,6 +26,7 @@ struct MainPage : MainPageT<MainPage> {
     void reset_position_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
+    void viewport_root_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     fire_and_forget run_pinned_probe();
     fire_and_forget run_startup_probe();
     void shutdown() noexcept;
@@ -37,6 +38,8 @@ private:
     void update_widget_state();
     void start_layout_request();
     void update_coverage();
+    bool update_overscan_viewport();
+    void restore_video_layout();
     void log_view_geometry();
     void restore_resize_limits();
     void save_overlay_dimensions();
@@ -58,6 +61,7 @@ private:
     Windows::Graphics::Display::DisplayInformation display_{nullptr};
     bool busy_{}, streaming_{};
     bool loading_profile_{true}, fitting_monitor_{}, reset_pending_{};
+    bool overscan_viewport_active_{};
     fuser::widget_layout_requests layout_requests_;
     std::atomic<bool> shutting_down_{};
     fuser::pipeline_statistics previous_counters_;

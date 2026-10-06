@@ -2,7 +2,7 @@
     x:Class="SoftwareFuser.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="Transparent">
+    <Grid x:Name="ViewportRoot" Background="Transparent" SizeChanged="viewport_root_size_changed">
         <Grid x:Name="VideoHost" Background="Transparent" SizeChanged="video_host_size_changed" />
         <Border x:Name="SettingsCard" Background="#E6202530" Padding="20"
                 HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="16">

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 
@@ -13,6 +14,26 @@ struct monitor_extent {
     float width;
     float height;
 };
+
+struct monitor_viewport {
+    double left;
+    double top;
+    float width;
+    float height;
+};
+
+// Return a full-size inner viewport only when the client contains the monitor.
+// A clipped client must never be treated as a request to shrink the video.
+[[nodiscard]] inline std::optional<monitor_viewport> contained_monitor_viewport(
+    double x, double y, double width, double height, monitor_extent monitor) noexcept {
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)
+        || !std::isfinite(monitor.width) || !std::isfinite(monitor.height)
+        || monitor.width <= 0.0F || monitor.height <= 0.0F || width <= 0.0 || height <= 0.0
+        || x > 0.0 || y > 0.0 || x + width < monitor.width || y + height < monitor.height) {
+        return std::nullopt;
+    }
+    return monitor_viewport{-x, -y, monitor.width, monitor.height};
+}
 
 [[nodiscard]] inline std::uint32_t parse_widget_dimension(std::string_view text) {
     const auto first = text.find_first_not_of(" \t\r\n");

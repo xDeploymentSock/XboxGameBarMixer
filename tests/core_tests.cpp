@@ -100,6 +100,28 @@ int main() {
         require(!fuser::matches_monitor_bounds(std::numeric_limits<double>::quiet_NaN(), 0, 2560, 1440, monitor, 1.0),
                 "invalid coordinates cannot report aligned bounds");
 
+        const auto overscan = fuser::contained_monitor_viewport(0, -44, 2560, 1484, monitor);
+        require(overscan && fuser::matches_monitor_bounds(overscan->left, -44 + overscan->top,
+                    overscan->width, overscan->height, monitor, 1.0),
+                "an extra-height client must contain an aligned full-size inner viewport");
+        require(overscan->height == 1440 && -44 + overscan->top + 1439 == 1439,
+                "the final source row must retain its original screen coordinate rather than being stretched");
+        const auto reopened = fuser::contained_monitor_viewport(0, 0, 2560, 1484, monitor);
+        require(reopened && reopened->top == 0 && reopened->height == overscan->height,
+                "moving the host to screen zero changes padding, not the video height");
+        const auto horizontal_padding = fuser::contained_monitor_viewport(-16, -44, 2576, 1484, monitor);
+        require(horizontal_padding && horizontal_padding->left == 16 && horizontal_padding->width == 2560,
+                "an off-screen left strip is absorbed without cropping or shrinking the source");
+        require(!fuser::contained_monitor_viewport(0, -44, 2560, 1440, monitor)
+                    && !fuser::contained_monitor_viewport(0, -88, 2560, 1484, monitor)
+                    && !fuser::contained_monitor_viewport(0, 46, 2560, 1440, monitor)
+                    && !fuser::contained_monitor_viewport(0, 0, 2558, 1440, monitor),
+                "missing bottom, top, or right rows, including the visible overscan offset, cannot be repaired inside the client");
+        require(!fuser::contained_monitor_viewport(0, std::numeric_limits<double>::quiet_NaN(), 2560, 1484, monitor)
+                    && !fuser::contained_monitor_viewport(0, -44, 2560, std::numeric_limits<double>::infinity(), monitor)
+                    && !fuser::contained_monitor_viewport(0, 0, 2560, 1440, {0, 1440}),
+                "invalid host or monitor geometry cannot authorize a viewport");
+
         fuser::widget_layout_requests layout;
         layout.visibility_changed(true);
         require(!layout.has_pending(), "opening Game Bar does not create an automatic resize");
