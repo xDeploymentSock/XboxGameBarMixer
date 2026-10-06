@@ -50,6 +50,7 @@ MainPage::MainPage() {
     load_profile();
     loading_profile_ = false;
     update_key_values();
+    select_settings_section(0);
     const auto folder = Windows::Storage::ApplicationData::Current().LocalFolder().Path();
     control_ = std::make_shared<fuser::streaming::sunshine_control>(
         std::make_shared<fuser::widget::app_credentials>(std::filesystem::path{folder.c_str()}));
@@ -65,6 +66,7 @@ MainPage::MainPage() {
         if (const auto self = weak.get()) {
             fuser::widget::log(L"Page loaded; video host=" + to_hstring(self->VideoHost().ActualWidth())
                 + L"x" + to_hstring(self->VideoHost().ActualHeight()));
+            self->update_settings_layout();
             self->update_video_layout();
             if (self->reset_pending_) {
                 self->reset_pending_ = false;
@@ -293,6 +295,9 @@ void MainPage::set_busy(bool value) {
     CleanBlackButton().IsEnabled(!value);
     ExactBlackButton().IsEnabled(!value);
     ApplyKeyButton().IsEnabled(!value);
+    SaveProfileButton().IsEnabled(!value);
+    DisconnectButton().IsEnabled(value || streaming_);
+    DisconnectButton().Content(box_value(value ? L"Cancel" : L"Disconnect"));
 }
 fire_and_forget MainPage::control_async(bool pairing) {
     const auto lifetime = get_strong();
@@ -402,6 +407,7 @@ fire_and_forget MainPage::disconnect_async() {
     if (shutting_down_) { co_return; }
     co_await resume_foreground(foreground);
     streaming_ = false;
+    StreamSummaryText().Text(L"Not streaming");
     set_busy(false);
     if (shutting_down_) { co_return; }
     try { if (renderer_) { renderer_->clear(); renderer_->present(); } }
@@ -421,14 +427,23 @@ void MainPage::update_statistics() {
         std::ostringstream text;
         const auto codec = state.negotiated.codec == fuser::video_codec::hevc ? "HEVC" :
             state.negotiated.codec == fuser::video_codec::h264 ? "H.264" : "AV1";
+        const auto receive_rate = rate(state.counters.received_frames, previous_counters_.received_frames);
+        const auto decode_rate = rate(state.counters.decoded_frames, previous_counters_.decoded_frames);
+        const auto present_rate = rate(state.counters.present_calls, previous_counters_.present_calls);
         text << codec << ' ' << state.negotiated.width << 'x' << state.negotiated.height << " / setup FPS " << state.negotiated.frames_per_second
              << "\n" << std::fixed << std::setprecision(1)
-             << "Received units/s " << rate(state.counters.received_frames, previous_counters_.received_frames)
-             << " | Decoded/s " << rate(state.counters.decoded_frames, previous_counters_.decoded_frames)
-             << " | Present calls/s " << rate(state.counters.present_calls, previous_counters_.present_calls)
+             << "Received units/s " << receive_rate
+             << " | Decoded/s " << decode_rate
+             << " | Present calls/s " << present_rate
              << "\nReplaced display frames " << state.counters.replaced_display_frames
              << " | Decode errors " << state.decode_errors << "\nPresent calls do not measure monitor scanout.";
         StatsText().Text(to_hstring(text.str()));
+        std::ostringstream summary;
+        summary << codec << ' ' << state.negotiated.width << 'x' << state.negotiated.height
+                << " / " << state.negotiated.frames_per_second << " requested FPS\n"
+                << std::fixed << std::setprecision(1) << "Rx " << receive_rate
+                << "/s | Decode " << decode_rate << "/s | Present " << present_rate << "/s";
+        StreamSummaryText().Text(to_hstring(summary.str()));
         if (++log_ticks_ % 5 == 0) {
             // Numeric cumulative diagnostics stay in the local log. Preserve
             // zero host samples as absent/repeated rather than zero latency.
@@ -543,7 +558,60 @@ void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs
 }
 
 void MainPage::video_layout_size_changed(IInspectable const&, SizeChangedEventArgs const&) {
-    if (!loading_profile_ && !shutting_down_) { update_video_layout(); }
+    if (!loading_profile_ && !shutting_down_) {
+        update_settings_layout();
+        update_video_layout();
+    }
+}
+
+void MainPage::select_settings_section(std::int32_t index) {
+    const std::array sections{ConnectionSection(), HudSection(), LayoutSection(), DetailsSection()};
+    const std::array tabs{ConnectionTab(), HudTab(), LayoutTab(), DetailsTab()};
+    if (index < 0 || static_cast<std::size_t>(index) >= sections.size()) { return; }
+    const bool changed = selected_settings_section_ != index;
+    selected_settings_section_ = index;
+    for (std::size_t position = 0; position < sections.size(); ++position) {
+        const bool selected = position == static_cast<std::size_t>(index);
+        sections[position].Visibility(selected ? Visibility::Visible : Visibility::Collapsed);
+        tabs[position].IsChecked(selected);
+    }
+    if (SettingsSectionPicker().SelectedIndex() != index) { SettingsSectionPicker().SelectedIndex(index); }
+    if (changed) { SettingsScroll().ChangeView(nullptr, 0.0, nullptr, true); }
+}
+
+void MainPage::settings_tab_click(IInspectable const& sender, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    const auto tag = unbox_value_or<hstring>(sender.as<Controls::Primitives::ToggleButton>().Tag(), L"");
+    if (tag.size() == 1 && tag[0] >= L'0' && tag[0] <= L'3') {
+        select_settings_section(static_cast<std::int32_t>(tag[0] - L'0'));
+    }
+}
+
+void MainPage::settings_section_changed(IInspectable const&, Controls::SelectionChangedEventArgs const&) {
+    if (!loading_profile_ && !shutting_down_) { select_settings_section(SettingsSectionPicker().SelectedIndex()); }
+}
+
+void MainPage::advanced_options_changed(IInspectable const&, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    StreamOptionsPanel().Visibility(StreamOptionsToggle().IsChecked().Value() ? Visibility::Visible : Visibility::Collapsed);
+    KeyOptionsPanel().Visibility(KeyOptionsToggle().IsChecked().Value() ? Visibility::Visible : Visibility::Collapsed);
+}
+
+void MainPage::update_settings_layout() {
+    const auto width = VideoLayoutRoot().ActualWidth();
+    const auto height = VideoLayoutRoot().ActualHeight();
+    if (width < 1.0 || height < 1.0) { return; }
+    constexpr double outer_margin = 24.0;
+    constexpr double card_insets = 30.0; // Padding and border on both sides.
+    const auto card_width = std::min(420.0, std::max(1.0, width - outer_margin));
+    const auto card_height = std::min(720.0, std::max(1.0, height - outer_margin));
+    SettingsCard().Width(card_width);
+    SettingsCard().Height(card_height);
+    // A shallow window can scroll the complete menu instead of clipping actions.
+    MenuLayout().Height(std::max(420.0, card_height - card_insets));
+    const bool narrow = card_width < 340.0;
+    SettingsTabs().Visibility(narrow ? Visibility::Collapsed : Visibility::Visible);
+    SettingsSectionPicker().Visibility(narrow ? Visibility::Visible : Visibility::Collapsed);
 }
 
 void MainPage::apply_video_fit_click(IInspectable const&, RoutedEventArgs const&) {

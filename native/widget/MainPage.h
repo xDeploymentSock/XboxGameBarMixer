@@ -28,6 +28,9 @@ struct MainPage : MainPageT<MainPage> {
     void clean_black_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void exact_black_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void apply_key_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void settings_tab_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void settings_section_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
+    void advanced_options_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     void video_layout_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     void apply_video_fit_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
@@ -38,6 +41,8 @@ private:
     [[nodiscard]] fuser::chroma_key_settings read_key_settings();
     void save_key_settings();
     void update_key_values();
+    void select_settings_section(std::int32_t index);
+    void update_settings_layout();
     void load_profile();
     void attach_renderer();
     void update_widget_state();
@@ -66,6 +71,7 @@ private:
     bool busy_{}, streaming_{};
     bool loading_profile_{true}, fitting_monitor_{}, reset_pending_{};
     bool video_fit_enabled_{true};
+    std::int32_t selected_settings_section_{};
     std::uint32_t reserved_bottom_pixels_{48};
     fuser::widget_layout_requests layout_requests_;
     std::atomic<bool> shutting_down_{};

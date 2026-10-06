@@ -6,6 +6,8 @@ Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, 
 
 ## Current state
 
+Version 0.2.1.2 prepares a [cleaner widget menu](docs/WIDGET-MENU.md): Connect, HUD, Layout and Details views, persistent status/connection controls, collapsible stream options and HUD fine tuning, and navigation that adapts to narrow windows. Debug and Release builds have zero warnings/errors; existing controls, action handlers and profile defaults are preserved. The package is prepared locally while 0.2.1.1 remains installed for the pending black-cleanup test. Native appearance and live navigation still need verification.
+
 Version 0.2.1.1 on main adds **Clean black background**, an immediate preset for compression residue and bright text edges, with **Exact black** to restore nonblack dark-detail preservation. Fine sliders show their numeric values, and **Apply key settings** saves/applies changes during streaming. Saved profiles are preserved until an explicit action. See [black cleanup and live verification](docs/BLACK-CLEANUP.md).
 
 Version 0.2.1.0 adds **Apply video fit**: the entire feed fills the widget's visible area above an adjustable taskbar reservation, allowing vertical compression. The fit follows manual moves/resizes and preserves the negotiated Sunshine stream. It was installed with status OK; the user reported a decent live result and requested cleanup of remaining black-key pixels. Precise taskbar alignment and cross-monitor behavior still need verification. The separate testing branch continues investigating full-monitor host coverage. See [video fitting](docs/VIDEO-FIT.md).
