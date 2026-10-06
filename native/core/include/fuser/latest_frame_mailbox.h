@@ -37,6 +37,11 @@ public:
         return result;
     }
 
+    [[nodiscard]] bool has_frame() const {
+        const std::scoped_lock lock{mutex_};
+        return frame_.has_value();
+    }
+
     void close() {
         std::optional<decoded_frame> discarded;
         {

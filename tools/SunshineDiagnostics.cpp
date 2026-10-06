@@ -96,6 +96,12 @@ int main(int argc, char** argv) {
             session.stop();
             std::cout << "Joined stop: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - before).count() << " seconds.\n";
             const auto final = session.snapshot();
+            if (final.render_latency_samples) {
+                std::cout << "Local callback-to-accepted-Present average ms "
+                          << static_cast<double>(final.render_microseconds) / 1000.0 / static_cast<double>(final.render_latency_samples)
+                          << " maximum ms " << static_cast<double>(final.max_render_microseconds) / 1000.0
+                          << ". Excludes host, network and Game Bar/monitor scanout.\n";
+            }
             if (!final.counters.decoded_frames || !final.counters.present_calls || final.decode_errors || final.finished) { return 1; }
             renderer->clear();
             renderer->present();

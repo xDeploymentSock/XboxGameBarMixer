@@ -74,12 +74,15 @@ int main(int argc, char** argv) {
             render_worker = std::jthread{[&](std::stop_token stop) {
                 try {
                     for (;;) {
+                        if (!renderer.wait_to_present(8)) {
+                            if (stop.stop_requested()) { break; }
+                            continue;
+                        }
                         if (auto frame = mailbox.take_latest()) {
                             const auto drawn = renderer.draw_frame(*frame, {});
                             if (drawn.code == fuser::operation_code::unavailable) { continue; }
                             require(drawn);
-                            renderer.present();
-                            ++presented;
+                            if (renderer.try_present()) { ++presented; }
                         } else if (stop.stop_requested()) {
                             break;
                         } else {
@@ -161,7 +164,14 @@ int main(int argc, char** argv) {
         require(decoded == expected && sequence == expected, "All fixture access units must decode.");
         decoder.stop();
         decoder.stop();
-        require(renderer.draw_frame(retained, {}));
+        auto retained_draw = renderer.draw_frame(retained, {});
+        // Nonblocking presentation does not imply GPU read fences are already
+        // complete. Await slot retirement, then verify the retained pool lease.
+        for (int retry = 0; retained_draw.code == fuser::operation_code::unavailable && retry < 100; ++retry) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{1});
+            retained_draw = renderer.draw_frame(retained, {});
+        }
+        require(retained_draw);
         require(pixel(renderer, 10, 10) == std::array<std::uint8_t, 4>{0, 0, 0, 0},
                 "Retained compressed green must remain transparent.");
         require(pixel(renderer, 100, 100)[3] == 255, "A retained frame lease must survive decoder shutdown.");

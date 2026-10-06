@@ -4,6 +4,7 @@
 #include "../windows/D3D11Renderer.h"
 #include "../streaming/OverlaySession.h"
 #include <fuser/widget_layout_requests.h>
+#include <winrt/Windows.UI.ViewManagement.h>
 #include <memory>
 
 namespace winrt::SoftwareFuser::implementation {
@@ -13,6 +14,7 @@ struct MainPage : MainPageT<MainPage> {
     ~MainPage();
     void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& args);
     void save_profile_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void hud_quality_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void connect_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void pair_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void refresh_apps_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
@@ -69,6 +71,7 @@ private:
     std::string applications_host_;
     Windows::UI::Xaml::DispatcherTimer stats_timer_{nullptr};
     Windows::Graphics::Display::DisplayInformation display_{nullptr};
+    Windows::UI::ViewManagement::ApplicationView application_view_{nullptr};
     bool busy_{}, streaming_{};
     bool loading_profile_{true}, fitting_monitor_{}, reset_pending_{};
     bool video_fit_enabled_{true};
@@ -90,6 +93,7 @@ private:
     event_token dpi_token_{};
     event_token orientation_token_{};
     event_token contents_token_{};
+    event_token client_bounds_token_{};
     hstring previous_geometry_;
     std::uint64_t diagnostic_sequence_{};
 };

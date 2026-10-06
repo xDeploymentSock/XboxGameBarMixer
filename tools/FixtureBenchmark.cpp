@@ -139,7 +139,8 @@ int main(int argc, char** argv) {
         require(decoder.initialize(profile, [&](fuser::decoded_frame frame) {
             require(frame.width == 2560 && frame.height == 1440 && frame.sequence > 0, "Unexpected fixture metadata.");
             retained = frame;
-            require(mailbox.publish(std::move(frame)), "Fixture mailbox is closed.");
+            { const std::lock_guard lock{wake_mutex};
+              require(mailbox.publish(std::move(frame)), "Fixture mailbox is closed."); }
             ++decoded;
             wake.notify_one();
         }));
@@ -148,17 +149,34 @@ int main(int argc, char** argv) {
         winrt::check_bool(static_cast<bool>(timer));
         std::jthread worker{[&](std::stop_token stop) {
             try {
+                std::optional<fuser::decoded_frame> pending;
                 for (;;) {
-                    // Match the current session's 4 ms wait and latest-frame policy.
-                    { std::unique_lock lock{wake_mutex}; wake.wait_for(lock, std::chrono::milliseconds{4}); }
-                    if (auto frame = mailbox.take_latest()) {
-                        const auto result = renderer.draw_frame(*frame, {});
-                        if (result.code == fuser::operation_code::unavailable) { ++unavailable; continue; }
+                    // Match production's predicate wake, wait-before-selection,
+                    // latest-frame policy and nonblocking composition present.
+                    { std::unique_lock lock{wake_mutex}; wake.wait(lock, [&] {
+                        return stop.stop_requested() || pending || mailbox.has_frame();
+                    }); }
+                    if (!pending && !mailbox.has_frame() && stop.stop_requested()) { break; }
+                    if (!renderer.wait_to_present(8)) {
+                        if (stop.stop_requested()) { break; }
+                        continue;
+                    }
+                    if (auto newest = mailbox.take_latest()) { pending = std::move(newest); }
+                    if (pending) {
+                        const auto result = renderer.draw_frame(*pending, {});
+                        if (result.code == fuser::operation_code::unavailable) {
+                            ++unavailable;
+                            std::unique_lock lock{wake_mutex};
+                            wake.wait_for(lock, std::chrono::milliseconds{1}, [&] { return mailbox.has_frame(); });
+                            continue;
+                        }
                         require(result);
-                        renderer.present();
-                        feed_to_present_times.push_back(milliseconds(clock_type::now() - frame->received_at));
-                        ++presented;
-                    } else if (stop.stop_requested()) { break; }
+                        if (renderer.try_present()) {
+                            feed_to_present_times.push_back(milliseconds(clock_type::now() - pending->received_at));
+                            ++presented;
+                            pending.reset();
+                        }
+                    }
                 }
             } catch (...) { render_error = std::current_exception(); render_failed = true; }
         }};
@@ -182,7 +200,7 @@ int main(int argc, char** argv) {
             submit_times.push_back(milliseconds(clock_type::now() - submitted));
         }
         require(decoder.flush());
-        worker.request_stop();
+        { const std::lock_guard lock{wake_mutex}; worker.request_stop(); }
         wake.notify_one();
         worker.join();
         const auto seconds = std::chrono::duration<double>{clock_type::now() - start}.count();

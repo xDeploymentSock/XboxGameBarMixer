@@ -147,6 +147,19 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     dpi_token_ = display_.DpiChanged(display_changed);
     orientation_token_ = display_.OrientationChanged(display_changed);
     contents_token_ = Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated(display_changed);
+    application_view_ = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+    client_bounds_token_ = application_view_.VisibleBoundsChanged([weak = get_weak()](auto const&, auto const&) {
+        if (const auto self = weak.get()) {
+            const auto ignored = self->Dispatcher().RunAsync(
+                Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
+                    if (const auto page = weak.get()) {
+                        page->update_video_layout();
+                        page->update_coverage();
+                    }
+                });
+            (void)ignored;
+        }
+    });
     update_widget_state();
     update_video_layout();
 }
@@ -182,6 +195,7 @@ fuser::chroma_key_settings MainPage::read_key_settings() {
     result.key.tolerance = static_cast<float>(KeyTolerance().Value());
     result.key.softness = static_cast<float>(KeySoftness().Value());
     result.key.opacity = static_cast<float>(KeyOpacity().Value());
+    result.key.crisp_scaling = VideoScaling().SelectedIndex() == 1;
     result.key.recover_black_edges = KeyColor().SelectedIndex() == 2 &&
         RecoverBlackEdges().IsChecked().Value();
     const auto issues = fuser::validate(result, false);
@@ -238,6 +252,9 @@ void MainPage::load_profile() {
     restore_slider(L"KeyTolerance", KeyTolerance());
     restore_slider(L"KeySoftness", KeySoftness());
     restore_slider(L"KeyOpacity", KeyOpacity());
+    if (values.HasKey(L"VideoScaling")) {
+        VideoScaling().SelectedIndex(unbox_value_or<int32_t>(values.Lookup(L"VideoScaling"), 1) == 0 ? 0 : 1);
+    }
     RecoverBlackEdges().IsChecked(black && values.HasKey(L"RecoverBlackEdges") &&
         unbox_value_or<bool>(values.Lookup(L"RecoverBlackEdges"), false));
     RecoverBlackEdges().IsEnabled(black);
@@ -249,12 +266,26 @@ void MainPage::save_key_settings() {
     values.Insert(L"KeyTolerance", box_value(KeyTolerance().Value()));
     values.Insert(L"KeySoftness", box_value(KeySoftness().Value()));
     values.Insert(L"KeyOpacity", box_value(KeyOpacity().Value()));
+    values.Insert(L"VideoScaling", box_value(VideoScaling().SelectedIndex()));
     values.Insert(L"RecoverBlackEdges", box_value(configuration_.key.recover_black_edges));
     fuser::widget::log(L"Key settings: mode=" + to_hstring(KeyColor().SelectedIndex())
         + L" tolerance=" + to_hstring(configuration_.key.tolerance)
         + L" softness=" + to_hstring(configuration_.key.softness)
         + L" opacity=" + to_hstring(configuration_.key.opacity)
-        + L" recover-black-edges=" + to_hstring(configuration_.key.recover_black_edges));
+        + L" recover-black-edges=" + to_hstring(configuration_.key.recover_black_edges)
+        + L" crisp-scaling=" + to_hstring(configuration_.key.crisp_scaling));
+}
+
+void MainPage::hud_quality_click(IInspectable const&, RoutedEventArgs const&) {
+    if (busy_ || shutting_down_) { return; }
+    VideoWidth().Text(L"2560");
+    VideoHeight().Text(L"1440");
+    VideoFps().Text(L"240");
+    VideoCodec().SelectedIndex(1);
+    VideoBitrate().Text(L"100000");
+    VideoScaling().SelectedIndex(1);
+    save_profile_click(nullptr, nullptr);
+    report(L"HUD preset saved: 1440p, HEVC, 240 requested FPS, 100 Mbps. Crisp scaling applies now; reconnect for stream changes.");
 }
 
 void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
@@ -297,6 +328,7 @@ void MainPage::set_busy(bool value) {
     ExactBlackButton().IsEnabled(!value);
     ApplyKeyButton().IsEnabled(!value);
     SaveProfileButton().IsEnabled(!value);
+    HudQualityButton().IsEnabled(!value);
     DisconnectButton().IsEnabled(value || streaming_);
     DisconnectButton().Content(box_value(value ? L"Cancel" : L"Disconnect"));
 }
@@ -449,7 +481,13 @@ void MainPage::update_statistics() {
              << " | Decoded/s " << decode_rate
              << " | Present calls/s " << present_rate
              << "\nReplaced display frames " << state.counters.replaced_display_frames
-             << " | Decode errors " << state.decode_errors << "\nPresent calls do not measure monitor scanout.";
+             << " | Decode errors " << state.decode_errors;
+        if (state.render_latency_samples) {
+            text << "\nLocal callback-to-Present avg "
+                 << static_cast<double>(state.render_microseconds) / 1000.0 / static_cast<double>(state.render_latency_samples)
+                 << " ms | max " << static_cast<double>(state.max_render_microseconds) / 1000.0 << " ms";
+        }
+        text << "\nThis excludes host, network and monitor scanout.";
         StatsText().Text(to_hstring(text.str()));
         std::ostringstream summary;
         summary << codec << ' ' << state.negotiated.width << 'x' << state.negotiated.height
@@ -466,6 +504,8 @@ void MainPage::update_statistics() {
                  << "\nDecode submission: units " << state.counters.received_frames
                  << " | total us " << state.decode_microseconds
                  << " | maximum us " << state.max_decode_microseconds
+                 << "\nCallback-to-Present: samples " << state.render_latency_samples
+                 << " | total us " << state.render_microseconds << " | maximum us " << state.max_render_microseconds
                  << "\nReceiver timing: samples " << state.receive_timing_samples
                  << " | assembly total us " << state.assembly_microseconds
                  << " | enqueue-to-submission total us " << state.queue_microseconds
@@ -660,7 +700,9 @@ void MainPage::update_video_layout() {
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
         const auto monitor = fuser::monitor_view_extent(display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
-        const auto bounds = widget_ ? widget_.WindowBounds() : Rect{};
+        // Game Bar's IPC bounds include its frame and can lag the hosted view
+        // when pinning. Fit against the actual XAML client origin instead.
+        const auto bounds = Window::Current().CoreWindow().Bounds();
         const auto origin = VideoLayoutRoot().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
         const auto area = video_fit_enabled_ ? fuser::usable_video_rectangle(
             {bounds.X + origin.X, bounds.Y + origin.Y, VideoLayoutRoot().ActualWidth(), VideoLayoutRoot().ActualHeight()},
@@ -852,7 +894,7 @@ void MainPage::update_coverage() {
         const auto scale = display.RawPixelsPerViewPixel();
         const auto expected = fuser::monitor_view_extent(
             display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
-        const auto bounds = widget_.WindowBounds();
+        const auto bounds = Window::Current().CoreWindow().Bounds();
         const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
         const bool sized = fuser::matches_monitor_extent(bounds.Width, bounds.Height, expected, scale)
             && fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
@@ -991,7 +1033,7 @@ fire_and_forget MainPage::fit_monitor_async() {
                         report(L"Game Bar declined the smaller window. Resize manually, or close and reopen to retry the saved reset.");
                     }
                 } else if (full_screen) {
-                    const auto bounds = widget.WindowBounds();
+                    const auto bounds = Window::Current().CoreWindow().Bounds();
                     const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
                     const bool aligned = fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
                         VideoHost().ActualWidth(), VideoHost().ActualHeight(), extent, scale);
@@ -1045,6 +1087,7 @@ void MainPage::update_widget_state() {
         layout_requests_.visibility_changed(widget_.Visible());
         start_layout_request();
     }
+    update_video_layout();
     update_coverage();
 }
 
@@ -1078,6 +1121,10 @@ void MainPage::shutdown() noexcept {
             display_.OrientationChanged(orientation_token_);
             Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated(contents_token_);
             display_ = nullptr;
+        }
+        if (application_view_) {
+            application_view_.VisibleBoundsChanged(client_bounds_token_);
+            application_view_ = nullptr;
         }
         ElementCompositionPreview::SetElementChildVisual(VideoHost(), nullptr);
         visual_ = nullptr;

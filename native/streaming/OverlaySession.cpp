@@ -48,6 +48,7 @@ operation_result overlay_session::begin(const overlay_configuration& config, con
     received_ = decoded_ = presented_ = decode_errors_ = 0;
     last_frame_number_ = peak_decode_queue_ = 0;
     missing_frame_numbers_ = decode_microseconds_ = max_decode_microseconds_ = 0;
+    render_latency_samples_ = render_microseconds_ = max_render_microseconds_ = 0;
     receive_timing_samples_ = assembly_microseconds_ = queue_microseconds_ = max_queue_microseconds_ = 0;
     host_latency_samples_ = host_latency_tenths_ms_ = zero_host_latency_frames_ = max_host_latency_tenths_ms_ = 0;
     finished_ = render_stop_ = false;
@@ -140,7 +141,7 @@ void overlay_session::stop() noexcept {
     // LiStartConnection's error path already joins its workers. A successful
     // connection must be stopped before releasing decoder callbacks or surfaces.
     if (connected_.exchange(false)) { LiStopConnection(); }
-    render_stop_ = true;
+    { const std::lock_guard guard{state_mutex_}; render_stop_ = true; }
     changed_.notify_all();
     if (render_thread_.joinable()) { render_thread_.join(); }
     if (decoder_) { decoder_->stop(); }
@@ -171,7 +172,12 @@ int overlay_session::setup(int format, int width, int height, int fps, void* con
         const auto result = self.decoder_->initialize(actual, [&self](decoded_frame frame) {
             const auto number = ++self.decoded_;
             self.trace("Decoded; publishing", number);
-            (void)self.mailbox_.publish(std::move(frame));
+            {
+                // Publish under the condition's mutex so a callback between
+                // the consumer's predicate and wait cannot lose its wakeup.
+                const std::lock_guard guard{self.state_mutex_};
+                (void)self.mailbox_.publish(std::move(frame));
+            }
             self.changed_.notify_one();
             self.trace("Published", number);
         });
@@ -310,6 +316,9 @@ session_snapshot overlay_session::snapshot() const {
     result.peak_decode_queue = peak_decode_queue_;
     result.decode_microseconds = decode_microseconds_;
     result.max_decode_microseconds = max_decode_microseconds_;
+    result.render_latency_samples = render_latency_samples_;
+    result.render_microseconds = render_microseconds_;
+    result.max_render_microseconds = max_render_microseconds_;
     result.receive_timing_samples = receive_timing_samples_;
     result.assembly_microseconds = assembly_microseconds_;
     result.queue_microseconds = queue_microseconds_;
@@ -329,28 +338,54 @@ session_snapshot overlay_session::snapshot() const {
 }
 void overlay_session::render() noexcept {
     try {
+        std::optional<decoded_frame> pending;
         while (!render_stop_) {
             std::optional<std::pair<std::uint32_t, std::uint32_t>> size;
             chroma_key_settings key;
             {
                 std::unique_lock lock{state_mutex_};
-                changed_.wait_for(lock, std::chrono::milliseconds{4});
+                changed_.wait(lock, [this, &pending] {
+                    return render_stop_ || requested_size_ || pending || mailbox_.has_frame();
+                });
                 size.swap(requested_size_);
                 key = configuration_.key;
             }
             if (render_stop_) { break; }
             if (size) { renderer_->resize(size->first, size->second); }
-            if (auto frame = mailbox_.take_latest()) {
+            if (!pending && !mailbox_.has_frame()) { continue; }
+            // Bounded wait permits prompt Disconnect even when the host hides
+            // the visual. Select the freshest frame only after DXGI is ready.
+            if (!renderer_->wait_to_present(8)) { continue; }
+            if (auto newest = mailbox_.take_latest()) { pending = std::move(newest); }
+            if (pending) {
                 const auto number = presented_.load() + 1;
                 trace("Draw enter", number);
-                const auto result = renderer_->draw_frame(*frame, key);
+                const auto result = renderer_->draw_frame(*pending, key);
                 trace("Draw returned", number);
                 if (result.succeeded()) {
                     trace("Present enter", number);
-                    renderer_->present(); ++presented_;
+                    if (renderer_->try_present()) {
+                        ++presented_;
+                        if (pending->received_at != monotonic_time{}) {
+                            const auto elapsed = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                std::chrono::steady_clock::now() - pending->received_at).count());
+                            ++render_latency_samples_;
+                            render_microseconds_ += elapsed;
+                            auto maximum = max_render_microseconds_.load();
+                            while (maximum < elapsed && !max_render_microseconds_.compare_exchange_weak(maximum, elapsed)) {}
+                        }
+                        pending.reset();
+                    }
                     trace("Present returned", number);
                 }
-                else if (result.code != operation_code::unavailable) { status(result.detail, true); break; }
+                else if (result.code == operation_code::unavailable) {
+                    // Retain a frame if the GPU still owns its read leases.
+                    // Back off only on actual GPU pressure; arrivals wake us.
+                    std::unique_lock lock{state_mutex_};
+                    changed_.wait_for(lock, std::chrono::milliseconds{1}, [this] {
+                        return render_stop_ || requested_size_ || mailbox_.has_frame();
+                    });
+                } else { status(result.detail, true); break; }
             }
         }
     } catch (...) { status("GPU presentation failed. Disconnect and reconnect to recreate the device.", true); }

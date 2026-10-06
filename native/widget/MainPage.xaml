@@ -78,6 +78,8 @@
                                 </StackPanel>
                                 <TextBlock x:Name="PairingPinText" TextWrapping="Wrap" FontSize="16" />
                                 <ComboBox x:Name="SourceApplication" Header="Sunshine application" HorizontalAlignment="Stretch" />
+                                <Button x:Name="HudQualityButton" Content="1440p HUD preset" Click="hud_quality_click" Style="{StaticResource MenuButton}"
+                                        ToolTipService.ToolTip="Save 2560 x 1440, HEVC, 240 requested FPS, 100 Mbps and crisp HUD scaling. Stream changes apply on reconnect." />
                                 <ToggleButton x:Name="StreamOptionsToggle" Content="Stream options" Style="{StaticResource MenuTab}"
                                               IsChecked="False" Checked="advanced_options_changed" Unchecked="advanced_options_changed" />
                                 <StackPanel x:Name="StreamOptionsPanel" Spacing="10" Visibility="Collapsed">
@@ -96,6 +98,10 @@
                                 <TextBlock Text="Stream changes apply on the next connection. Pin the widget and enable Game Bar click-through to keep input on this PC." Style="{StaticResource Caption}" />
                             </StackPanel>
                             <StackPanel x:Name="HudSection" Spacing="10" Visibility="Collapsed">
+                                <ComboBox x:Name="VideoScaling" Header="Video scaling" SelectedIndex="1" HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="Smooth" /><ComboBoxItem Content="Crisp HUD" />
+                                </ComboBox>
+                                <TextBlock Text="Crisp HUD keeps thin strokes sharp while fitting the feed. Smooth reduces stair-stepping in moving video. Click Apply key settings to change it live." Style="{StaticResource Caption}" />
                                 <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="2" HorizontalAlignment="Stretch" SelectionChanged="key_color_changed">
                                     <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" /><ComboBoxItem Content="Black" />
                                 </ComboBox>
@@ -149,6 +155,7 @@
                                 <TextBlock Text="Receiver statistics" Style="{StaticResource SectionTitle}" />
                                 <TextBlock x:Name="StatsText" Text="Connect to view receiver rates." TextWrapping="Wrap" FontSize="13" />
                                 <TextBlock Text="The latest sample counts receive, decode, and Present activity. Present calls do not measure monitor scanout." Style="{StaticResource Caption}" />
+                                <TextBlock Text="For strongest text contrast, use 100% HUD opacity and set this widget's pinned opacity to 100% in Game Bar." Style="{StaticResource Caption}" />
                                 <TextBlock Text="Game Bar and placement" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
                                 <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" FontSize="13" />
                                 <TextBlock x:Name="CoverageText" Style="{StaticResource Caption}" />

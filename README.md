@@ -2,6 +2,8 @@
 
 Source framework for a transparent Xbox Game Bar HUD receiving a Sunshine/Moonlight video stream from another PC.
 
+Version 0.2.1.4 adds [client-origin fitting, Crisp HUD scaling and reduced receiver queuing](docs/HUD-QUALITY-LATENCY.md), plus a 1440p/HEVC/100 Mbps preset. The complete frame remains scaled above the taskbar. Receiver fixture and offscreen live checks establish local processing improvements; installed-widget alignment, text appearance and screen latency require live verification.
+
 Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, green, or magenta source background, local mouse/keyboard input. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; finer FPS tuning is deferred. Black transparency and click-through were confirmed. The user clarified that covering the taskbar requires manual dragging; automatic four-edge coverage has not passed.
 
 ## Current state

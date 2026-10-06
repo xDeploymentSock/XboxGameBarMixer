@@ -9,6 +9,8 @@ Version 0.2.1.2 replaces the long settings column with four views. Version 0.2.1
 | Layout | Whole-feed fit above the taskbar, taskbar reservation, monitor fit, Reset, typed overlay dimensions and the optional full-screen attempt |
 | Details | Latest receiver statistics, click-through state, actual coverage and local preview/clear |
 
+Version 0.2.1.4 adds **1440p HUD preset** on Connect, **Video scaling: Smooth / Crisp HUD** on HUD, and a local callback-to-Present timing sample on Details. The preset saves stream changes for reconnect and applies crisp scaling immediately during a stream. See [HUD quality and latency](HUD-QUALITY-LATENCY.md) for comparison steps and measurement limits.
+
 The footer remains available while scrolling a view. During a pending action, Disconnect becomes Cancel and profile/preset application is disabled. The idle Disconnect button is disabled. A compact header shows the same receive, decode and Present rates that the detailed sample records; these remain counts of pipeline activity, not proof of monitor scanout.
 
 ## Smaller windows

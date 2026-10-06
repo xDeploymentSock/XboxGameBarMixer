@@ -33,6 +33,8 @@ struct chroma_key_settings {
     // For bright artwork drawn over black: infer edge coverage from brightness.
     // Leave disabled when dark greys are intentional opaque HUD content.
     bool recover_black_edges{false};
+    // Nearest luma preserves thin HUD strokes while chroma stays filtered.
+    bool crisp_scaling{false};
 };
 
 struct overlay_configuration {

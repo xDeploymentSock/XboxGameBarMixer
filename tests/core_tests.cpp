@@ -66,6 +66,11 @@ int main() {
         const auto usable = fuser::usable_video_rectangle({0, 46, 2558, 1394}, 2560, 1440, 1.0, 48);
         require(usable && usable->x == 0 && usable->y == 0 && usable->width == 2558 && usable->height == 1346,
                 "the whole feed must end above the taskbar inside the host's actual client");
+        const auto foreground_client = fuser::usable_video_rectangle({0, 44, 2556, 1396}, 2560, 1440, 1, 48);
+        const auto pinned_client = fuser::usable_video_rectangle({0, 1, 2556, 1396}, 2560, 1440, 1, 48);
+        require(foreground_client && foreground_client->height == 1348
+                && pinned_client && pinned_client->height == 1391,
+                "pinning must recompute the destination from the client, keeping its bottom at pixel 1392");
         const auto oversized = fuser::usable_video_rectangle({0, -44, 2560, 1484}, 2560, 1440, 1.0, 48);
         require(oversized && oversized->y == 44 && oversized->height == 1392,
                 "an offscreen top strip must move the destination rather than crop source pixels");
@@ -191,19 +196,23 @@ int main() {
         require(!layout.has_pending(), "saved custom dimensions do not apply automatically on reopening");
 
         fuser::latest_frame_mailbox mailbox;
+        require(!mailbox.has_frame(), "the render wait predicate starts false");
         require(!mailbox.take_latest(), "empty mailbox has no frame");
         auto first = frame(1);
         const std::weak_ptr<const fuser::gpu_surface> old_surface{first.surface};
         require(mailbox.publish(std::move(first)), "first decoded frame is accepted");
+        require(mailbox.has_frame(), "publishing makes the render wait predicate true");
         require(mailbox.publish(frame(2)), "newer decoded frame is accepted");
         require(old_surface.expired(), "displaced surface is released");
         require(mailbox.replaced_frames() == 1, "replacement is separately counted");
         const auto latest = mailbox.take_latest();
         require(latest && latest->sequence == 2, "slow renderer consumes only the latest frame");
         require(!mailbox.take_latest(), "consuming removes the pending frame");
+        require(!mailbox.has_frame(), "consuming restores the render wait predicate");
         require(!mailbox.publish({}), "null GPU surface is rejected");
         require(mailbox.publish(frame(3)), "frame before shutdown is accepted");
         mailbox.close();
+        require(!mailbox.has_frame(), "shutdown clears the render wait predicate");
         require(!mailbox.take_latest(), "shutdown releases the pending frame");
         require(!mailbox.publish(frame(4)), "late callbacks cannot refill a closed mailbox");
         mailbox.reset();

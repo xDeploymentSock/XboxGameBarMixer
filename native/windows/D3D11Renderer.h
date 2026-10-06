@@ -6,7 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <d3d11.h>
-#include <dxgi1_2.h>
+#include <dxgi1_3.h>
 #include <wrl/client.h>
 
 #include <fuser/configuration.h>
@@ -31,6 +31,8 @@ public:
     [[nodiscard]] operation_result draw_frame(const decoded_frame& frame,
                                              const chroma_key_settings& key);
     void present();
+    [[nodiscard]] bool wait_to_present(std::uint32_t timeout_ms);
+    [[nodiscard]] bool try_present();
     void clear();
 
     [[nodiscard]] ID3D11Device* device() const noexcept { return device_.Get(); }
@@ -40,6 +42,9 @@ public:
     [[nodiscard]] std::uint64_t present_calls() const noexcept { return present_calls_; }
 
 private:
+    struct handle_deleter {
+        void operator()(void* handle) const noexcept { CloseHandle(handle); }
+    };
     struct alignas(16) shader_parameters {
         std::array<float, 4> key_color_tolerance{};
         std::array<float, 4> controls{};
@@ -68,6 +73,8 @@ private:
     std::shared_ptr<std::recursive_mutex> context_lock_{std::make_shared<std::recursive_mutex>()};
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain_;
+    std::unique_ptr<void, handle_deleter> presentation_ready_;
+    bool presentation_slot_ready_{};
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> target_;
     Microsoft::WRL::ComPtr<ID3D11VertexShader> vertex_shader_;
     Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel_shader_;

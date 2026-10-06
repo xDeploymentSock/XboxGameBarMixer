@@ -12,7 +12,7 @@ cbuffer Parameters : register(b0)
     float4 matrix_row1;
     float4 matrix_row2;
     float4 source_rectangle; // normalized origin and visible extent in the allocation
-    float4 key_options; // recover bright artwork drawn over black, reserved
+    float4 key_options; // recover black edges, crisp luma scaling, reserved
 };
 
 float3 diagnostic(float2 uv)
@@ -50,7 +50,13 @@ float4 main(float4 position : SV_POSITION, float2 uv : TEXCOORD0) : SV_TARGET
                               source_rectangle.xy + source_rectangle.zw - 0.5 * texel);
         float2 chroma_uv = clamp(source_uv, source_rectangle.xy + texel,
                                 source_rectangle.xy + source_rectangle.zw - texel);
-        float3 yuv = float3(luminance_plane.Sample(video_sampler, float3(luma_uv, 0.0)),
+        // Source text already has antialiasing. Optional nearest luma avoids
+        // blurring it a second time when fitting the feed above the taskbar.
+        // Keep bilinear chroma to avoid colour stair-stepping in NV12 (4:2:0).
+        float luma = key_options.y > 0.5
+            ? luminance_plane.Load(int4(int2(luma_uv * float2(texture_width, texture_height)), 0, 0))
+            : luminance_plane.Sample(video_sampler, float3(luma_uv, 0.0));
+        float3 yuv = float3(luma,
                            chrominance_plane.Sample(video_sampler, float3(chroma_uv, 0.0)));
         yuv -= yuv_offsets.xyz;
         rgb = saturate(float3(dot(matrix_row0.xyz, yuv),

@@ -47,7 +47,8 @@ bool close_to(std::uint8_t actual, int expected) {
 
 ComPtr<ID3D11Texture2D> make_nv12(fuser::windows::d3d11_renderer& renderer,
                                  std::uint8_t y, std::uint8_t u, std::uint8_t v,
-                                 bool cropped = false, bool corner_markers = false) {
+                                 bool cropped = false, bool corner_markers = false,
+                                 bool thin_strokes = false) {
     std::vector<std::uint8_t> data(side * side * 3 / 2, y);
     for (std::size_t position = side * side; position < data.size(); position += 2) {
         data[position] = u;
@@ -77,6 +78,13 @@ ComPtr<ID3D11Texture2D> make_nv12(fuser::windows::d3d11_renderer& renderer,
             }
         }
     }
+    if (thin_strokes) {
+        for (std::uint32_t row = 0; row < side; ++row) {
+            for (std::uint32_t column = 0; column < side; ++column) {
+                data[row * side + column] = column % 2 == 0 ? 255 : 0;
+            }
+        }
+    }
     D3D11_TEXTURE2D_DESC description{};
     description.Width = side;
     description.Height = side;
@@ -98,6 +106,17 @@ int main() {
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
         fuser::windows::d3d11_renderer renderer;
         renderer.initialize(side, side);
+        DXGI_SWAP_CHAIN_DESC1 chain_description{};
+        winrt::check_hresult(renderer.swap_chain()->GetDesc1(&chain_description));
+        require((chain_description.Flags & DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT) != 0,
+                "Presentation must use a waitable chain to wait before taking the newest decoded frame.");
+        ComPtr<IDXGISwapChain2> paced_chain;
+        winrt::check_hresult(renderer.swap_chain()->QueryInterface(IID_PPV_ARGS(paced_chain.GetAddressOf())));
+        UINT maximum_latency{};
+        winrt::check_hresult(paced_chain->GetMaximumFrameLatency(&maximum_latency));
+        require(maximum_latency == 1, "The composition queue must be limited to one frame.");
+        require(renderer.wait_to_present(100) && renderer.wait_to_present(0),
+                "A ready presentation slot remains available across a deferred draw.");
         ComPtr<IDXGIDevice> dxgi;
         winrt::check_hresult(renderer.device()->QueryInterface(IID_PPV_ARGS(dxgi.GetAddressOf())));
         ComPtr<IDXGIAdapter> adapter;
@@ -300,6 +319,9 @@ int main() {
         require(renderer.draw_frame(frame, key).code == fuser::operation_code::unsupported_format,
                 "Out-of-bounds source rectangles must be rejected.");
         renderer.resize(128, 96);
+        winrt::check_hresult(renderer.swap_chain()->GetDesc1(&chain_description));
+        require((chain_description.Flags & DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT) != 0,
+                "Resizing must preserve the waitable presentation flag.");
         renderer.draw_diagnostic(key, 0);
         require(read_pixel(renderer, 127, 95) == pixel{255, 255, 255, 255}, "Resize must recreate the render target and viewport.");
         // Use a full source frame with four markers, then deliberately change
@@ -338,7 +360,26 @@ int main() {
                         "Rescaling bright edges must not add a dark fringe over white.");
             }
         }
-        std::cout << "GPU key/noise/bright-edge alpha, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
+        texture = make_nv12(renderer, 0, 128, 128, false, false, true);
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        key.tolerance = key.softness = 0.0F;
+        key.recover_black_edges = false;
+        key.crisp_scaling = true;
+        require(renderer.draw_frame(frame, key).succeeded(), "Crisp HUD scaling must accept NV12.");
+        for (std::uint32_t x = 0; x < 100; ++x) {
+            const auto stroke = read_pixel(renderer, x, 35);
+            require(stroke == pixel{0, 0, 0, 0} || stroke == pixel{255, 255, 255, 255},
+                    "Crisp scaling must not add grey to one-pixel black/white HUD strokes.");
+        }
+        key.crisp_scaling = false;
+        require(renderer.draw_frame(frame, key).succeeded(), "Smooth scaling remains available.");
+        unsigned int filtered_pixels{};
+        for (std::uint32_t x = 0; x < 100; ++x) {
+            const auto stroke = read_pixel(renderer, x, 35);
+            if (stroke[0] > 0 && stroke[0] < 255) { ++filtered_pixels; }
+        }
+        require(filtered_pixels > 40, "The fixture must expose the additional smoothing at unequal scaling.");
+        std::cout << "GPU key/noise/bright-edge alpha, crisp/smooth HUD scaling, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
         return 0;
     } catch (const winrt::hresult_error& error) {
         std::cerr << winrt::to_string(error.message()) << '\n';

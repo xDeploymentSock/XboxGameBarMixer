@@ -77,8 +77,14 @@ void d3d11_renderer::initialize(std::uint32_t width, std::uint32_t height) {
     description.Scaling = DXGI_SCALING_STRETCH;
     description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     description.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
+    description.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
     winrt::check_hresult(factory->CreateSwapChainForComposition(device_.Get(),
         &description, nullptr, swap_chain_.GetAddressOf()));
+    ComPtr<IDXGISwapChain2> paced_chain;
+    winrt::check_hresult(swap_chain_.As(&paced_chain));
+    winrt::check_hresult(paced_chain->SetMaximumFrameLatency(1));
+    presentation_ready_.reset(paced_chain->GetFrameLatencyWaitableObject());
+    if (!presentation_ready_) { throw std::runtime_error{"Presentation wait handle is unavailable."}; }
 
     winrt::check_hresult(device_->CreateVertexShader(g_fullscreen_vs,
         sizeof(g_fullscreen_vs), nullptr, vertex_shader_.GetAddressOf()));
@@ -118,7 +124,7 @@ void d3d11_renderer::resize(std::uint32_t width, std::uint32_t height) {
     target_.Reset();
     context_->Flush();
     winrt::check_hresult(swap_chain_->ResizeBuffers(2, width, height,
-                                                  DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+        DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT));
     width_ = width;
     height_ = height;
     create_target();
@@ -130,6 +136,7 @@ d3d11_renderer::shader_parameters d3d11_renderer::parameters(
     result.key_color_tolerance = {key.color[0], key.color[1], key.color[2], key.tolerance};
     result.controls = {key.softness, key.spill_suppression, key.opacity, 0.0F};
     result.key_options[0] = key.recover_black_edges ? 1.0F : 0.0F;
+    result.key_options[1] = key.crisp_scaling ? 1.0F : 0.0F;
     result.dimensions_sequence = {static_cast<float>(width_), static_cast<float>(height_),
                                  static_cast<float>(sequence % 256), key.enabled ? 1.0F : 0.0F};
     return result;
@@ -153,6 +160,9 @@ operation_result d3d11_renderer::draw_frame(const decoded_frame& frame,
     const auto slot = std::find_if(in_flight_.begin(), in_flight_.end(),
                                   [](const auto& pending) { return !pending; });
     if (slot == in_flight_.end()) {
+        // A nonblocking Present can decline submission. Ensure queued read
+        // fences reach the GPU before the owner retries outside this lock.
+        context_->Flush();
         return {operation_code::unavailable, "GPU still owns all display slots; keep the newest decoded frame for a later presentation."};
     }
     const auto surface = std::dynamic_pointer_cast<const d3d11_surface>(frame.surface);
@@ -246,14 +256,37 @@ void d3d11_renderer::draw(const shader_parameters& values) {
 }
 
 void d3d11_renderer::present() {
+    (void)try_present();
+}
+
+bool d3d11_renderer::wait_to_present(std::uint32_t timeout_ms) {
+    if (!presentation_ready_) { throw std::logic_error{"Initialize the renderer before waiting."}; }
+    if (presentation_slot_ready_) { return true; }
+    // The owner thread waits before selecting a frame, without the context lock.
+    // Decode continues and the mailbox replaces older display frames meanwhile.
+    const auto result = WaitForSingleObjectEx(presentation_ready_.get(), timeout_ms, FALSE);
+    if (result == WAIT_TIMEOUT) { return false; }
+    winrt::check_bool(result == WAIT_OBJECT_0);
+    presentation_slot_ready_ = true;
+    return true;
+}
+
+bool d3d11_renderer::try_present() {
     // DXGI Present accesses the immediate context too. Serialize it with
     // FFmpeg's video-context calls, just like drawing and resizing.
     const std::lock_guard guard{*context_lock_};
     if (!swap_chain_) {
         throw std::logic_error{"Initialize the renderer before presenting."};
     }
-    winrt::check_hresult(swap_chain_->Present(1, 0));
+    // Composed flip presentation: prefer the newest frame without requiring
+    // every submitted frame to stay on screen for a full refresh interval.
+    // Never stall FFmpeg's shared context while DXGI's present queue is full.
+    const auto result = swap_chain_->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+    if (result == DXGI_ERROR_WAS_STILL_DRAWING) { return false; }
+    winrt::check_hresult(result);
+    presentation_slot_ready_ = false;
     ++present_calls_;
+    return true;
 }
 
 void d3d11_renderer::clear() {
