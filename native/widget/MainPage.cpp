@@ -526,6 +526,21 @@ void MainPage::use_monitor_dimensions() {
     OverlayHeight().Text(to_hstring(display.ScreenHeightInRawPixels()));
 }
 
+void MainPage::pinned_coverage_click(IInspectable const&, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    if (!widget_ || !widget_.Pinned()) {
+        report(L"Pin the widget using its title bar first. Use Reset if the pin button is off-screen.");
+        return;
+    }
+    try {
+        use_monitor_dimensions();
+        save_overlay_dimensions();
+        layout_requests_.request(fuser::widget_layout_action::pinned_constraints);
+        report(L"Pinned coverage test armed. Dismiss Game Bar and wait five seconds. Reset cancels or recovers the test.");
+        start_layout_request();
+    } catch (const hresult_error& error) { report(error.message()); }
+}
+
 void MainPage::save_overlay_dimensions() {
     const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
     values.Insert(L"OverlayWidth", box_value(OverlayWidth().Text()));
@@ -686,12 +701,14 @@ fire_and_forget MainPage::fit_monitor_async() {
     const auto lifetime = get_strong();
     const auto foreground = Dispatcher();
     if (shutting_down_ || fitting_monitor_ || !widget_ || !widget_.Visible()) { co_return; }
-    const auto request = layout_requests_.take();
+    const auto request = layout_requests_.take(widget_.Pinned()
+        && widget_.GameBarDisplayMode() == XboxGameBarDisplayMode::PinnedOnly);
     if (!request) { co_return; }
     fitting_monitor_ = true;
     const bool resetting = request->action == fuser::widget_layout_action::reset_position;
     const bool custom = request->action == fuser::widget_layout_action::apply_dimensions;
     const bool full_screen = request->action == fuser::widget_layout_action::full_screen_fit;
+    const bool pinned_test = request->action == fuser::widget_layout_action::pinned_constraints;
     try {
         const auto widget = widget_;
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
@@ -703,12 +720,38 @@ fire_and_forget MainPage::fit_monitor_async() {
         const Size requested = !resetting ? Size{custom_extent.width, custom_extent.height}
             : Size{std::clamp(extent.width - 80.0F, 240.0F, 480.0F),
                    std::clamp(extent.height - 120.0F, 240.0F, 700.0F)};
-        restore_resize_limits();
         const auto current_request = [&] {
-            return !shutting_down_ && layout_requests_.is_current(*request) && widget_ && widget_.Visible();
+            return !shutting_down_ && layout_requests_.is_current(*request) && widget_ && widget_.Visible()
+                && (!pinned_test || (widget_.Pinned()
+                    && widget_.GameBarDisplayMode() == XboxGameBarDisplayMode::PinnedOnly));
         };
+        if (pinned_test) {
+            // Wait for dismissal chrome/layout callbacks before this explicitly
+            // armed, single attempt. Reopening or a later action cancels it.
+            co_await resume_after(std::chrono::milliseconds{300});
+            co_await resume_foreground(foreground);
+            if (!current_request()) {
+                fitting_monitor_ = false;
+                start_layout_request();
+                co_return;
+            }
+            fuser::widget::log(L"Pinned constraints: before applying monitor limits.");
+            log_view_geometry();
+            // Expand maximum first so the following minimum is valid. Keep
+            // resize support enabled, matching the PoC rather than the old .4 test.
+            widget.MaxWindowSize(requested);
+            widget.MinWindowSize(requested);
+            widget.HorizontalResizeSupported(true);
+            widget.VerticalResizeSupported(true);
+            fuser::widget::log(L"Pinned constraints: applied min=" + to_hstring(widget.MinWindowSize().Width)
+                + L"x" + to_hstring(widget.MinWindowSize().Height)
+                + L" max=" + to_hstring(widget.MaxWindowSize().Width)
+                + L"x" + to_hstring(widget.MaxWindowSize().Height));
+        } else {
+            restore_resize_limits();
+        }
         const hstring kind = resetting ? L"reset" : custom ? L"custom dimensions"
-                           : full_screen ? L"full-screen fit" : L"immediate fit";
+                           : full_screen ? L"full-screen fit" : pinned_test ? L"pinned constraints" : L"immediate fit";
         fuser::widget::log(L"Layout request: " + kind + L" revision=" + to_hstring(request->revision)
             + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
         bool resized{};
@@ -737,7 +780,7 @@ fire_and_forget MainPage::fit_monitor_async() {
             // the hosted surface to avoid Game Bar chrome; only Reset asks for it.
             if (resetting) { co_await widget.CenterWindowAsync(); }
             // Allow the hosted view to receive its layout change before checking it.
-            co_await resume_after(std::chrono::milliseconds{150});
+            co_await resume_after(std::chrono::milliseconds{pinned_test ? 5000 : 150});
             co_await resume_foreground(foreground);
             if (current_request()) {
                 update_coverage();
@@ -745,7 +788,23 @@ fire_and_forget MainPage::fit_monitor_async() {
                     + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
                 const bool size_matched = fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(),
                     {requested.Width, requested.Height}, scale);
-                if (resetting) {
+                if (pinned_test) {
+                    const auto bounds = widget.WindowBounds();
+                    const auto client = Window::Current().CoreWindow().Bounds();
+                    const auto visible = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().VisibleBounds();
+                    const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
+                    const bool aligned = fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
+                        VideoHost().ActualWidth(), VideoHost().ActualHeight(), extent, scale)
+                        && fuser::matches_monitor_bounds(client.X, client.Y, client.Width, client.Height, extent, scale)
+                        && fuser::matches_monitor_bounds(visible.X, visible.Y, visible.Width, visible.Height, extent, scale);
+                    fuser::widget::log(L"Pinned constraints settled after five seconds: accepted=" + to_hstring(resized)
+                        + L" geometryAligned=" + to_hstring(aligned)
+                        + L" pinned=" + to_hstring(widget.Pinned())
+                        + L" mode=" + to_hstring(static_cast<int>(widget.GameBarDisplayMode())));
+                    report(aligned
+                        ? L"Pinned test bounds align. Check all four outer white edges, transparency, and click-through before reopening Game Bar."
+                        : L"Pinned coverage test still has missing edges or a smaller surface. Reset restores accessible controls.");
+                } else if (resetting) {
                     if (size_matched) {
                         Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
                             L"ResetWidgetPosition", box_value(false));
@@ -803,6 +862,7 @@ void MainPage::update_widget_state() {
             + L" requestedOpacity=" + to_hstring(widget_.RequestedOpacity())
             + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled()));
         layout_requests_.visibility_changed(widget_.Visible());
+        layout_requests_.pinning_changed(widget_.Pinned());
         start_layout_request();
     }
     update_coverage();

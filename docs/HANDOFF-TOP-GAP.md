@@ -8,9 +8,11 @@ The user permits manual intervention to establish coverage, but their latest tes
 
 ## Current state
 
+- The continued full-coverage goal is active. Version 0.2.0.11 adds a one-shot pinned-only constraints probe, is built in both configurations with zero widget warnings/errors, and is independently verified installed with status OK; see [PINNED-COVERAGE-TEST.md](PINNED-COVERAGE-TEST.md). Normal startup configuration and prior results remain documented in [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md). Rescaling the incoming feed is the user's fallback, not the current implementation. No new live success is claimed.
+
 - The `codex/fixed-startup-coverage` branch contains a 0.2.0.10 startup-size experiment while main remains at a6a9a85. Read [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md) for the exact configuration, build evidence, and live result. The correct test activation reports fixed 2560x1440 limits, but Game Bar settles the full-sized client at (0,-44), leaving a 44-pixel bottom gap and an off-screen pin button. Reopening repeats the offset. The subsequent Reset/pin/Fit probe confirms Reset and pinning work: the 480x700 window pins successfully, but the pinned 2560x1440 Fit request is rejected and retains the smaller video area. The 0.2.0.9 source/package baseline is preserved. Full-monitor coverage remains unresolved.
 
-- Installed package on the test branch: SoftwareFuser.Widget, version 0.2.0.10, status OK. The preceding baseline was 0.2.0.9. Pairing is retained in protected app-local storage under the same package identity.
+- Installed package on the test branch: SoftwareFuser.Widget, version 0.2.0.11, status OK. The fixed-startup test was 0.2.0.10 and the preserved baseline was 0.2.0.9. Pairing is retained in protected app-local storage under the same package identity.
 - Feature commit: b957ff0cf893d4ee4e9386fcf21b4aae84372e07. Follow-up evidence commit: acd297635917584f2acd6a1d21ad520f38f8d4c2. Both were pushed to main at https://github.com/xDeploymentSock/XboxGameBarMixer.git.
 - The checkout was clean at handoff preparation. Read the current HEAD rather than assuming it stays at these revisions.
 - Debug and Release widget builds: zero warnings/errors. Focused core contracts: 1/1 pass in each configuration. These checks prove code/build behavior, not successful on-screen coverage.

@@ -20,6 +20,9 @@
                     <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
                     <Button Content="Fit my monitor" Click="fit_monitor_click" />
+                    <Button Content="Test coverage after dismissing Game Bar" Click="pinned_coverage_click" />
+                    <TextBlock Text="Pin this widget first, click the test button, then dismiss Game Bar. It tries full size once with the title bar gone. Reset restores the smaller window."
+                               TextWrapping="Wrap" FontSize="12" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <TextBox x:Name="OverlayWidth" Header="Overlay width (px)" Text="2560" InputScope="Number" />

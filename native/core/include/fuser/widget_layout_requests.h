@@ -6,7 +6,7 @@
 
 namespace fuser {
 
-enum class widget_layout_action { fit_monitor, reset_position, apply_dimensions, full_screen_fit };
+enum class widget_layout_action { fit_monitor, reset_position, apply_dimensions, full_screen_fit, pinned_constraints };
 
 struct widget_pixel_extent {
     std::uint32_t width{};
@@ -33,7 +33,10 @@ public:
 
     [[nodiscard]] bool has_pending() const noexcept { return pending_.has_value(); }
 
-    [[nodiscard]] std::optional<widget_layout_request> take() noexcept {
+    [[nodiscard]] std::optional<widget_layout_request> take(bool pinned_only = false) noexcept {
+        if (pending_ && pending_->action == widget_layout_action::pinned_constraints && !pinned_only) {
+            return std::nullopt;
+        }
         return std::exchange(pending_, std::nullopt);
     }
 
@@ -48,6 +51,12 @@ public:
 
     void visibility_changed(bool visible) noexcept {
         if (!visible) { invalidate(); }
+    }
+
+    void pinning_changed(bool pinned) noexcept {
+        if (!pinned && pending_ && pending_->action == widget_layout_action::pinned_constraints) {
+            invalidate();
+        }
     }
 
 private:

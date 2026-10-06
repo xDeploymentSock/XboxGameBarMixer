@@ -144,6 +144,31 @@ int main() {
         layout.visibility_changed(true);
         require(!layout.has_pending(), "saved custom dimensions do not apply automatically on reopening");
 
+        layout.request(fuser::widget_layout_action::pinned_constraints);
+        require(!layout.take() && layout.has_pending(),
+                "an explicitly armed pinned test waits without resizing in foreground mode");
+        layout.visibility_changed(true);
+        const auto pinned_test = layout.take(true);
+        require(pinned_test && pinned_test->action == fuser::widget_layout_action::pinned_constraints
+                    && !layout.has_pending(),
+                "the armed test is consumed once after entering visible pinned-only mode");
+        require(!layout.take(true), "later host callbacks do not repeat a consumed pinned test");
+        layout.request(fuser::widget_layout_action::pinned_constraints);
+        layout.request(fuser::widget_layout_action::reset_position);
+        const auto recovery = layout.take();
+        require(recovery && recovery->action == fuser::widget_layout_action::reset_position
+                    && !layout.is_current(*pinned_test),
+                "Reset cancels an armed or in-flight pinned test and is ready in foreground mode");
+        layout.request(fuser::widget_layout_action::pinned_constraints);
+        layout.invalidate();
+        require(!layout.take(true), "display changes cancel an armed pinned test");
+        layout.request(fuser::widget_layout_action::pinned_constraints);
+        layout.pinning_changed(false);
+        require(!layout.take(true), "unpinning cancels an armed test even while the widget remains visible");
+        layout.request(fuser::widget_layout_action::pinned_constraints);
+        layout.visibility_changed(false);
+        require(!layout.take(true), "hiding an unpinned widget cancels an armed test");
+
         fuser::latest_frame_mailbox mailbox;
         require(!mailbox.take_latest(), "empty mailbox has no frame");
         auto first = frame(1);
