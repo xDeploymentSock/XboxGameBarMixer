@@ -1,5 +1,7 @@
 # Pinned-only coverage probe
 
+Version 0.2.0.12 adds a narrow `coverage=pinned` query command to the same public widget activation path. A direct activation URI was tested on installed 0.2.0.11 and successfully activated `RemoteHudStartupTest` in pinned-only mode with its retained pin state. That observed host behavior allows the probe to be triggered without desktop input automation, despite the older documentation's external-activation caveat. The command draws a black diagnostic and arms the existing one-shot probe. It refuses busy, streaming, unpinned, or already-pending/in-flight states and does not connect to Sunshine. The diagnostic's key controls are changed in memory; the saved stream/key profile is not overwritten.
+
 Version 0.2.0.11 on `codex/fixed-startup-coverage` adds one explicit test of full size after Game Bar is dismissed. The 0.2.0.9 baseline and the 0.2.0.10 startup-test packages remain preserved. Sunshine feed dimensions and rendering are unchanged. Rescaling is the user's fallback preference, not this experiment.
 
 ## Hypothesis and distinction
@@ -24,13 +26,19 @@ Run on the original 2560x1440 display at scale 1, whose screen origin is (0,0). 
 
 The local log must contain `Pinned constraints: applied`, the `pinned constraints` request result, and the five-second settled observation while pinned=true and mode=1. A returned true, full-sized buffers, or one aligned snapshot alone does not prove visible full coverage or retention across reopening.
 
+After installing the URI-enabled version, `tools/RunPinnedCoverageProbe.ps1` reads the installed identity, submits the [documented activation URI](https://learn.microsoft.com/en-us/xbox/game-bar/api/xgb-widgetcontrol) with the one supported query, and waits for a fresh result. It writes filtered local evidence to ignored build output. Script exit zero means the observation completed, not that the host accepted it or that visible coverage passed. A retained pin state is still required; the public API cannot set it. If Game Bar opens in foreground mode, dismiss it to let the armed request run.
+
 ## Verification
 
 The request-gating contract was first run without the pinned-mode gate and failed on foreground execution. With the gate implemented, Debug and Release core contracts passed 1/1. They cover deferred execution, one-time consumption, superseding Reset, and cancellation on display change, hiding, and unpinning. They do not emulate Game Bar's placement rules.
 
-Final Debug and Release widget builds passed with zero warnings/errors. Release manifest inspection confirmed the original package identity, `RemoteHudStartupTest`, pinning enabled, and all six startup size values fixed at 2560x1440. The preserved 0.2.0.9 package hash is unchanged. Deployment and an independent package query verify installed 0.2.0.11 with status OK and the original family identity. Versioned build logs and the installation receipt remain in ignored build output. Live coverage has not yet been verified.
+Final 0.2.0.12 Debug and Release widget builds passed with zero warnings/errors. Release manifest inspection confirmed the original package identity, `RemoteHudStartupTest`, pinning enabled, and all six startup size values fixed at 2560x1440. The preserved 0.2.0.9 package hash is unchanged. Deployment and an independent package query verify installed 0.2.0.12 with status OK and the original family identity. Versioned build logs and installation evidence remain in ignored build output.
 
-Native Windows UI tooling failed to initialize with `helper_unknown_error: apply deny-read ACLs`. The test therefore requires the user's pin/button/dismiss actions; passive runtime-log inspection remains available. No terminal-based UI input workaround is used.
+The URI-triggered live probe completed in pinned-only mode with pinning and click-through enabled. It applied min/max 2560x1440, but `TryResizeWindowAsync` returned false. After five seconds, the alignment check remained false and the client/video stayed 480x700 at (981,379). The initial transient 2560x1440 layout had already settled to 480x700 before the diagnostic was drawn. This rules out foreground chrome as the sole cause of the resize rejection; setting full-size limits in pinned-only mode did not force this host to enlarge an existing smaller widget.
+
+The user's report that Fit does not resize the drawing matches the measured host refusal. The size-change handler updates the composition visual, resizes its buffers, and redraws the diagnostic when the video host actually changes size. The diagnostic cyan box is intentionally inset to 60% of each dimension; the outer white border is the coverage marker. No full-monitor coverage success is claimed.
+
+Native Windows UI tooling failed to initialize with `helper_unknown_error: apply deny-read ACLs`. The public activation URI allowed this probe to run with the already-retained pin state without desktop input automation. User observation is still needed to verify visible coverage if a future geometry test passes. No terminal-based UI input workaround is used.
 
 ## Additional paths checked during the live wait
 

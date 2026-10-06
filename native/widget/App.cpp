@@ -12,7 +12,9 @@ using Microsoft::Gaming::XboxGameBar::XboxGameBarWidgetActivatedEventArgs;
 
 App::App() {
     InitializeComponent();
-    fuser::widget::log(L"App created.");
+    const auto version = Windows::ApplicationModel::Package::Current().Id().Version();
+    fuser::widget::log(L"App created. version=" + to_hstring(version.Major) + L"."
+        + to_hstring(version.Minor) + L"." + to_hstring(version.Build) + L"." + to_hstring(version.Revision));
     UnhandledException([](auto const&, UnhandledExceptionEventArgs const& args) {
         fuser::widget::log(L"Unhandled XAML exception " + to_hstring(static_cast<std::int32_t>(args.Exception()))
             + L": " + args.Message());
@@ -51,8 +53,20 @@ void App::OnActivated(IActivatedEventArgs const& args) {
     const auto activation = args.try_as<XboxGameBarWidgetActivatedEventArgs>();
     fuser::widget::log(activation ? (activation.IsLaunchActivation() ? L"Widget launch activation." : L"Widget repeat activation.")
                                 : L"Activation has no Game Bar arguments.");
-    if (!activation || !activation.IsLaunchActivation()) {
+    if (!activation) { return; }
+    bool pinned_probe_requested{};
+    try {
+        const auto query = protocol.Uri().QueryParsed();
+        pinned_probe_requested = query.Size() == 1 && query.GetAt(0).Name() == L"coverage"
+            && query.GetAt(0).Value() == L"pinned";
+    } catch (const hresult_error&) {
+        fuser::widget::log(L"Malformed widget activation command ignored.");
+    }
+    if (!activation.IsLaunchActivation()) {
         // Keep the initial widget alive during repeat activation.
+        if (pinned_probe_requested && widget_ && activation.AppExtensionId() == widget_.AppExtensionId()) {
+            dispatch_pinned_probe();
+        }
         return;
     }
     widget_window_ = Window::Current();
@@ -68,6 +82,22 @@ void App::OnActivated(IActivatedEventArgs const& args) {
     });
     widget_window_.Activate();
     fuser::widget::log(L"Widget window activation completed.");
+    if (pinned_probe_requested) { dispatch_pinned_probe(); }
+}
+
+void App::dispatch_pinned_probe() {
+    if (!widget_window_) { return; }
+    const auto ignored = widget_window_.Dispatcher().RunAsync(
+        Windows::UI::Core::CoreDispatcherPriority::Normal, [weak = get_weak(), window = widget_window_] {
+            if (weak.get()) {
+                if (const auto frame = window.Content().try_as<Frame>()) {
+                    if (const auto page = frame.Content().try_as<SoftwareFuser::MainPage>()) {
+                        get_self<MainPage>(page)->run_pinned_probe();
+                    }
+                }
+            }
+        });
+    (void)ignored;
 }
 
 void App::shutdown_current_view() noexcept {

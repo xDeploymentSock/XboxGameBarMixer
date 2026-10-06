@@ -541,6 +541,33 @@ void MainPage::pinned_coverage_click(IInspectable const&, RoutedEventArgs const&
     } catch (const hresult_error& error) { report(error.message()); }
 }
 
+fire_and_forget MainPage::run_pinned_probe() {
+    const auto lifetime = get_strong();
+    const auto foreground = Dispatcher();
+    try {
+        // The public URI command explicitly requests this same diagnostic
+        // action. Let initial XAML and host bounds settle before drawing it.
+        co_await resume_after(std::chrono::milliseconds{250});
+        co_await resume_foreground(foreground);
+        if (shutting_down_) { co_return; }
+        if (!widget_ || !widget_.Pinned() || busy_ || streaming_ || fitting_monitor_ || layout_requests_.has_pending()) {
+            report(L"URI pinned probe requires an idle pinned widget with no layout request in progress.");
+            co_return;
+        }
+        fuser::widget::log(L"URI pinned probe: explicit diagnostic command received.");
+        KeyColor().SelectedIndex(2);
+        KeyTolerance().Value(0.0);
+        KeySoftness().Value(0.0);
+        draw_preview_click(nullptr, nullptr);
+        if (!renderer_) {
+            report(L"URI pinned probe could not create its diagnostic surface.");
+            co_return;
+        }
+        pinned_coverage_click(nullptr, nullptr);
+    } catch (const hresult_error& error) { report(error.message()); }
+      catch (const std::exception& error) { report(to_hstring(error.what())); }
+}
+
 void MainPage::save_overlay_dimensions() {
     const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
     values.Insert(L"OverlayWidth", box_value(OverlayWidth().Text()));
