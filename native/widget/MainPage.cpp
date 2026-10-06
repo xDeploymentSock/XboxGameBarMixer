@@ -5,6 +5,7 @@
 #include "AppCredentials.h"
 #include <fuser/monitor_layout.h>
 #include <windows.ui.composition.interop.h>
+#include <winrt/Windows.ApplicationModel.Core.h>
 #include <winrt/Windows.UI.ViewManagement.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 
@@ -107,6 +108,10 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
         });
     }
     display_ = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+    const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+    if (!values.HasKey(L"OverlayWidth") && !values.HasKey(L"OverlayHeight")) {
+        use_monitor_dimensions();
+    }
     const auto display_changed = [weak = get_weak()](auto const&, auto const&) {
         if (const auto self = weak.get()) {
             const auto ignored = self->Dispatcher().RunAsync(
@@ -169,6 +174,8 @@ void MainPage::load_profile() {
     restore_text(L"VideoHeight", VideoHeight());
     restore_text(L"VideoFps", VideoFps());
     restore_text(L"VideoBitrate", VideoBitrate());
+    restore_text(L"OverlayWidth", OverlayWidth());
+    restore_text(L"OverlayHeight", OverlayHeight());
     if (values.HasKey(L"VideoCodec")) {
         const auto index = unbox_value_or<int32_t>(values.Lookup(L"VideoCodec"), 1);
         VideoCodec().SelectedIndex(index >= 0 && index <= 1 ? index : 1);
@@ -489,12 +496,63 @@ void MainPage::fit_monitor_click(IInspectable const&, RoutedEventArgs const&) {
         return;
     }
     try {
+        use_monitor_dimensions();
+        save_overlay_dimensions();
         reset_pending_ = false;
         Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
             L"ResetWidgetPosition", box_value(false));
         layout_requests_.request(fuser::widget_layout_action::fit_monitor);
         report(fitting_monitor_ ? L"Fit queued after the current request; your latest action takes priority."
                                : L"Fitting this monitor now. Drag or resize the widget if Game Bar constrains it.");
+        start_layout_request();
+    } catch (const hresult_error& error) { report(error.message()); }
+}
+
+void MainPage::use_monitor_dimensions() {
+    const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+    OverlayWidth().Text(to_hstring(display.ScreenWidthInRawPixels()));
+    OverlayHeight().Text(to_hstring(display.ScreenHeightInRawPixels()));
+}
+
+void MainPage::save_overlay_dimensions() {
+    const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+    values.Insert(L"OverlayWidth", box_value(OverlayWidth().Text()));
+    values.Insert(L"OverlayHeight", box_value(OverlayHeight().Text()));
+    values.Insert(L"ResetWidgetPosition", box_value(false));
+    reset_pending_ = false;
+}
+
+void MainPage::apply_dimensions_click(IInspectable const&, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    if (!widget_) { report(L"Open Software Fuser through Win+G before applying overlay dimensions."); return; }
+    try {
+        const fuser::widget_pixel_extent extent{
+            fuser::parse_widget_dimension(to_string(OverlayWidth().Text())),
+            fuser::parse_widget_dimension(to_string(OverlayHeight().Text()))};
+        const auto scale = Windows::Graphics::Display::DisplayInformation::GetForCurrentView().RawPixelsPerViewPixel();
+        (void)fuser::widget_view_extent(extent.width, extent.height, scale);
+        OverlayWidth().Text(to_hstring(extent.width));
+        OverlayHeight().Text(to_hstring(extent.height));
+        save_overlay_dimensions();
+        // Snapshot the typed dimensions; edits made during the await affect only
+        // a later click, and must not change this request's meaning.
+        layout_requests_.apply_dimensions(extent);
+        report(fitting_monitor_ ? L"Dimensions queued; your latest action takes priority."
+                               : L"Applying overlay dimensions now.");
+        start_layout_request();
+    } catch (const hresult_error& error) { report(error.message()); }
+      catch (const std::exception& error) { report(to_hstring(error.what())); }
+}
+
+void MainPage::full_screen_fit_click(IInspectable const&, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    if (!widget_) { report(L"Open Software Fuser through Win+G before trying full-screen fit."); return; }
+    try {
+        use_monitor_dimensions();
+        save_overlay_dimensions();
+        layout_requests_.request(fuser::widget_layout_action::full_screen_fit);
+        report(fitting_monitor_ ? L"Full-screen fit queued; your latest action takes priority."
+                               : L"Trying Windows full-screen mode for this widget.");
         start_layout_request();
     } catch (const hresult_error& error) { report(error.message()); }
 }
@@ -553,6 +611,8 @@ void MainPage::update_coverage() {
             && fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
         const bool aligned = sized && fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
             VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
+        const auto gaps = fuser::uncovered_monitor_edges(bounds.X + origin.X, bounds.Y + origin.Y,
+            VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
         const auto prefix = aligned ? hstring{L"Monitor bounds match. "}
             : sized ? hstring{L"Monitor size matched; positioning needed. "}
             : hstring{L"Manual adjustment available. "};
@@ -563,9 +623,14 @@ void MainPage::update_coverage() {
             + L" x " + to_hstring(display.ScreenHeightInRawPixels())
             + L". Position " + to_hstring(std::round((bounds.X + origin.X) * scale))
             + L", " + to_hstring(std::round((bounds.Y + origin.Y) * scale)) + L" pixels."
+            + L" Edge gaps (px): left " + to_hstring(std::round(gaps.left))
+            + L", top " + to_hstring(std::round(gaps.top))
+            + L", right " + to_hstring(std::round(gaps.right))
+            + L", bottom " + to_hstring(std::round(gaps.bottom)) + L"."
             + (aligned ? L" Check all four outer white edges, including over the taskbar."
                 : sized ? L" Drag the title bar to align all four outer edges, including over the taskbar."
-                : L" Click Fit my monitor, or drag the title bar and resize edges to cover the monitor and taskbar.");
+                : gaps.top > 1.0 ? L" Try full-screen fit for the top gap, or move the widget upward and resize the edges manually."
+                : L" Click Fit my monitor or Apply dimensions, then adjust the edges manually if needed.");
         if (CoverageText().Text() != message) {
             CoverageText().Text(message);
             fuser::widget::log(message + L" Bounds: x=" + to_hstring(bounds.X)
@@ -593,6 +658,14 @@ void MainPage::log_view_geometry() {
         if (geometry != previous_geometry_) {
             previous_geometry_ = geometry;
             fuser::widget::log(geometry);
+            try {
+                const auto title = Windows::ApplicationModel::Core::CoreApplication::GetCurrentView().TitleBar();
+                const auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+                fuser::widget::log(L"View chrome: titleHeight=" + to_hstring(title.Height())
+                    + L" titleVisible=" + to_hstring(title.IsVisible())
+                    + L" extended=" + to_hstring(title.ExtendViewIntoTitleBar())
+                    + L" fullScreen=" + to_hstring(view.IsFullScreenMode()));
+            } catch (const hresult_error& error) { fuser::widget::log(L"View chrome query: " + error.message()); }
         }
     } catch (const hresult_error& error) { fuser::widget::log(L"View geometry query: " + error.message()); }
 }
@@ -605,25 +678,48 @@ fire_and_forget MainPage::fit_monitor_async() {
     if (!request) { co_return; }
     fitting_monitor_ = true;
     const bool resetting = request->action == fuser::widget_layout_action::reset_position;
+    const bool custom = request->action == fuser::widget_layout_action::apply_dimensions;
+    const bool full_screen = request->action == fuser::widget_layout_action::full_screen_fit;
     try {
         const auto widget = widget_;
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
         const auto extent = fuser::monitor_view_extent(
             display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
-        const Size requested = !resetting ? Size{extent.width, extent.height}
+        const auto custom_extent = custom ? fuser::widget_view_extent(request->pixels.width, request->pixels.height, scale)
+                                         : extent;
+        const Size requested = !resetting ? Size{custom_extent.width, custom_extent.height}
             : Size{std::clamp(extent.width - 80.0F, 240.0F, 480.0F),
                    std::clamp(extent.height - 120.0F, 240.0F, 700.0F)};
         restore_resize_limits();
         const auto current_request = [&] {
             return !shutting_down_ && layout_requests_.is_current(*request) && widget_ && widget_.Visible();
         };
-        const hstring kind = resetting ? L"reset" : L"immediate fit";
+        const hstring kind = resetting ? L"reset" : custom ? L"custom dimensions"
+                           : full_screen ? L"full-screen fit" : L"immediate fit";
         fuser::widget::log(L"Layout request: " + kind + L" revision=" + to_hstring(request->revision)
             + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
-        const auto resized = co_await widget.TryResizeWindowAsync(requested);
+        bool resized{};
+        if (full_screen) {
+            // Test one supported Windows API, independently of Game Bar's
+            // resize/centering policy. Acceptance alone is not coverage proof.
+            const auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+            resized = view.TryEnterFullScreenMode();
+            fuser::widget::log(L"Full-screen request: accepted=" + to_hstring(resized)
+                + L" fullScreen=" + to_hstring(view.IsFullScreenMode()));
+        } else {
+            try {
+                const auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+                if (view.IsFullScreenMode()) { view.ExitFullScreenMode(); }
+            } catch (const hresult_error& error) {
+                // A host without ApplicationView full-screen support must still
+                // be able to use Game Bar's normal resize and Reset APIs.
+                fuser::widget::log(L"Full-screen exit unavailable: " + error.message());
+            }
+            resized = co_await widget.TryResizeWindowAsync(requested);
+        }
         if (current_request()) {
-            fuser::widget::log(L"Layout resize result: " + kind + L" resizeAccepted=" + to_hstring(resized));
+            fuser::widget::log(L"Layout request result: " + kind + L" accepted=" + to_hstring(resized));
             log_view_geometry();
             // Fit keeps manual placement intact. Centering can shrink or shift
             // the hosted surface to avoid Game Bar chrome; only Reset asks for it.
@@ -633,7 +729,7 @@ fire_and_forget MainPage::fit_monitor_async() {
             co_await resume_foreground(foreground);
             if (current_request()) {
                 update_coverage();
-                fuser::widget::log(L"Layout settled: " + kind + L" resizeAccepted=" + to_hstring(resized)
+                fuser::widget::log(L"Layout settled: " + kind + L" accepted=" + to_hstring(resized)
                     + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
                 const bool size_matched = fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(),
                     {requested.Width, requested.Height}, scale);
@@ -645,6 +741,20 @@ fire_and_forget MainPage::fit_monitor_async() {
                     } else {
                         report(L"Game Bar declined the smaller window. Resize manually, or close and reopen to retry the saved reset.");
                     }
+                } else if (full_screen) {
+                    const auto bounds = widget.WindowBounds();
+                    const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
+                    const bool aligned = fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
+                        VideoHost().ActualWidth(), VideoHost().ActualHeight(), extent, scale);
+                    report(aligned
+                        ? L"Full-screen bounds match this monitor. Pin and check all four outer edges. Reset exits full screen."
+                        : !resized ? L"This Game Bar host declined Windows full-screen mode. Your placement was kept. Use Apply dimensions, then move upward and resize manually; watch the edge-gap values."
+                        : L"Windows accepted full-screen mode, but the overlay still has an edge gap. Check the gap values and adjust manually; Reset exits full screen.");
+                } else if (custom) {
+                    const auto requested_text = to_hstring(request->pixels.width) + L" x " + to_hstring(request->pixels.height);
+                    report(size_matched
+                        ? L"Overlay dimensions applied: " + requested_text + L" pixels. Position is unchanged; check the edge gaps."
+                        : L"Game Bar constrained the requested " + requested_text + L" pixel overlay. Actual size and edge gaps are shown below; drag or resize manually.");
                 } else {
                     report(size_matched
                         ? L"Monitor size applied. Drag the title bar if an outer edge misses the screen or taskbar. Automatic fitting is off."
@@ -652,7 +762,11 @@ fire_and_forget MainPage::fit_monitor_async() {
                 }
             }
         }
-    } catch (const hresult_error& error) { report(error.message()); }
+    } catch (const hresult_error& error) {
+        report(full_screen ? L"Full-screen fit is unavailable in this Game Bar host: " + error.message()
+            + L" Use Apply dimensions and adjust manually; the edge gaps show what remains."
+            : error.message());
+    }
       catch (const std::exception& error) { report(to_hstring(error.what())); }
     fitting_monitor_ = false;
     start_layout_request();

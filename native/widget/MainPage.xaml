@@ -20,7 +20,16 @@
                     <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
                     <Button Content="Fit my monitor" Click="fit_monitor_click" />
-                    <TextBlock Text="Fit requests the whole monitor immediately. If Game Bar clips or shifts it, drag the title bar or resize its edges to cover all four corners, including the taskbar. Pinning or reopening won't trigger another fit. Reset restores a smaller window."
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="OverlayWidth" Header="Overlay width (px)" Text="2560" InputScope="Number" />
+                        <TextBox x:Name="OverlayHeight" Grid.Column="1" Header="Overlay height (px)" Text="1440" InputScope="Number" />
+                    </Grid>
+                    <Button Content="Apply dimensions" Click="apply_dimensions_click" />
+                    <TextBlock Text="Enter your monitor's physical pixel dimensions. Apply resizes the overlay immediately; the video-stream settings below are separate."
+                               TextWrapping="Wrap" FontSize="12" />
+                    <Button Content="Try full-screen fit" Click="full_screen_fit_click" />
+                    <TextBlock Text="If the widget title bar leaves a top gap, try full-screen fit. Game Bar may decline it. Otherwise drag the widget upward and resize its edges until the gaps below reach zero. Pinning or reopening won't refit. Reset exits full screen and restores a smaller window."
                                TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="CoverageText" TextWrapping="Wrap" FontSize="12" />
                     <TextBox x:Name="HostAddress" Header="Source PC IP address or hostname"
@@ -35,8 +44,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="VideoWidth" Header="Width" Text="2560" InputScope="Number" />
-                        <TextBox x:Name="VideoHeight" Grid.Column="1" Header="Height" Text="1440" InputScope="Number" />
+                        <TextBox x:Name="VideoWidth" Header="Stream width" Text="2560" InputScope="Number" />
+                        <TextBox x:Name="VideoHeight" Grid.Column="1" Header="Stream height" Text="1440" InputScope="Number" />
                         <TextBox x:Name="VideoFps" Grid.Column="2" Header="Requested FPS" Text="240" InputScope="Number" />
                     </Grid>
                     <TextBox x:Name="VideoBitrate" Header="Bitrate (kbps)" Text="80000" InputScope="Number" />

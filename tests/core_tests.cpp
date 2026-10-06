@@ -57,6 +57,39 @@ int main() {
         catch (const std::invalid_argument&) { invalid_display_rejected = true; }
         require(invalid_display_rejected, "invalid display scale must not reach Game Bar");
 
+        require(fuser::parse_widget_dimension(" 2560 ") == 2560, "typed overlay dimensions allow surrounding whitespace");
+        require(fuser::parse_widget_dimension("2559") == 2559, "overlay dimensions are independent of even-sized video negotiation");
+        for (const auto invalid : {"", " ", "0", "-1440", "+1440", "1440.5", "1440px", "4294967296"}) {
+            bool rejected{};
+            try { (void)fuser::parse_widget_dimension(invalid); }
+            catch (const std::invalid_argument&) { rejected = true; }
+            require(rejected, "malformed or overflowing overlay dimensions must not queue a resize");
+        }
+        const auto typed = fuser::widget_view_extent(2560, 1440, 1.25);
+        require(typed.width == 2048 && typed.height == 1152, "Apply converts physical dimensions to the current display's view pixels");
+        for (const auto invalid : {fuser::widget_pixel_extent{239, 1440}, {2560, 239}, {7681, 1440}, {2560, 4321}, {0, 1440}}) {
+            bool rejected{};
+            try { (void)fuser::widget_view_extent(invalid.width, invalid.height, 1.0); }
+            catch (const std::invalid_argument&) { rejected = true; }
+            require(rejected, "out-of-range dimensions must not reach Game Bar");
+        }
+        bool render_limit_rejected{};
+        try { (void)fuser::widget_view_extent(18000, 1440, 3.0); }
+        catch (const std::invalid_argument&) { render_limit_rejected = true; }
+        require(render_limit_rejected, "high DPI cannot bypass the physical render-size limit");
+
+        const auto top_gap = fuser::uncovered_monitor_edges(0, 46, 2558, 1394, monitor, 1.0);
+        require(top_gap.left == 0 && top_gap.top == 46 && top_gap.right == 2 && top_gap.bottom == 0,
+                "the observed Game Bar title-bar gap is measured outside the render surface");
+        const auto above = fuser::uncovered_monitor_edges(0, -44, 2560, 1440, monitor, 1.0);
+        require(above.top == 0 && above.bottom == 44, "moving upward alone can expose a bottom gap");
+        const auto scaled_gap = fuser::uncovered_monitor_edges(0, 30, 1706, 930, scaled_monitor, 1.5);
+        require(scaled_gap.top == 45 && scaled_gap.bottom == 0, "gap values remain physical pixels at fractional DPI");
+        bool invalid_gap_rejected{};
+        try { (void)fuser::uncovered_monitor_edges(0, std::numeric_limits<double>::quiet_NaN(), 2560, 1440, monitor, 1.0); }
+        catch (const std::invalid_argument&) { invalid_gap_rejected = true; }
+        require(invalid_gap_rejected, "invalid bounds cannot display misleading zero gaps");
+
         require(fuser::matches_monitor_bounds(0, 0, 2560, 1440, monitor, 1.0), "aligned full-monitor bounds match");
         require(!fuser::matches_monitor_bounds(0, -44, 2560, 1440, monitor, 1.0),
                 "a full-sized surface shifted above the taskbar is not aligned");
@@ -92,6 +125,24 @@ int main() {
         layout.invalidate();
         require(display_fit && !layout.is_current(*display_fit) && !layout.has_pending(),
                 "a display change cancels an obsolete request without moving the widget automatically");
+
+        fuser::widget_pixel_extent input{1920, 1080};
+        layout.apply_dimensions(input);
+        input = {2560, 1440};
+        const auto dimensions = layout.take();
+        require(dimensions && dimensions->action == fuser::widget_layout_action::apply_dimensions
+                    && dimensions->pixels.width == 1920 && dimensions->pixels.height == 1080,
+                "an in-flight Apply retains the dimensions captured at the click");
+        layout.request(fuser::widget_layout_action::full_screen_fit);
+        require(!layout.is_current(*dimensions), "a later full-screen click supersedes custom dimensions");
+        layout.apply_dimensions({2560, 1440});
+        const auto latest_dimensions = layout.take();
+        require(latest_dimensions && latest_dimensions->action == fuser::widget_layout_action::apply_dimensions,
+                "custom dimensions supersede a queued full-screen request");
+        layout.visibility_changed(false);
+        require(!layout.is_current(*latest_dimensions) && !layout.has_pending(), "hiding cancels custom dimensions too");
+        layout.visibility_changed(true);
+        require(!layout.has_pending(), "saved custom dimensions do not apply automatically on reopening");
 
         fuser::latest_frame_mailbox mailbox;
         require(!mailbox.take_latest(), "empty mailbox has no frame");

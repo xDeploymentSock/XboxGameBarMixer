@@ -6,11 +6,17 @@
 
 namespace fuser {
 
-enum class widget_layout_action { fit_monitor, reset_position };
+enum class widget_layout_action { fit_monitor, reset_position, apply_dimensions, full_screen_fit };
+
+struct widget_pixel_extent {
+    std::uint32_t width{};
+    std::uint32_t height{};
+};
 
 struct widget_layout_request {
     widget_layout_action action;
     std::uint64_t revision;
+    widget_pixel_extent pixels{};
 };
 
 // Only explicit user actions queue a resize. Host events can cancel stale work,
@@ -19,6 +25,10 @@ class widget_layout_requests {
 public:
     void request(widget_layout_action action) noexcept {
         pending_ = widget_layout_request{action, ++revision_};
+    }
+
+    void apply_dimensions(widget_pixel_extent pixels) noexcept {
+        pending_ = widget_layout_request{widget_layout_action::apply_dimensions, ++revision_, pixels};
     }
 
     [[nodiscard]] bool has_pending() const noexcept { return pending_.has_value(); }
