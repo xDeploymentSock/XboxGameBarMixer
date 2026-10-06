@@ -1,6 +1,6 @@
 # Validation status
 
-The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox Game Bar widget. Actual 240 distinct displayed source frames per second, full-monitor coverage, and representative local-game impact remain unverified.
+The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox Game Bar widget. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; existing live measurements exceed that threshold. Fine FPS tuning is deferred. Actual 240 distinct displayed source frames per second, full-monitor coverage, and representative local-game impact remain unverified.
 
 ## Completed checks
 
@@ -30,6 +30,10 @@ Earlier mostly idle source streams had near-total zero host-processing fields. M
 
 ## Remaining acceptance
 
-Use the fullscreen owned source HUD to establish animation rate and changing frame IDs, isolate one streaming client, inspect keying/corner alignment, and record the instrumented widget's receive/decode/Present, packet-gap, queue, and timing counters. Compare stock Moonlight on the same profile and PCs. Then test representative local-game load, Game Bar lifecycle/reconnect, source restart, DPI/monitor changes, and device removal.
+Version 0.2.0.1 remains installed. During an idle interval, install the prepared 0.2.0.2 package and confirm activation, visible video, normal disconnect, and its new diagnostic fields. Defer deployment and disruptive runtime/performance tests during gaming.
+
+Full-monitor overlay support and black-pixel transparency are now explicit backlog items. Current shader key modes are green and magenta; transparent-black behavior has not been implemented or validated.
+
+For later FPS tuning, use the fullscreen owned source HUD to establish animation rate and changing frame IDs, isolate one streaming client, inspect keying/corner alignment, and record the instrumented widget's receive/decode/Present, packet-gap, queue, and timing counters. Compare stock Moonlight on the same profile and PCs. Then test representative local-game load, Game Bar lifecycle/reconnect, source restart, DPI/monitor changes, and device removal.
 
 Raw runtime logs, private machine/network notes, and checkpoint archives remain local and are ignored by Git. Build and diagnostic tools reproduce the checks described in BUILD-LATER.md.

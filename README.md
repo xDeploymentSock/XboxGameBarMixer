@@ -2,7 +2,7 @@
 
 Source framework for a transparent Xbox Game Bar HUD receiving a Sunshine/Moonlight video stream from another PC.
 
-Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, reserved green or magenta source background, local mouse/keyboard input. Actual displayed frame rate and full-monitor coverage remain feasibility gates.
+Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, reserved green or magenta source background, local mouse/keyboard input. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; finer FPS tuning is deferred. Full-monitor coverage and black-pixel transparency are planned features.
 
 ## Current state
 
@@ -12,7 +12,7 @@ Version 0.2.0.1 was validated with a correction that serializes DXGI presentatio
 
 Activation, pinning, the test pattern, and click-through were confirmed in the baseline. The widget reports a 2560x1440 video surface, but monitor alignment, stream quality, throughput, and displayed FPS still need evidence. Enter your own Sunshine hostname or IP address; no private host address is shipped as a default. Building does not install or launch the widget; startup does not connect automatically.
 
-Version 0.2.0.2 is built in Debug and Release with zero warnings/errors, but is not installed. It adds cumulative packet-index, queue-depth, decoder-submission, frame-assembly, host-processing, associated-display size, and renderer-adapter diagnostics to the bounded local log. The passive 30-minute recording on installed 0.2.0.1 has finished: 118 fresh observations average 225.719 received units/s, with zero decoder errors; its final three observations followed a disconnect and are excluded. Host timing values of zero remain classified as absent/repeated; they are not reported as measured zero latency.
+Version 0.2.0.2 is built in Debug and Release with zero warnings/errors, but is not installed. It adds cumulative packet-index, queue-depth, decoder-submission, frame-assembly, host-processing, associated-display size, and renderer-adapter diagnostics to the bounded local log. The passive 30-minute recording on installed 0.2.0.1 has finished: 118 fresh observations average 225.719 received units/s, with zero decoder errors; its final three observations followed a disconnect and are excluded. These measured rates exceed the accepted interim throughput milestone; exact distinct displayed source-frame timing remains unverified. Host timing values of zero remain classified as absent/repeated; they are not reported as measured zero latency.
 
 | Component | Source provided | Validation remaining |
 | --- | --- | --- |
@@ -41,7 +41,13 @@ The preview draws **one local test frame per request**. Stream setup FPS and mea
 
 ## Next work
 
-Read [the architecture](docs/ARCHITECTURE.md), [build and deployment instructions](docs/BUILD-LATER.md), and [the implementation backlog](docs/ROADMAP.md). The user's earlier gaming-session restriction was lifted before building and installing.
+Continue with the prepared 0.2.0.2 update during an idle interval. Deployment closes the widget and opens a Windows elevation prompt. While gaming, defer deployment and any test that changes displays, stops streams, opens an overlay, or adds substantial GPU load.
+
+- Add full-monitor overlay sizing and placement, including DPI and monitor changes.
+- Add a black-background key mode that converts black pixels to transparent alpha; the current key modes are green and magenta.
+- Defer fine FPS tuning while the measured pipeline remains above 200 FPS.
+
+Read [the architecture](docs/ARCHITECTURE.md), [build and deployment instructions](docs/BUILD-LATER.md), and [the implementation backlog](docs/ROADMAP.md). At each checkpoint, verify and commit the important source/documentation changes, push them to the configured Git remote, and confirm the remote commit matches. Keep local evidence archives and private data excluded.
 
 Generated packages, runtime logs, checkpoints, local machine/network notes, environment files, certificates, and credential files are ignored by Git. Pairing credentials stay in protected app-local storage. Public dependency license notices are retained in `third_party/licenses`.
 
