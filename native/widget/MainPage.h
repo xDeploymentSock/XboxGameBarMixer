@@ -31,6 +31,7 @@ private:
     void update_widget_state();
     void schedule_monitor_fit();
     void update_coverage();
+    void log_view_geometry();
     fire_and_forget fit_monitor_async();
     fire_and_forget control_async(bool pairing);
     fire_and_forget connect_async();
@@ -59,9 +60,12 @@ private:
     event_token mode_token_{};
     event_token click_token_{};
     event_token bounds_token_{};
+    event_token pinned_token_{};
+    event_token visible_token_{};
     event_token dpi_token_{};
     event_token orientation_token_{};
     event_token contents_token_{};
+    hstring previous_geometry_;
     std::uint64_t diagnostic_sequence_{};
 };
 

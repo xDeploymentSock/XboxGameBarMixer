@@ -55,6 +55,8 @@ The manifest uses Microsoft's Windows 11 unsigned-development publisher OID. `De
 
 The verified Release registration is `SoftwareFuser.Widget_6g84c2f4w9w1a`, version 0.2.0.4, package status OK (0). A canceled UAC prompt leaves deployment unfinished; it is not success. Debug deployment additionally supplies the SDK's matching VCLibs debug framework when needed. Protected app-local pairing survives updates with this package identity.
 
+Version 0.2.0.5 is prepared but not installed. Both widget builds have zero warnings/errors. The current manifest and deployment script select this prepared version; the installed 0.2.0.4 visual coverage test is still pending. After deploying the diagnostic candidate, `LocalState/runtime.log` records widget/client/visible bounds, the video-local origin, pin/visibility transitions, and the key settings used by **Draw test pattern**. Record those values with the four-edge result before treating coverage as complete.
+
 The manifest version determines the package directory under AppPackages/FuserWidget. Debug and Release verification builds have zero warnings/errors. Version 0.2.0.3 adds black-key selection and automatic fitting; GPU contracts pass, while runtime fitting remains constrained. Version 0.2.0.2's new instrumentation was verified in a short live HEVC check with normal Disconnect. Earlier PresentMon and long passive recording results belong to 0.2.0.1. Use `Get-FileHash -Algorithm SHA256` to verify your built package. Deployment uses the manifest's current version and closes this widget's active process. Existing protected pairing uses the same package identity.
 
 ## Runtime checks still required

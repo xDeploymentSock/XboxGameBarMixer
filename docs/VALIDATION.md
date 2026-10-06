@@ -4,7 +4,7 @@ The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox G
 
 ## Completed checks
 
-- Version 0.2.0.3 builds in Debug and Release with zero warnings/errors and is installed with Windows package status OK. Both core/GPU contract suites pass. Black diagnostic and full/limited-range NV12 pixels produce zero premultiplied RGB/alpha; white, coloured, and one-code-value-above-black pixels remain opaque at exact-black settings. Optional noise tolerance and neutral premultiplied soft edges are covered.
+- Version 0.2.0.3 built in Debug and Release with zero warnings/errors and was installed with Windows package status OK before replacement by 0.2.0.4. Both core/GPU contract suites passed. Black diagnostic and full/limited-range NV12 pixels produced zero premultiplied RGB/alpha; white, coloured, and one-code-value-above-black pixels remained opaque at exact-black settings. Optional noise tolerance and neutral premultiplied soft edges are covered.
 
 - Debug and Release UWP/C++/XAML/HLSL builds completed with zero warnings/errors.
 - Six core/GPU/decoder contracts passed in both configurations, including concurrent H.264/HEVC decoding and presentation of owned inter-coded fixtures.
@@ -40,6 +40,8 @@ A separate three-minute passive observer finished successfully with 37 observati
 ## Remaining acceptance
 
 The installed 0.2.0.4 candidate sets minimum and maximum content dimensions to the monitor size while fitting is enabled. Both widget builds have zero warnings/errors, and Windows package status is OK. After a fresh activation, the runtime reports 2560x1440 content and bounds x=0, y=-44; this improves the dimensions over 0.2.0.3 but does not establish visible coverage. The user confirmed incomplete coverage in 0.2.0.3. The 0.2.0.4 four-edge result is pending. Disabling fitting restores the previous resizable limits.
+
+Version 0.2.0.5 is prepared, with zero warnings/errors in both widget configurations, but has no installation or runtime result. It adds deduplicated geometry logs for the widget, client, visible area, and video-local origin, plus preview key settings. Pin/visibility events are observed, and hidden widgets skip monitor-fit requests. The negative widget origin in 0.2.0.4 is not sufficient evidence to move the video surface: its relationship to the client area still needs these diagnostics and the four-edge visual check.
 
 Version 0.2.0.2's x64 package publisher matches the previous installation, and its Windows minimum version and VCLibs runtime requirement were verified before deployment. Current-process logs verify activation, the live pipeline, normal Disconnect, and the new diagnostic fields. Further visual confirmation and broader lifecycle checks remain future validation. Defer deployment and disruptive runtime/performance tests during gaming.
 

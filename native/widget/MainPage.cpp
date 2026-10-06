@@ -5,6 +5,8 @@
 #include "AppCredentials.h"
 #include <fuser/monitor_layout.h>
 #include <windows.ui.composition.interop.h>
+#include <winrt/Windows.UI.ViewManagement.h>
+#include <winrt/Windows.UI.Xaml.Media.h>
 
 #include <algorithm>
 #include <charconv>
@@ -95,6 +97,8 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
         opacity_token_ = widget_.RequestedOpacityChanged(update);
         mode_token_ = widget_.GameBarDisplayModeChanged(update);
         click_token_ = widget_.ClickThroughEnabledChanged(update);
+        pinned_token_ = widget_.PinnedChanged(update);
+        visible_token_ = widget_.VisibleChanged(update);
         bounds_token_ = widget_.WindowBoundsChanged([weak = get_weak()](auto const&, auto const&) {
             if (const auto self = weak.get()) {
                 const auto ignored = self->Dispatcher().RunAsync(
@@ -434,6 +438,10 @@ void MainPage::draw_preview_click(IInspectable const&, RoutedEventArgs const&) {
         + L"x" + to_hstring(VideoHost().ActualHeight()));
     try {
         configuration_ = read_profile(false);
+        fuser::widget::log(L"Preview key: mode=" + to_hstring(KeyColor().SelectedIndex())
+            + L" tolerance=" + to_hstring(configuration_.key.tolerance)
+            + L" softness=" + to_hstring(configuration_.key.softness)
+            + L" opacity=" + to_hstring(configuration_.key.opacity));
         if (!renderer_) {
             attach_renderer();
         }
@@ -507,7 +515,8 @@ void MainPage::cover_monitor_changed(IInspectable const&, RoutedEventArgs const&
 }
 
 void MainPage::schedule_monitor_fit() {
-    if (loading_profile_ || shutting_down_ || !widget_ || !CoverMonitor().IsChecked().Value()) { return; }
+    if (loading_profile_ || shutting_down_ || !widget_ || !widget_.Visible()
+        || !CoverMonitor().IsChecked().Value()) { return; }
     if (fitting_monitor_) { fit_pending_ = true; return; }
     fit_timer_.Stop();
     fit_timer_.Start();
@@ -515,6 +524,7 @@ void MainPage::schedule_monitor_fit() {
 
 void MainPage::update_coverage() {
     if (loading_profile_ || shutting_down_ || !widget_) { return; }
+    log_view_geometry();
     try {
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
@@ -540,10 +550,32 @@ void MainPage::update_coverage() {
       catch (const std::exception& error) { fuser::widget::log(to_hstring(error.what())); }
 }
 
+void MainPage::log_view_geometry() {
+    try {
+        const auto rectangle_text = [](Rect const& rectangle) {
+            return L"x=" + to_hstring(rectangle.X) + L" y=" + to_hstring(rectangle.Y)
+                + L" width=" + to_hstring(rectangle.Width) + L" height=" + to_hstring(rectangle.Height);
+        };
+        const auto client = Window::Current().CoreWindow().Bounds();
+        const auto visible = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().VisibleBounds();
+        const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
+        const auto geometry = L"View geometry: widget(" + rectangle_text(widget_.WindowBounds())
+            + L") client(" + rectangle_text(client) + L") visible(" + rectangle_text(visible)
+            + L") video-local x=" + to_hstring(origin.X) + L" y=" + to_hstring(origin.Y)
+            + L" width=" + to_hstring(VideoHost().ActualWidth())
+            + L" height=" + to_hstring(VideoHost().ActualHeight());
+        if (geometry != previous_geometry_) {
+            previous_geometry_ = geometry;
+            fuser::widget::log(geometry);
+        }
+    } catch (const hresult_error& error) { fuser::widget::log(L"View geometry query: " + error.message()); }
+}
+
 fire_and_forget MainPage::fit_monitor_async() {
     const auto lifetime = get_strong();
     const auto foreground = Dispatcher();
-    if (shutting_down_ || fitting_monitor_ || !CoverMonitor().IsChecked().Value()) { co_return; }
+    if (shutting_down_ || fitting_monitor_ || !widget_ || !widget_.Visible()
+        || !CoverMonitor().IsChecked().Value()) { co_return; }
     fitting_monitor_ = true;
     fit_pending_ = false;
     try {
@@ -632,6 +664,8 @@ void MainPage::shutdown() noexcept {
             widget_.GameBarDisplayModeChanged(mode_token_);
             widget_.ClickThroughEnabledChanged(click_token_);
             widget_.WindowBoundsChanged(bounds_token_);
+            widget_.PinnedChanged(pinned_token_);
+            widget_.VisibleChanged(visible_token_);
             widget_ = nullptr;
         }
         if (display_) {
