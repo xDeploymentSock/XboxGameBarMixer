@@ -66,6 +66,7 @@ private:
     std::shared_ptr<fuser::streaming::overlay_session> session_;
     std::shared_ptr<fuser::windows::d3d11_renderer> renderer_;
     std::vector<fuser::host_application> applications_;
+    std::string applications_host_;
     Windows::UI::Xaml::DispatcherTimer stats_timer_{nullptr};
     Windows::Graphics::Display::DisplayInformation display_{nullptr};
     bool busy_{}, streaming_{};

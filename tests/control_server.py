@@ -42,6 +42,10 @@ class Fixture:
         self.pairs = {}
         self.paired = set()
         self.resume_count = 0
+        self.launch_count = 0
+        self.current_application = 0 if mode in ("desktop-launch", "stale-desktop") else 881448767
+        if mode == "steam-active":
+            self.current_application = 1093255277
         self.errors = []
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.context.verify_mode = ssl.CERT_REQUIRED
@@ -64,7 +68,8 @@ class Fixture:
             return (f'<root status_code="200"><hostname>OwnedFixture</hostname><uniqueid>fixture</uniqueid>'
                     f'<appversion>7.1.431.-1</appversion><GfeVersion>3.23.0.74</GfeVersion>'
                     f'<HttpsPort>{self.https.server_port}</HttpsPort><ServerCodecModeSupport>257</ServerCodecModeSupport>'
-                    f'<state>SUNSHINE_SERVER_BUSY</state><currentgame>881448767</currentgame>'
+                    f'<state>SUNSHINE_SERVER_{"BUSY" if self.current_application else "FREE"}</state>'
+                    f'<currentgame>{self.current_application}</currentgame>'
                     f'<PairStatus>{int(client in self.paired)}</PairStatus></root>')
         if path == "/pair":
             if query.get("phrase") == "getservercert":
@@ -101,13 +106,26 @@ class Fixture:
                 return '<root status_code="200"><paired>1</paired></root>'
         assert secure and client in self.paired, "Unauthenticated control action"
         if path == "/applist":
+            if self.mode == "stale-desktop":
+                return ('<root status_code="200"><App><ID>881448767</ID><AppTitle>Steam Big Picture</AppTitle></App>'
+                        '<App><ID>123</ID><AppTitle>Desktop</AppTitle></App></root>')
+            if self.mode in ("desktop-launch", "desktop-resume", "steam-active", "resume-race"):
+                return ('<root status_code="200"><App><ID>1093255277</ID><AppTitle>Steam Big Picture</AppTitle></App>'
+                        '<App><ID>881448767</ID><AppTitle>Desktop</AppTitle></App></root>')
             return ('<root status_code="200"><App><ID>881448767</ID><AppTitle>HUD</AppTitle></App>'
                     '<App><ID>123</ID><AppTitle>Other app</AppTitle></App></root>')
-        assert path == "/resume", "Client launched or terminated the active source application"
+        assert path == ("/launch" if self.mode in ("desktop-launch", "stale-desktop") else "/resume"), "Unexpected source application action"
         assert query["appid"] == "881448767" and query["mode"] == "2560x1440x240"
         assert query["sops"] == "0" and query["gcmap"] == "0" and query["remoteControllersBitmap"] == "0"
         assert query["localAudioPlayMode"] == "1" and query["corever"] == "1"
+        if path == "/launch":
+            self.launch_count += 1
+            self.current_application = 881448767
+            return '<root status_code="200"><gamesession>1</gamesession><sessionUrl0>rtsp://127.0.0.1:48010/session</sessionUrl0></root>'
         self.resume_count += 1
+        if self.mode == "resume-race":
+            # Sunshine resumes the app running at request time, regardless of appid.
+            self.current_application = 1093255277
         return '<root status_code="200"><resume>1</resume><sessionUrl0>rtsp://127.0.0.1:48010/session</sessionUrl0></root>'
 
 
@@ -164,6 +182,13 @@ def main():
                 return 1
             if mode == "success" and fixture.resume_count != 1:
                 print("Expected exactly one active-application resume")
+                return 1
+            expected_actions = {
+                "desktop-launch": (1, 0), "desktop-resume": (0, 1),
+                "stale-desktop": (0, 0), "steam-active": (0, 0), "resume-race": (0, 1),
+            }
+            if mode in expected_actions and (fixture.launch_count, fixture.resume_count) != expected_actions[mode]:
+                print("Unexpected launch/resume action count")
                 return 1
             return result.returncode
         finally:

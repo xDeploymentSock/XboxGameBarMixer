@@ -3,6 +3,7 @@
 #include "MainPage.g.cpp"
 #include "RuntimeLog.h"
 #include "AppCredentials.h"
+#include <fuser/application_selection.h>
 #include <fuser/monitor_layout.h>
 #include <fuser/video_layout.h>
 #include <windows.ui.composition.interop.h>
@@ -304,6 +305,12 @@ fire_and_forget MainPage::control_async(bool pairing) {
     try {
     if (busy_ || streaming_ || shutting_down_) { co_return; }
     fuser::host_endpoint host{to_string(HostAddress().Text())};
+    std::optional<fuser::host_application> previous_application;
+    const auto previous_index = SourceApplication().SelectedIndex();
+    if (host.address == applications_host_ && previous_index >= 0 &&
+        static_cast<std::size_t>(previous_index) < applications_.size()) {
+        previous_application = applications_[static_cast<std::size_t>(previous_index)];
+    }
     std::string pin;
     if (pairing) {
         std::array<unsigned char, 2> random{};
@@ -338,16 +345,18 @@ fire_and_forget MainPage::control_async(bool pairing) {
     if (!error_message.empty()) { report(error_message); co_return; }
     if (!result.succeeded()) { report(to_hstring(result.detail)); co_return; }
     applications_ = std::move(applications);
+    applications_host_ = host.address;
     SourceApplication().Items().Clear();
-    int current_index = -1;
     for (std::size_t index = 0; index < applications_.size(); ++index) {
         const bool current = applications_[index].id == std::to_string(info.current_application);
         SourceApplication().Items().Append(box_value(to_hstring(applications_[index].name + (current ? " (active)" : ""))));
-        if (current) { current_index = static_cast<int>(index); }
     }
-    SourceApplication().SelectedIndex(current_index >= 0 ? current_index : applications_.size() == 1 ? 0 : -1);
+    const auto selected = fuser::choose_source_application(applications_, previous_application);
+    SourceApplication().SelectedIndex(selected ? static_cast<int32_t>(*selected) : -1);
     Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(L"HostAddress", box_value(to_hstring(host.address)));
-    report(L"Paired with " + to_hstring(info.name) + L". Select the HUD application and click Connect. The active source application is preserved.");
+    report(L"Paired with " + to_hstring(info.name) + L". " +
+        (selected ? to_hstring(applications_[*selected].name) + L" selected. Click Connect." :
+            hstring{L"Select the source application, then click Connect."}));
     } catch (...) { fuser::widget::log(L"Control action could not finish; page may have closed."); control_->cancel(); }
 }
 fire_and_forget MainPage::connect_async() {
@@ -357,6 +366,9 @@ fire_and_forget MainPage::connect_async() {
     fuser::host_application application;
     try {
         configuration_ = read_profile(true);
+        if (configuration_.host.address != applications_host_) {
+            report(L"The source PC changed. Refresh apps before connecting."); co_return;
+        }
         const auto selected = SourceApplication().SelectedIndex();
         if (selected < 0 || static_cast<std::size_t>(selected) >= applications_.size()) {
             report(L"Pair or refresh apps, then select the source application."); co_return;
@@ -367,7 +379,8 @@ fire_and_forget MainPage::connect_async() {
       catch (const std::exception& error) { report(to_hstring(error.what())); co_return; }
     streaming_ = true; // The render worker now owns resize/draw/present.
     set_busy(true);
-    report(L"Connecting to Sunshine.");
+    report(L"Connecting to " + to_hstring(application.name) + L" (Sunshine app ID " +
+        to_hstring(application.id) + L").");
     session_->prepare_action();
     const auto foreground = Dispatcher();
     auto session = session_;

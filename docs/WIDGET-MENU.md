@@ -1,6 +1,6 @@
 # Widget settings menu
 
-Version 0.2.1.2 replaces the long settings column with four views. The menu opens on Connect. Its status and stream-rate summary sit above navigation, with Connect, Disconnect/Cancel and Save profile below the content.
+Version 0.2.1.2 replaces the long settings column with four views. Version 0.2.1.3 retains that menu and adds [Desktop application validation](DESKTOP-LAUNCH.md). The menu opens on Connect. Its status and stream-rate summary sit above navigation, with Connect, Disconnect/Cancel and Save profile below the content.
 
 | View | Controls |
 | --- | --- |

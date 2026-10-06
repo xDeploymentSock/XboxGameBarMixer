@@ -6,6 +6,8 @@ Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, 
 
 ## Current state
 
+Version 0.2.1.3 adds [Desktop launch identity checks](docs/DESKTOP-LAUNCH.md): Refresh retains the selected application and defaults to Desktop; Connect validates its current ID/name mapping and checks Sunshine's active application after startup. A different active app produces a named conflict instead of being resumed under the Desktop selection. Debug/Release builds and control/core suites pass, and a short live diagnostic launched Desktop and received video. Source command/foreground behavior and installed-widget acceptance still need confirmation.
+
 Version 0.2.1.2 prepares a [cleaner widget menu](docs/WIDGET-MENU.md): Connect, HUD, Layout and Details views, persistent status/connection controls, collapsible stream options and HUD fine tuning, and navigation that adapts to narrow windows. Debug and Release builds have zero warnings/errors; existing controls, action handlers and profile defaults are preserved. The package is prepared locally while 0.2.1.1 remains installed for the pending black-cleanup test. Native appearance and live navigation still need verification.
 
 Version 0.2.1.1 on main adds **Clean black background**, an immediate preset for compression residue and bright text edges, with **Exact black** to restore nonblack dark-detail preservation. Fine sliders show their numeric values, and **Apply key settings** saves/applies changes during streaming. Saved profiles are preserved until an explicit action. See [black cleanup and live verification](docs/BLACK-CLEANUP.md).

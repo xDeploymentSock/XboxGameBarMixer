@@ -46,7 +46,9 @@ int main(int argc, char** argv) {
             require(credentials->identity_writes == 0, "Malformed discovery created credentials.");
         } else {
             require(result.succeeded(), result.detail.c_str());
-            require(info.current_application == 881448767 && !info.paired, "Discovery metadata was wrong.");
+            const auto expected_current = mode == "desktop-launch" || mode == "stale-desktop" ? 0U :
+                mode == "steam-active" ? 1093255277U : 881448767U;
+            require(info.current_application == expected_current && !info.paired, "Discovery metadata was wrong.");
             result = control.pair(host, mode == "wrong-pin" ? "9876" : "1234");
             if (mode == "wrong-pin" || mode == "forged-signature") {
                 require(!result.succeeded(), "Invalid pairing proof was accepted.");
@@ -66,10 +68,26 @@ int main(int argc, char** argv) {
                     config.host = host;
                     std::array<unsigned char, 16> key{}, iv{};
                     launch_information launch;
-                    result = control.start_stream(config, {"123", "Other app"}, key, iv, launch);
-                    require(result.code == operation_code::unavailable, "A different active application was replaced.");
-                    result = control.start_stream(config, {"881448767", "HUD"}, key, iv, launch);
-                    require(result.succeeded() && !launch.rtsp_url.empty(), "Active app could not be resumed.");
+                    if (mode == "success") {
+                        result = control.start_stream(config, {"123", "Other app"}, key, iv, launch);
+                        require(result.code == operation_code::unavailable, "A different active application was replaced.");
+                        result = control.start_stream(config, {"881448767", "HUD"}, key, iv, launch);
+                        require(result.succeeded() && !launch.rtsp_url.empty(), "Active app could not be resumed.");
+                    } else {
+                        result = control.start_stream(config, {"881448767", "Desktop"}, key, iv, launch);
+                        if (mode == "stale-desktop") {
+                            require(!result.succeeded() && result.detail.find("Refresh apps") != std::string::npos,
+                                "Stale Desktop ID was allowed to launch Steam.");
+                        } else if (mode == "steam-active" || mode == "resume-race") {
+                            require(result.code == operation_code::unavailable && launch.rtsp_url.empty(),
+                                "Desktop connected to another application's session.");
+                            require(result.detail.find("Steam Big Picture") != std::string::npos,
+                                "Conflict status did not identify the active Steam application.");
+                        } else {
+                            require(result.succeeded() && !launch.rtsp_url.empty() &&
+                                launch.host.current_application == 881448767, "Desktop launch/resume was not verified.");
+                        }
+                    }
                 }
             }
         }

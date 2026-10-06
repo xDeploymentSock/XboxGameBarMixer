@@ -260,6 +260,30 @@ host_information read_host(const xml_node& xml) {
     return host;
 }
 
+std::vector<host_application> read_applications(const xml_node& list) {
+    std::vector<host_application> applications;
+    for (const auto& app : list.children) {
+        if (app.name != "App") { continue; }
+        const auto id = number(app.value("ID"));
+        const auto name = app.value("AppTitle");
+        check(id > 0 && id <= INT_MAX && !name.empty(), "Sunshine returned an invalid application.");
+        const auto text_id = std::to_string(id);
+        check(std::none_of(applications.begin(), applications.end(), [&](const auto& existing) {
+            return existing.id == text_id;
+        }), "Sunshine returned duplicate application IDs.");
+        applications.push_back({text_id, name});
+    }
+    return applications;
+}
+
+std::string application_name(const std::vector<host_application>& applications, std::uint32_t id) {
+    const auto text_id = std::to_string(id);
+    const auto found = std::find_if(applications.begin(), applications.end(), [&](const auto& app) {
+        return app.id == text_id;
+    });
+    return found == applications.end() ? "application ID " + text_id : found->name;
+}
+
 struct request_state { std::string response; const std::atomic<bool>* cancelled{}; };
 std::size_t receive(char* data, std::size_t size, std::size_t count, void* user) noexcept {
     auto& state = *static_cast<request_state*>(user);
@@ -452,16 +476,7 @@ operation_result sunshine_control::list_applications(const host_endpoint& host, 
         if (!identity || server_cert.empty()) { throw control_error{operation_code::not_paired, "Pair this client first."}; }
         const auto info = read_host(request(host, 0, "serverinfo", {}, &*identity, {}, cancelled_));
         const auto list = request(host, info.https_port, "applist", {}, &*identity, server_cert, cancelled_);
-        std::vector<host_application> applications;
-        for (const auto& app : list.children) {
-            if (app.name == "App") {
-                const auto id = number(app.value("ID"));
-                const auto name = app.value("AppTitle");
-                check(id != 0 && !name.empty(), "Sunshine returned an invalid application.");
-                applications.push_back({std::to_string(id), name});
-            }
-        }
-        output = std::move(applications);
+        output = read_applications(list);
     });
 }
 
@@ -477,8 +492,19 @@ operation_result sunshine_control::start_stream(const overlay_configuration& con
         if (!identity || server_cert.empty()) { throw control_error{operation_code::not_paired, "Pair this client first."}; }
         auto info = read_host(request(config.host, 0, "serverinfo", {}, &*identity, {}, cancelled_));
         info = read_host(request(config.host, info.https_port, "serverinfo", {}, &*identity, server_cert, cancelled_));
+        const auto applications = read_applications(request(config.host, info.https_port, "applist", {},
+            &*identity, server_cert, cancelled_));
+        const auto selected = std::find_if(applications.begin(), applications.end(), [&](const auto& app) {
+            return app.id == application.id && app.name == application.name;
+        });
+        if (selected == applications.end()) {
+            throw control_error{operation_code::unavailable,
+                "The selected Sunshine application changed or was removed. Refresh apps and select it again before connecting."};
+        }
         if (info.current_application && info.current_application != app_id) {
-            throw control_error{operation_code::unavailable, "Another Sunshine application is active. Select that application to resume it, or stop it on the source PC first."};
+            throw control_error{operation_code::unavailable,
+                "Cannot start " + application.name + ": " + application_name(applications, info.current_application) +
+                " is active in Sunshine. Stop that session on the source PC or in Moonlight, then reconnect."};
         }
         const auto key_id = (static_cast<std::uint32_t>(input_iv[0]) << 24) | (static_cast<std::uint32_t>(input_iv[1]) << 16) |
                             (static_cast<std::uint32_t>(input_iv[2]) << 8) | input_iv[3];
@@ -506,6 +532,16 @@ operation_result sunshine_control::start_stream(const overlay_configuration& con
               "Sunshine declined stream startup.");
         const auto rtsp = response.value("sessionUrl0");
         check(!rtsp.empty() && rtsp.size() <= 2048, "Sunshine omitted the RTSP session URL.");
+        // /resume attaches to the app running at request time; its appid does not
+        // select another app. Confirm the host still names the user's selection
+        // before beginning RTSP, decoding, or presenting a remote frame.
+        info = read_host(request(config.host, info.https_port, "serverinfo", {}, &*identity, server_cert, cancelled_));
+        if (info.current_application != app_id) {
+            const auto active = info.current_application ? application_name(applications, info.current_application) : "no application";
+            throw control_error{operation_code::unavailable,
+                "Sunshine did not keep " + application.name + " active; it reports " + active +
+                ". Refresh apps and check the source session before reconnecting."};
+        }
         output = {std::move(info), rtsp};
     });
 }

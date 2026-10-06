@@ -70,7 +70,8 @@ if(FUSER_BUILD_CONTROL_TESTS)
   add_custom_command(TARGET fuser_control_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${FUSER_DEPENDENCIES}/$<IF:$<CONFIG:Debug>,debug/bin,bin>" "$<TARGET_FILE_DIR:fuser_control_tests>" VERBATIM)
   find_program(FUSER_TEST_PYTHON python REQUIRED)
-  foreach(SCENARIO success wrong-pin forged-signature rotated-certificate dtd)
+  foreach(SCENARIO success wrong-pin forged-signature rotated-certificate dtd
+      desktop-launch desktop-resume stale-desktop steam-active resume-race)
     add_test(NAME fuser_control_${SCENARIO} COMMAND "${FUSER_TEST_PYTHON}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/control_server.py" "$<TARGET_FILE:fuser_control_tests>" ${SCENARIO})
     set_tests_properties(fuser_control_${SCENARIO} PROPERTIES TIMEOUT 30

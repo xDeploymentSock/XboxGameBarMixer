@@ -1,4 +1,5 @@
 #include <fuser/configuration.h>
+#include <fuser/application_selection.h>
 #include <fuser/latest_frame_mailbox.h>
 #include <fuser/monitor_layout.h>
 #include <fuser/widget_layout_requests.h>
@@ -31,6 +32,22 @@ fuser::decoded_frame frame(std::uint64_t sequence) {
 
 int main() {
     try {
+        const std::vector<fuser::host_application> source_apps{{"123", "Steam Big Picture"}, {"456", "Desktop"}};
+        require(fuser::choose_source_application(source_apps, {}) == 1,
+                "a first refresh selects Desktop even when Steam is listed first");
+        const std::optional<fuser::host_application> desktop{{"456", "Desktop"}};
+        const std::vector<fuser::host_application> reordered_apps{{"456", "Desktop"}, {"123", "Steam Big Picture"}};
+        require(fuser::choose_source_application(reordered_apps, desktop) == 0,
+                "refresh retains Desktop by identity after list reordering");
+        require(fuser::choose_source_application(source_apps, fuser::host_application{"123", "Steam Big Picture"}) == 0,
+                "an explicit Steam selection is retained rather than overwritten by Desktop");
+        require(!fuser::choose_source_application(reordered_apps, fuser::host_application{"456", "Renamed app"}),
+                "a renamed selection must not silently substitute another application");
+        require(!fuser::choose_source_application(std::vector<fuser::host_application>{{"123", "Steam Big Picture"}}, {}),
+                "Steam is not selected implicitly when Desktop is absent");
+        require(!fuser::choose_source_application(std::vector<fuser::host_application>{{"1", "Desktop"}, {"2", "Desktop"}}, {}),
+                "duplicate Desktop names require an explicit choice");
+        require(!fuser::choose_source_application({}, {}), "an empty source app list has no selection");
         fuser::overlay_configuration configuration;
         require(!fuser::validate(configuration).empty(), "streaming requires a host");
         require(fuser::validate(configuration, false).empty(), "offline defaults are valid");
