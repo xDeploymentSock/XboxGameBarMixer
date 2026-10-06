@@ -1,6 +1,7 @@
 // Hardware readback is used only by this test, never by the stream display path.
 #include "D3D11Renderer.h"
 #include <winrt/base.h>
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <iostream>
@@ -43,6 +44,58 @@ pixel read_pixel(fuser::windows::d3d11_renderer& renderer, std::uint32_t x, std:
 bool close_to(std::uint8_t actual, int expected) {
     const auto difference = static_cast<int>(actual) - expected;
     return difference >= -2 && difference <= 2;
+}
+
+void check_array_resource_reuse() {
+    fuser::windows::d3d11_renderer renderer;
+    renderer.initialize(side, side);
+    D3D11_TEXTURE2D_DESC description{};
+    description.Width = description.Height = side;
+    description.MipLevels = 1;
+    description.ArraySize = 2;
+    description.Format = DXGI_FORMAT_NV12;
+    description.SampleDesc.Count = 1;
+    description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    std::array<std::vector<std::uint8_t>, 2> planes;
+    std::array<D3D11_SUBRESOURCE_DATA, 2> initial;
+    for (std::size_t slice = 0; slice < planes.size(); ++slice) {
+        planes[slice].assign(side * side * 3 / 2, 128);
+        std::fill_n(planes[slice].begin(), side * side, slice == 0 ? 0 : 255);
+        initial[slice] = {planes[slice].data(), side, side * side * 3 / 2};
+    }
+    ComPtr<ID3D11Texture2D> texture;
+    winrt::check_hresult(renderer.device()->CreateTexture2D(&description, initial.data(), texture.GetAddressOf()));
+    fuser::chroma_key_settings key;
+    key.color = {0.0F, 0.0F, 0.0F};
+    key.tolerance = key.softness = 0.0F;
+    for (std::uint32_t index = 0; index < 40; ++index) {
+        const auto slice = index % 2;
+        fuser::decoded_frame frame;
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, slice);
+        frame.width = frame.height = side;
+        frame.range = fuser::color_range::full;
+        key.crisp_scaling = (index / 2) % 2 == 0;
+        require(renderer.draw_frame(frame, key).succeeded(), "Alternating decoder array slices must render.");
+        const auto actual = read_pixel(renderer, side / 2, side / 2);
+        if (actual != (slice == 0 ? pixel{0, 0, 0, 0} : pixel{255, 255, 255, 255})) {
+            std::cerr << "Array fixture slice " << slice << " crisp " << key.crisp_scaling << " BGRA "
+                      << unsigned(actual[0]) << ',' << unsigned(actual[1]) << ',' << unsigned(actual[2]) << ',' << unsigned(actual[3]) << '\n';
+        }
+        require(actual == (slice == 0 ? pixel{0, 0, 0, 0} : pixel{255, 255, 255, 255}),
+                "Reused NV12 views must select the correct slice in both scaling modes.");
+    }
+    const auto counts = renderer.resources_created();
+    require(counts.plane_views == 4 && counts.completion_queries == 3,
+            "Steady rendering must reuse one plane-view pair per pool slice and three GPU completion queries.");
+    renderer.clear();
+    require(read_pixel(renderer, 0, 0) == pixel{0, 0, 0, 0}, "Clearing cached video must stay transparent.");
+    fuser::decoded_frame frame;
+    frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 1);
+    frame.width = frame.height = side;
+    frame.range = fuser::color_range::full;
+    require(renderer.draw_frame(frame, key).succeeded(), "Rendering must restore views after clearing video resources.");
+    require(read_pixel(renderer, 0, 0) == pixel{255, 255, 255, 255}, "Restored views must preserve the selected slice.");
+    require(renderer.resources_created().plane_views == 6, "Clear must release the cached decoder texture views.");
 }
 
 ComPtr<ID3D11Texture2D> make_nv12(fuser::windows::d3d11_renderer& renderer,
@@ -379,7 +432,8 @@ int main() {
             if (stroke[0] > 0 && stroke[0] < 255) { ++filtered_pixels; }
         }
         require(filtered_pixels > 40, "The fixture must expose the additional smoothing at unequal scaling.");
-        std::cout << "GPU key/noise/bright-edge alpha, crisp/smooth HUD scaling, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
+        check_array_resource_reuse();
+        std::cout << "GPU key/noise/bright-edge alpha, crisp/smooth HUD scaling, NV12 array view/query reuse, conversion/cropping, resource retirement, clear and resize checks passed.\n";
         return 0;
     } catch (const winrt::hresult_error& error) {
         std::cerr << winrt::to_string(error.message()) << '\n';

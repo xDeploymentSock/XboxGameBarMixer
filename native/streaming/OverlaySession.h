@@ -3,6 +3,7 @@
 #include "../windows/D3D11Renderer.h"
 #include "../windows/FFmpegDecoder.h"
 #include <fuser/latest_frame_mailbox.h>
+#include <fuser/timing_histogram.h>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -19,6 +20,8 @@ struct session_snapshot {
     // Decoder callback arrival through accepted Present return; excludes host,
     // network arrival/assembly and Game Bar/monitor scanout.
     std::uint64_t render_latency_samples{}, render_microseconds{}, max_render_microseconds{};
+    timing_distribution render_timing, present_intervals;
+    std::uint64_t replaced_pending_frames{}, gpu_slot_retries{}, present_retries{}, presentation_wait_timeouts{};
     std::uint64_t receive_timing_samples{}, assembly_microseconds{}, queue_microseconds{}, max_queue_microseconds{};
     std::uint64_t host_latency_samples{}, host_latency_tenths_ms{}, zero_host_latency_frames{};
     std::uint16_t max_host_latency_tenths_ms{};
@@ -66,6 +69,8 @@ private:
     std::atomic<std::uint32_t> last_frame_number_{}, peak_decode_queue_{};
     std::atomic<std::uint64_t> missing_frame_numbers_{}, decode_microseconds_{}, max_decode_microseconds_{};
     std::atomic<std::uint64_t> render_latency_samples_{}, render_microseconds_{}, max_render_microseconds_{};
+    timing_histogram render_timing_, present_intervals_;
+    std::atomic<std::uint64_t> gpu_slot_retries_{}, present_retries_{}, presentation_wait_timeouts_{};
     std::atomic<std::uint64_t> receive_timing_samples_{}, assembly_microseconds_{}, queue_microseconds_{}, max_queue_microseconds_{};
     std::atomic<std::uint64_t> host_latency_samples_{}, host_latency_tenths_ms_{}, zero_host_latency_frames_{};
     std::atomic<std::uint16_t> max_host_latency_tenths_ms_{};

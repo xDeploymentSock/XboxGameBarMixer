@@ -127,9 +127,12 @@ int main(int argc, char** argv) {
         fuser::latest_frame_mailbox mailbox;
         fuser::decoded_frame retained;
         std::uint64_t decoded{}, presented{}, unavailable{}, late_feeds{};
-        std::vector<double> submit_times, feed_to_present_times;
+        std::vector<double> submit_times, draw_times, feed_to_present_times, present_intervals;
         submit_times.reserve(static_cast<std::size_t>(count));
         feed_to_present_times.reserve(static_cast<std::size_t>(count));
+        draw_times.reserve(static_cast<std::size_t>(count));
+        present_intervals.reserve(static_cast<std::size_t>(count));
+        clock_type::time_point previous_present{};
         std::mutex wake_mutex;
         std::condition_variable wake;
         std::atomic<bool> render_failed{};
@@ -161,9 +164,11 @@ int main(int argc, char** argv) {
                         if (stop.stop_requested()) { break; }
                         continue;
                     }
-                    if (auto newest = mailbox.take_latest()) { pending = std::move(newest); }
+                    (void)mailbox.take_latest_into(pending);
                     if (pending) {
+                        const auto draw_start = clock_type::now();
                         const auto result = renderer.draw_frame(*pending, {});
+                        draw_times.push_back(milliseconds(clock_type::now() - draw_start));
                         if (result.code == fuser::operation_code::unavailable) {
                             ++unavailable;
                             std::unique_lock lock{wake_mutex};
@@ -172,7 +177,12 @@ int main(int argc, char** argv) {
                         }
                         require(result);
                         if (renderer.try_present()) {
-                            feed_to_present_times.push_back(milliseconds(clock_type::now() - pending->received_at));
+                            const auto accepted = clock_type::now();
+                            feed_to_present_times.push_back(milliseconds(accepted - pending->received_at));
+                            if (previous_present != clock_type::time_point{}) {
+                                present_intervals.push_back(milliseconds(accepted - previous_present));
+                            }
+                            previous_present = accepted;
                             ++presented;
                             pending.reset();
                         }
@@ -207,6 +217,7 @@ int main(int argc, char** argv) {
         if (render_error) { std::rethrow_exception(render_error); }
         require(decoded == static_cast<std::uint64_t>(count) && presented > 0, "Fixture did not complete.");
         decoder.stop();
+        const auto resources = renderer.resources_created();
         auto final_draw = renderer.draw_frame(retained, {});
         for (int retry = 0; final_draw.code == fuser::operation_code::unavailable && retry < 100; ++retry) {
             std::this_thread::sleep_for(std::chrono::milliseconds{1});
@@ -222,6 +233,12 @@ int main(int argc, char** argv) {
             << " | feed deadlines late by >1 frame " << late_feeds << '\n'
             << "CPU decode submission p95 ms " << percentile(submit_times, 0.95) << " | max ms " << percentile(submit_times, 1.0)
             << " | feed-to-Present return p95 ms " << percentile(feed_to_present_times, 0.95) << '\n'
+            << "Draw CPU/lock p50/p95/p99 ms " << percentile(draw_times, 0.50) << '/' << percentile(draw_times, 0.95)
+            << '/' << percentile(draw_times, 0.99) << " | created plane views " << resources.plane_views
+            << " | created completion queries " << resources.completion_queries << '\n'
+            << "Accepted-Present interval p50/p95/p99 ms " << percentile(present_intervals, 0.50) << '/'
+            << percentile(present_intervals, 0.95) << '/' << percentile(present_intervals, 0.99)
+            << " | feed-to-Present p99 ms " << percentile(feed_to_present_times, 0.99) << '\n'
             << "Green/white alpha checks passed after joined shutdown. Offscreen calls do not measure Game Bar or monitor scanout.\n";
         return 0;
     } catch (const winrt::hresult_error& error) { std::cerr << winrt::to_string(error.message()) << '\n'; }

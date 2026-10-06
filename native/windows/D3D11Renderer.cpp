@@ -103,6 +103,11 @@ void d3d11_renderer::initialize(std::uint32_t width, std::uint32_t height) {
     sampler.MaxLOD = D3D11_FLOAT32_MAX;
     sampler.ComparisonFunc = D3D11_COMPARISON_NEVER;
     winrt::check_hresult(device_->CreateSamplerState(&sampler, sampler_.GetAddressOf()));
+    const D3D11_QUERY_DESC query_description{D3D11_QUERY_EVENT, 0};
+    for (auto& query : completion_queries_) {
+        winrt::check_hresult(device_->CreateQuery(&query_description, query.GetAddressOf()));
+        ++resources_created_.completion_queries;
+    }
     width_ = width;
     height_ = height;
     create_target();
@@ -150,6 +155,32 @@ void d3d11_renderer::draw_diagnostic(const chroma_key_settings& key, std::uint64
     draw(parameters(key, sequence));
 }
 
+d3d11_renderer::video_plane_views const& d3d11_renderer::prepare_video_views(
+    ID3D11Texture2D* texture, UINT array_size, UINT slice) {
+    if (video_texture_.Get() != texture) {
+        video_views_.clear();
+        video_views_.resize(array_size);
+        video_texture_ = texture;
+    }
+    auto& cached = video_views_[slice];
+    if (cached.luminance && cached.chrominance) { return cached; }
+    D3D11_SHADER_RESOURCE_VIEW_DESC description{};
+    description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+    description.Texture2DArray.MipLevels = 1;
+    description.Texture2DArray.ArraySize = 1;
+    description.Texture2DArray.FirstArraySlice = slice;
+    description.Format = DXGI_FORMAT_R8_UNORM;
+    ComPtr<ID3D11ShaderResourceView> luminance, chrominance;
+    winrt::check_hresult(device_->CreateShaderResourceView(texture, &description, luminance.GetAddressOf()));
+    ++resources_created_.plane_views;
+    description.Format = DXGI_FORMAT_R8G8_UNORM;
+    winrt::check_hresult(device_->CreateShaderResourceView(texture, &description, chrominance.GetAddressOf()));
+    ++resources_created_.plane_views;
+    cached.luminance = std::move(luminance);
+    cached.chrominance = std::move(chrominance);
+    return cached;
+}
+
 operation_result d3d11_renderer::draw_frame(const decoded_frame& frame,
                                            const chroma_key_settings& key) {
     const std::lock_guard guard{*context_lock_};
@@ -186,20 +217,8 @@ operation_result d3d11_renderer::draw_frame(const decoded_frame& frame,
         ((frame.source_x | frame.source_y | frame.width | frame.height) & 1U) != 0) {
         return {operation_code::unsupported_format, "NV12 needs shader-resource binding and an even, in-bounds visible rectangle."};
     }
-    D3D11_SHADER_RESOURCE_VIEW_DESC description{};
-    description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
-    description.Texture2DArray.MipLevels = 1;
-    description.Texture2DArray.ArraySize = 1;
-    description.Texture2DArray.FirstArraySlice = surface->array_slice();
-    description.Format = DXGI_FORMAT_R8_UNORM;
-    ComPtr<ID3D11ShaderResourceView> luminance;
-    winrt::check_hresult(device_->CreateShaderResourceView(surface->texture(), &description,
-                                                         luminance.GetAddressOf()));
-    description.Format = DXGI_FORMAT_R8G8_UNORM;
-    ComPtr<ID3D11ShaderResourceView> chrominance;
-    winrt::check_hresult(device_->CreateShaderResourceView(surface->texture(), &description,
-                                                         chrominance.GetAddressOf()));
-    ID3D11ShaderResourceView* views[]{luminance.Get(), chrominance.Get()};
+    const auto& cached = prepare_video_views(surface->texture(), texture_description.ArraySize, surface->array_slice());
+    ID3D11ShaderResourceView* views[]{cached.luminance.Get(), cached.chrominance.Get()};
     context_->PSSetShaderResources(0, 2, views);
     auto values = parameters(key, frame.sequence);
     values.controls[3] = 1.0F;
@@ -225,11 +244,9 @@ operation_result d3d11_renderer::draw_frame(const decoded_frame& frame,
                               rec709 ? -0.4681F : -0.7141F, 0.0F};
         values.matrix_row2 = {1.0F, rec709 ? 1.8556F : 1.7720F, 0.0F, 0.0F};
     }
-    D3D11_QUERY_DESC query_description{D3D11_QUERY_EVENT, 0};
-    ComPtr<ID3D11Query> completed;
-    winrt::check_hresult(device_->CreateQuery(&query_description, completed.GetAddressOf()));
     // No allocations or throwing API calls after GPU reads are submitted.
-    slot->emplace(in_flight_frame{frame, std::move(completed)});
+    const auto slot_index = static_cast<std::size_t>(slot - in_flight_.begin());
+    slot->emplace(in_flight_frame{frame, completion_queries_[slot_index]});
     draw(values);
     context_->End((*slot)->completed.Get());
     ID3D11ShaderResourceView* empty_views[]{nullptr, nullptr};
@@ -291,6 +308,8 @@ bool d3d11_renderer::try_present() {
 
 void d3d11_renderer::clear() {
     const std::lock_guard guard{*context_lock_};
+    video_views_.clear();
+    video_texture_.Reset();
     if (context_ && target_) {
         constexpr std::array<float, 4> transparent{0.0F, 0.0F, 0.0F, 0.0F};
         context_->ClearRenderTargetView(target_.Get(), transparent.data());

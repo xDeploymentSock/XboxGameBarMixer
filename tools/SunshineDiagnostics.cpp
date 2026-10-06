@@ -25,14 +25,15 @@ int bounded_integer(std::string_view value, int minimum, int maximum) {
 int main(int argc, char** argv) {
     try {
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
-        if (argc != 4 && argc != 7 && argc != 8 && argc != 9) {
-            std::cerr << "Usage: fuser_sunshine_diagnostics <own LocalState> <host> apps|stream [appid h264|hevc fps [seconds=12 [cycles=1]]]\n";
+        if (argc != 4 && argc != 7 && argc != 8 && argc != 9 && argc != 10) {
+            std::cerr << "Usage: fuser_sunshine_diagnostics <own LocalState> <host> apps|stream [appid h264|hevc fps [seconds=12 [cycles=1 [bitrate_kbps=80000]]]]\n";
             return 2;
         }
         const bool enumerate = std::string_view{argv[3]} == "apps" && argc == 4;
         if (!enumerate && (std::string_view{argv[3]} != "stream" || argc < 7)) { return 2; }
         const auto duration = !enumerate && argc >= 8 ? bounded_integer(argv[7], 1, 3600) : 12;
-        const auto cycles = !enumerate && argc == 9 ? bounded_integer(argv[8], 1, 100) : 1;
+        const auto cycles = !enumerate && argc >= 9 ? bounded_integer(argv[8], 1, 100) : 1;
+        const auto bitrate = !enumerate && argc == 10 ? bounded_integer(argv[9], 1000, 200000) : 80000;
         if (duration * cycles > 3600) { throw std::invalid_argument{"Total streaming duration must not exceed one hour."}; }
         const auto fps = enumerate ? 0 : bounded_integer(argv[6], 1, 500);
         if (!enumerate && std::string_view{argv[5]} != "h264" && std::string_view{argv[5]} != "hevc") {
@@ -53,7 +54,10 @@ int main(int argc, char** argv) {
         fuser::overlay_configuration config;
         config.host = host;
         config.stream.frames_per_second = static_cast<std::uint32_t>(fps);
+        config.stream.bitrate_kbps = static_cast<std::uint32_t>(bitrate);
         config.stream.codec = std::string_view{argv[5]} == "hevc" ? fuser::video_codec::hevc : fuser::video_codec::h264;
+        std::cout << "Requested " << config.stream.width << 'x' << config.stream.height << " / " << fps
+                  << " FPS / " << bitrate << " kbps\n";
         const auto found = std::find_if(apps.begin(), apps.end(), [&](const auto& app) { return app.id == argv[4]; });
         if (found == apps.end()) { std::cerr << "Select an actual host app ID.\n"; return 2; }
         auto renderer = std::make_shared<fuser::windows::d3d11_renderer>();
@@ -102,6 +106,15 @@ int main(int argc, char** argv) {
                           << " maximum ms " << static_cast<double>(final.max_render_microseconds) / 1000.0
                           << ". Excludes host, network and Game Bar/monitor scanout.\n";
             }
+            std::cout << "Local latency p95/p99 bound ms " << static_cast<double>(final.render_timing.p95_microseconds) / 1000.0
+                      << '/' << static_cast<double>(final.render_timing.p99_microseconds) / 1000.0
+                      << " | accepted-Present gaps p95/p99 bound ms " << static_cast<double>(final.present_intervals.p95_microseconds) / 1000.0
+                      << '/' << static_cast<double>(final.present_intervals.p99_microseconds) / 1000.0
+                      << " | maximum gap ms " << static_cast<double>(final.present_intervals.max_microseconds) / 1000.0 << '\n';
+            std::cout << "Display replacements " << final.counters.replaced_display_frames
+                      << " | replaced pending " << final.replaced_pending_frames
+                      << " | GPU slot retries " << final.gpu_slot_retries << " | Present retries " << final.present_retries
+                      << " | presentation wait timeouts " << final.presentation_wait_timeouts << '\n';
             if (!final.counters.decoded_frames || !final.counters.present_calls || final.decode_errors || final.finished) { return 1; }
             renderer->clear();
             renderer->present();

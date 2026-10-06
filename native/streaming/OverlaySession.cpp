@@ -49,6 +49,9 @@ operation_result overlay_session::begin(const overlay_configuration& config, con
     last_frame_number_ = peak_decode_queue_ = 0;
     missing_frame_numbers_ = decode_microseconds_ = max_decode_microseconds_ = 0;
     render_latency_samples_ = render_microseconds_ = max_render_microseconds_ = 0;
+    render_timing_.reset();
+    present_intervals_.reset();
+    gpu_slot_retries_ = present_retries_ = presentation_wait_timeouts_ = 0;
     receive_timing_samples_ = assembly_microseconds_ = queue_microseconds_ = max_queue_microseconds_ = 0;
     host_latency_samples_ = host_latency_tenths_ms_ = zero_host_latency_frames_ = max_host_latency_tenths_ms_ = 0;
     finished_ = render_stop_ = false;
@@ -319,6 +322,12 @@ session_snapshot overlay_session::snapshot() const {
     result.render_latency_samples = render_latency_samples_;
     result.render_microseconds = render_microseconds_;
     result.max_render_microseconds = max_render_microseconds_;
+    result.render_timing = render_timing_.snapshot();
+    result.present_intervals = present_intervals_.snapshot();
+    result.replaced_pending_frames = mailbox_.replaced_pending_frames();
+    result.gpu_slot_retries = gpu_slot_retries_;
+    result.present_retries = present_retries_;
+    result.presentation_wait_timeouts = presentation_wait_timeouts_;
     result.receive_timing_samples = receive_timing_samples_;
     result.assembly_microseconds = assembly_microseconds_;
     result.queue_microseconds = queue_microseconds_;
@@ -339,6 +348,7 @@ session_snapshot overlay_session::snapshot() const {
 void overlay_session::render() noexcept {
     try {
         std::optional<decoded_frame> pending;
+        monotonic_time previous_present{};
         while (!render_stop_) {
             std::optional<std::pair<std::uint32_t, std::uint32_t>> size;
             chroma_key_settings key;
@@ -355,8 +365,8 @@ void overlay_session::render() noexcept {
             if (!pending && !mailbox_.has_frame()) { continue; }
             // Bounded wait permits prompt Disconnect even when the host hides
             // the visual. Select the freshest frame only after DXGI is ready.
-            if (!renderer_->wait_to_present(8)) { continue; }
-            if (auto newest = mailbox_.take_latest()) { pending = std::move(newest); }
+            if (!renderer_->wait_to_present(8)) { ++presentation_wait_timeouts_; continue; }
+            (void)mailbox_.take_latest_into(pending);
             if (pending) {
                 const auto number = presented_.load() + 1;
                 trace("Draw enter", number);
@@ -366,19 +376,27 @@ void overlay_session::render() noexcept {
                     trace("Present enter", number);
                     if (renderer_->try_present()) {
                         ++presented_;
+                        const auto accepted = std::chrono::steady_clock::now();
+                        if (previous_present != monotonic_time{}) {
+                            present_intervals_.record(static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                accepted - previous_present).count()));
+                        }
+                        previous_present = accepted;
                         if (pending->received_at != monotonic_time{}) {
                             const auto elapsed = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
-                                std::chrono::steady_clock::now() - pending->received_at).count());
+                                accepted - pending->received_at).count());
+                            render_timing_.record(elapsed);
                             ++render_latency_samples_;
                             render_microseconds_ += elapsed;
                             auto maximum = max_render_microseconds_.load();
                             while (maximum < elapsed && !max_render_microseconds_.compare_exchange_weak(maximum, elapsed)) {}
                         }
                         pending.reset();
-                    }
+                    } else { ++present_retries_; }
                     trace("Present returned", number);
                 }
                 else if (result.code == operation_code::unavailable) {
+                    ++gpu_slot_retries_;
                     // Retain a frame if the GPU still owns its read leases.
                     // Back off only on actual GPU pressure; arrivals wake us.
                     std::unique_lock lock{state_mutex_};

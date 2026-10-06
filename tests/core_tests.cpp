@@ -1,6 +1,7 @@
 #include <fuser/configuration.h>
 #include <fuser/application_selection.h>
 #include <fuser/latest_frame_mailbox.h>
+#include <fuser/timing_histogram.h>
 #include <fuser/monitor_layout.h>
 #include <fuser/widget_layout_requests.h>
 #include <fuser/video_layout.h>
@@ -218,6 +219,38 @@ int main() {
         mailbox.reset();
         require(mailbox.replaced_frames() == 0, "new session has independent counters");
         require(mailbox.publish(frame(5)), "mailbox can serve a new session");
+        std::optional<fuser::decoded_frame> pending;
+        require(mailbox.take_latest_into(pending) && pending->sequence == 5,
+                "a render retry retains the newest frame until presentation succeeds");
+        require(!mailbox.take_latest_into(pending) && pending->sequence == 5,
+                "an empty mailbox must not discard an unpresented frame");
+        require(mailbox.publish(frame(6)) && mailbox.take_latest_into(pending) && pending->sequence == 6,
+                "a newer frame replaces an unpresented retry without queuing stale video");
+        require(mailbox.replaced_frames() == 1 && mailbox.replaced_pending_frames() == 1,
+                "display replacement statistics must include frames replaced after removal from the mailbox");
+        mailbox.reset();
+        require(mailbox.replaced_frames() == 0 && mailbox.replaced_pending_frames() == 0,
+                "reconnect resets both mailbox and render-retry replacement counters");
+
+        fuser::timing_histogram timings;
+        require(timings.snapshot().samples == 0 && timings.snapshot().p99_microseconds == 0,
+                "empty timing distributions must not invent measurements");
+        for (int sample = 0; sample < 95; ++sample) { timings.record(249); }
+        for (int sample = 0; sample < 4; ++sample) { timings.record(250); }
+        timings.record(100000);
+        const auto distribution = timings.snapshot();
+        require(distribution.samples == 100 && distribution.total_microseconds == 124655
+                && distribution.max_microseconds == 100000,
+                "timings preserve exact totals and rare long stalls");
+        require(distribution.p95_microseconds == 250 && distribution.p99_microseconds == 500,
+                "percentiles use inclusive upper bucket bounds rather than allowing one stall to hide normal timing");
+        timings.reset();
+        timings.record(100000);
+        require(timings.snapshot().p99_microseconds == 100000,
+                "overflow percentiles must use the observed maximum instead of reporting a shorter delay");
+        timings.reset();
+        require(timings.snapshot().samples == 0 && timings.snapshot().total_microseconds == 0,
+                "reconnect resets timing distributions");
         std::cout << "Core contract checks passed.\n";
         return 0;
     } catch (const std::exception& error) {

@@ -486,7 +486,12 @@ void MainPage::update_statistics() {
             text << "\nLocal callback-to-Present avg "
                  << static_cast<double>(state.render_microseconds) / 1000.0 / static_cast<double>(state.render_latency_samples)
                  << " ms | max " << static_cast<double>(state.max_render_microseconds) / 1000.0 << " ms";
+            text << std::setprecision(2) << "\nLocal latency p95/p99 <= " << static_cast<double>(state.render_timing.p95_microseconds) / 1000.0
+                 << '/' << static_cast<double>(state.render_timing.p99_microseconds) / 1000.0 << " ms";
         }
+        text << std::setprecision(2) << "\nAccepted-Present gaps p95/p99 <= " << static_cast<double>(state.present_intervals.p95_microseconds) / 1000.0
+             << '/' << static_cast<double>(state.present_intervals.p99_microseconds) / 1000.0 << " ms"
+             << "\nGPU slot retries " << state.gpu_slot_retries << " | Present retries " << state.present_retries;
         text << "\nThis excludes host, network and monitor scanout.";
         StatsText().Text(to_hstring(text.str()));
         std::ostringstream summary;
@@ -506,6 +511,14 @@ void MainPage::update_statistics() {
                  << " | maximum us " << state.max_decode_microseconds
                  << "\nCallback-to-Present: samples " << state.render_latency_samples
                  << " | total us " << state.render_microseconds << " | maximum us " << state.max_render_microseconds
+                 << " | p95 bound us " << state.render_timing.p95_microseconds << " | p99 bound us " << state.render_timing.p99_microseconds
+                 << "\nPresentation gaps: samples " << state.present_intervals.samples
+                 << " | p95 bound us " << state.present_intervals.p95_microseconds
+                 << " | p99 bound us " << state.present_intervals.p99_microseconds
+                 << " | maximum us " << state.present_intervals.max_microseconds
+                 << "\nRender pressure: replaced pending frames " << state.replaced_pending_frames
+                 << " | GPU slot retries " << state.gpu_slot_retries << " | Present retries " << state.present_retries
+                 << " | presentation wait timeouts " << state.presentation_wait_timeouts
                  << "\nReceiver timing: samples " << state.receive_timing_samples
                  << " | assembly total us " << state.assembly_microseconds
                  << " | enqueue-to-submission total us " << state.queue_microseconds

@@ -5,6 +5,7 @@
 #include <optional>
 #include <memory>
 #include <mutex>
+#include <vector>
 #include <d3d11.h>
 #include <dxgi1_3.h>
 #include <wrl/client.h>
@@ -14,6 +15,10 @@
 #include "D3D11Surface.h"
 
 namespace fuser::windows {
+
+struct renderer_resource_counts {
+    std::uint64_t plane_views{}, completion_queries{};
+};
 
 // Renderer methods belong to one owner thread. FFmpeg's D3D11 callbacks must
 // share context_lock() when using the immediate context on another thread.
@@ -40,6 +45,10 @@ public:
     [[nodiscard]] std::shared_ptr<std::recursive_mutex> context_lock() const noexcept { return context_lock_; }
     [[nodiscard]] IDXGISwapChain1* swap_chain() const noexcept { return swap_chain_.Get(); }
     [[nodiscard]] std::uint64_t present_calls() const noexcept { return present_calls_; }
+    [[nodiscard]] renderer_resource_counts resources_created() const {
+        const std::lock_guard guard{*context_lock_};
+        return resources_created_;
+    }
 
 private:
     struct handle_deleter {
@@ -63,6 +72,10 @@ private:
     void create_target();
     void draw(const shader_parameters& parameters);
     void retire_completed_frames();
+    struct video_plane_views {
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> luminance, chrominance;
+    };
+    [[nodiscard]] const video_plane_views& prepare_video_views(ID3D11Texture2D* texture, UINT array_size, UINT slice);
 
     struct in_flight_frame {
         decoded_frame frame;
@@ -83,6 +96,12 @@ private:
     std::uint32_t width_{};
     std::uint32_t height_{};
     std::uint64_t present_calls_{};
+    renderer_resource_counts resources_created_;
+    // Views retain the allocation, not a decoder frame-pool lease. Cache the
+    // proven single-slice views; reconnects replace this one-pool cache.
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> video_texture_;
+    std::vector<video_plane_views> video_views_;
+    std::array<Microsoft::WRL::ComPtr<ID3D11Query>, 3> completion_queries_;
     // Retain decoder leases until the GPU completes its reads, not just Draw().
     std::array<std::optional<in_flight_frame>, 3> in_flight_{};
 };
