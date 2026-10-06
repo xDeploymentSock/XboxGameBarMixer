@@ -9,6 +9,7 @@ The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox G
 - Six controlled pairing/storage tests passed, covering wrong PINs, forged signatures, TLS public-key changes, forbidden XML DOCTYPEs, and encrypted credential round-trips. These fixtures generate temporary keys; no production credentials are committed.
 - Real Sunshine pairing, visible Game Bar video, test pattern, pinning, click-through, and normal Disconnect were confirmed in the installed baseline.
 - Three native reconnect cycles reused one controller and renderer with zero decoder errors and joined stop under 174 ms.
+- Version 0.2.0.2 is installed with Windows package status OK. Its log confirms Game Bar activation, pinned/click-through state, live HEVC decoding/presentation, all new diagnostic groups, and normal Disconnect. A read-only authenticated application query also verified that the widget's own saved pairing remained usable after the update.
 
 DXGI Present and hardware decoding share the renderer's recursive immediate-context mutex. This corrected a reproduced HEVC hang/access violation caused by concurrent immediate-context/DXGI access. The test suite checks sequential and concurrent production decode/render paths.
 
@@ -19,6 +20,8 @@ DXGI Present and hardware decoding share the renderer's recursive immediate-cont
 | Moving compressed HEVC HUD, 14,400 decode inputs | 239.950 decoded and Present calls/s; zero mailbox replacements and unavailable GPU slots | Approximately 60 s, receiver only, offscreen |
 | Moving compressed H.264 HUD, 14,400 decode inputs | 239.945 decoded/s and 239.928 Present calls/s; zero mailbox replacements, one unavailable GPU slot | Approximately 60 s, receiver only, offscreen |
 | Installed live HEVC widget | Approximately 224–229 received units/s, zero decoder errors | Uncontrolled source workload |
+| 0.2.0.2 live Game Bar HEVC, 2560x1440 at 240 requested FPS | 231.0–234.6 received/decoded/Present calls per second; sample mean 233.271; zero decoder errors | Seven current-process samples spanning 30.237 s; uncontrolled source workload |
+| 0.2.0.2 normal Disconnect | 267 ms from logged stop start to Disconnected | Joined shutdown and subsequent responsive widget; no visible UI confirmation supplied |
 | 60 s PresentMon trace | 225.606 ETW display updates/s; p95 time inside Present 0.0622 ms | Captured widget swap chain, Composed: Flip |
 | Passive 30-minute recording | 118 fresh observations, mean receive rate 225.719/s, zero decoder errors, seven additional mailbox replacements | Last three observations followed a disconnect and were excluded |
 
@@ -28,9 +31,13 @@ Periodic app rate samples are not complete frame counts. Present calls are not m
 
 Earlier mostly idle source streams had near-total zero host-processing fields. Moonlight defines those values as absent data or repeated frames, and the inspected Sunshine revision omits captured-frame timestamps for duplicates. This suggests idle repetitions contributed to the low observed rate; it does not establish a hardware ceiling or measured zero encoder latency.
 
+The last 0.2.0.2 stream sample contains 8,095 decoder submissions and receiver/host timing samples, zero skipped frame indexes before the callback, zero absent/repeated host timing samples, a peak pending decode queue of three, and four replaced display frames. Associated-display and renderer-adapter diagnostics were logged. These fields validate the new instrumentation, without establishing capture-to-photon timing or distinct displayed source pixels.
+
+A separate three-minute passive observer finished successfully with 37 observations. Six fresh connected samples averaged 233.05 received/decoded/Present calls per second. Its other 31 observations retained an older baseline rate or followed Disconnect and were excluded. This is a short live check within a bounded observation window, not a continuous three-minute stream test.
+
 ## Remaining acceptance
 
-Version 0.2.0.2 is installed with Windows package status OK. Its x64 package publisher matches the previous installation, and its Windows minimum version and VCLibs runtime requirement were verified before deployment. Confirm Game Bar activation, visible video, normal disconnect, and its new diagnostic fields during an idle interval. Defer deployment and disruptive runtime/performance tests during gaming.
+Version 0.2.0.2's x64 package publisher matches the previous installation, and its Windows minimum version and VCLibs runtime requirement were verified before deployment. Current-process logs verify activation, the live pipeline, normal Disconnect, and the new diagnostic fields. Further visual confirmation and broader lifecycle checks remain future validation. Defer deployment and disruptive runtime/performance tests during gaming.
 
 Full-monitor overlay support and black-pixel transparency are now explicit backlog items. Current shader key modes are green and magenta; transparent-black behavior has not been implemented or validated.
 
