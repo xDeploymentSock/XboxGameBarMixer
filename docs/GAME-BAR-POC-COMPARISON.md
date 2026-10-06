@@ -28,7 +28,7 @@ Prepare a controlled in-host startup test with initial/minimum/maximum sizes all
 
 Draw the existing outer white diagnostic border, then inspect settled widget/client/render bounds and visible top, bottom, left, and right edges together. Test pin/dismiss/reopen, transparency, and click-through. Keep a Reset route available. Do not claim coverage from the initial transient layout or from the configured dimensions alone. If startup sizing passes, separately determine whether explicit Fit and typed Apply can establish and preserve the same result; a fixed startup result alone does not satisfy dynamic sizing acceptance.
 
-The experiment is now isolated on `codex/fixed-startup-coverage`; see [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md) for its configuration and verification status. The previously measured 0.2.0.9 settled bounds remain (0,46), 2558x1394 on a 2560x1440 display.
+The experiment is isolated on `codex/fixed-startup-coverage`; see [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md) for its configuration and live result. Correct activation with fixed 2560x1440 limits now obtains full client size, but Game Bar places that client at (0,-44) and leaves a 44-pixel bottom gap. Reopening repeats the offset. The user cannot pin it, and the recorded pin state remains false. Thus the distinct startup configuration has been tested and fails four-edge coverage on this host. The previously measured 0.2.0.9 settled bounds remain (0,46), 2558x1394 on a 2560x1440 display.
 
 ## Host evidence and limits of the conclusion
 
@@ -36,6 +36,6 @@ A [Microsoft maintainer response from 2021](https://github.com/microsoft/XboxGam
 
 Read-only inspection of the installed Game Bar 7.326.8061.0 metadata found host interfaces 8 through 10 beyond the pinned SDK's earlier interfaces. Their additions concern home-menu visibility, back navigation/secondary-page title, and recording. They expose no new geometry or frame-hiding command. The internal Game Bar ViewChromeBase has an IsChromeEnabled property, but the widget API does not expose the host's chrome instance. Private widget SetWindowBounds remains an incoming state-notification interface and was not invoked.
 
-Microsoft's advanced sample at bd53d41dce2590727bd393cbafe9425a7e0cb3ae uses the same public size/centering requests; it is not a working full-monitor example. No supported programmatic host-placement solution was found in that comparison. The PoC's fixed manifest at creation remains a distinct hypothesis, not a verified solution or a reason to switch to a desktop renderer.
+Microsoft's advanced sample at bd53d41dce2590727bd393cbafe9425a7e0cb3ae uses the same public size/centering requests; it is not a working full-monitor example. No supported programmatic host-placement solution was found in that comparison. The PoC's fixed manifest at creation establishes full size in the 0.2.0.10 experiment but has not solved placement or usable pin controls on this host. That failure does not authorize switching to a desktop renderer.
 
 Reference clones, generated metadata, host resource dumps, runtime evidence, and packages stay in ignored build output. No separate desktop renderer or new rendering dependency was added.
