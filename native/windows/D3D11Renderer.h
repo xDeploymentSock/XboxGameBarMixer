@@ -49,8 +49,9 @@ private:
         std::array<float, 4> matrix_row1{};
         std::array<float, 4> matrix_row2{};
         std::array<float, 4> source_rectangle{};
+        std::array<float, 4> key_options{};
     };
-    static_assert(sizeof(shader_parameters) == 128);
+    static_assert(sizeof(shader_parameters) == 144);
 
     [[nodiscard]] shader_parameters parameters(const chroma_key_settings& key,
                                                std::uint64_t sequence) const;

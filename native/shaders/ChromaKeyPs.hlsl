@@ -12,6 +12,7 @@ cbuffer Parameters : register(b0)
     float4 matrix_row1;
     float4 matrix_row2;
     float4 source_rectangle; // normalized origin and visible extent in the allocation
+    float4 key_options; // recover bright artwork drawn over black, reserved
 };
 
 float3 diagnostic(float2 uv)
@@ -73,6 +74,17 @@ float4 main(float4 position : SV_POSITION, float2 uv : TEXCOORD0) : SV_TARGET
             float neutral = min(rgb.r, min(rgb.g, rgb.b));
             float spill = max(0.0, dot(rgb - neutral, key_chroma) / chroma_length);
             rgb = saturate(rgb - key_chroma * spill * controls.y * (1.0 - alpha));
+        }
+        if (key_options.x > 0.5 && dot(key_color_tolerance.rgb, key_color_tolerance.rgb) < 0.00001)
+        {
+            // Bright artwork rendered over black is already multiplied by its
+            // edge coverage. Infer that coverage from the brightest channel,
+            // unmatte RGB, then premultiply once below. Treating grey text-edge
+            // samples as opaque (or multiplying them twice) leaves dark halos.
+            // This is opt-in: it also makes intentional dark artwork translucent.
+            float coverage = max(rgb.r, max(rgb.g, rgb.b));
+            rgb /= max(coverage, 0.00001);
+            alpha *= coverage;
         }
     }
     alpha *= controls.z;

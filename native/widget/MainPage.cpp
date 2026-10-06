@@ -49,6 +49,7 @@ MainPage::MainPage() {
     InitializeComponent();
     load_profile();
     loading_profile_ = false;
+    update_key_values();
     const auto folder = Windows::Storage::ApplicationData::Current().LocalFolder().Path();
     control_ = std::make_shared<fuser::streaming::sunshine_control>(
         std::make_shared<fuser::widget::app_credentials>(std::filesystem::path{folder.c_str()}));
@@ -159,6 +160,16 @@ fuser::overlay_configuration MainPage::read_profile(bool require_host) {
     case 1: result.stream.codec = fuser::video_codec::hevc; break;
     default: throw std::invalid_argument{"Select a codec."};
     }
+    result.key = read_key_settings();
+    const auto issues = fuser::validate(result, require_host);
+    if (!issues.empty()) {
+        throw std::invalid_argument{issues.front().message};
+    }
+    return result;
+}
+
+fuser::chroma_key_settings MainPage::read_key_settings() {
+    fuser::overlay_configuration result;
     switch (KeyColor().SelectedIndex()) {
     case 0: result.key.color = {0.0F, 1.0F, 0.0F}; break;
     case 1: result.key.color = {1.0F, 0.0F, 1.0F}; break;
@@ -168,11 +179,13 @@ fuser::overlay_configuration MainPage::read_profile(bool require_host) {
     result.key.tolerance = static_cast<float>(KeyTolerance().Value());
     result.key.softness = static_cast<float>(KeySoftness().Value());
     result.key.opacity = static_cast<float>(KeyOpacity().Value());
-    const auto issues = fuser::validate(result, require_host);
+    result.key.recover_black_edges = KeyColor().SelectedIndex() == 2 &&
+        RecoverBlackEdges().IsChecked().Value();
+    const auto issues = fuser::validate(result, false);
     if (!issues.empty()) {
         throw std::invalid_argument{issues.front().message};
     }
-    return result;
+    return result.key;
 }
 
 void MainPage::load_profile() {
@@ -222,6 +235,23 @@ void MainPage::load_profile() {
     restore_slider(L"KeyTolerance", KeyTolerance());
     restore_slider(L"KeySoftness", KeySoftness());
     restore_slider(L"KeyOpacity", KeyOpacity());
+    RecoverBlackEdges().IsChecked(black && values.HasKey(L"RecoverBlackEdges") &&
+        unbox_value_or<bool>(values.Lookup(L"RecoverBlackEdges"), false));
+    RecoverBlackEdges().IsEnabled(black);
+}
+
+void MainPage::save_key_settings() {
+    const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+    values.Insert(L"KeyColor", box_value(KeyColor().SelectedIndex()));
+    values.Insert(L"KeyTolerance", box_value(KeyTolerance().Value()));
+    values.Insert(L"KeySoftness", box_value(KeySoftness().Value()));
+    values.Insert(L"KeyOpacity", box_value(KeyOpacity().Value()));
+    values.Insert(L"RecoverBlackEdges", box_value(configuration_.key.recover_black_edges));
+    fuser::widget::log(L"Key settings: mode=" + to_hstring(KeyColor().SelectedIndex())
+        + L" tolerance=" + to_hstring(configuration_.key.tolerance)
+        + L" softness=" + to_hstring(configuration_.key.softness)
+        + L" opacity=" + to_hstring(configuration_.key.opacity)
+        + L" recover-black-edges=" + to_hstring(configuration_.key.recover_black_edges));
 }
 
 void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
@@ -234,10 +264,7 @@ void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
         values.Insert(L"VideoFps", box_value(VideoFps().Text()));
         values.Insert(L"VideoBitrate", box_value(VideoBitrate().Text()));
         values.Insert(L"VideoCodec", box_value(VideoCodec().SelectedIndex()));
-        values.Insert(L"KeyColor", box_value(KeyColor().SelectedIndex()));
-        values.Insert(L"KeyTolerance", box_value(KeyTolerance().Value()));
-        values.Insert(L"KeySoftness", box_value(KeySoftness().Value()));
-        values.Insert(L"KeyOpacity", box_value(KeyOpacity().Value()));
+        save_key_settings();
         if (streaming_ && !busy_) {
             session_->set_key(configuration_.key);
             report(L"Profile saved. Chroma key settings applied; video settings take effect on the next connection.");
@@ -263,6 +290,9 @@ void MainPage::set_busy(bool value) {
     ConnectButton().IsEnabled(!value && !streaming_);
     HostAddress().IsEnabled(!value && !streaming_);
     SourceApplication().IsEnabled(!value && !streaming_);
+    CleanBlackButton().IsEnabled(!value);
+    ExactBlackButton().IsEnabled(!value);
+    ApplyKeyButton().IsEnabled(!value);
 }
 fire_and_forget MainPage::control_async(bool pairing) {
     const auto lifetime = get_strong();
@@ -670,6 +700,53 @@ void MainPage::key_color_changed(IInspectable const&, Controls::SelectionChanged
     const bool black = KeyColor().SelectedIndex() == 2;
     KeyTolerance().Value(black ? 0.0 : 0.12);
     KeySoftness().Value(black ? 0.0 : 0.08);
+    RecoverBlackEdges().IsChecked(false);
+    RecoverBlackEdges().IsEnabled(black);
+    update_key_values();
+}
+
+void MainPage::update_key_values() {
+    std::ostringstream values;
+    values << std::fixed << std::setprecision(3) << "Tolerance " << KeyTolerance().Value()
+           << " / softness " << KeySoftness().Value() << " / opacity " << KeyOpacity().Value();
+    KeyValuesText().Text(to_hstring(values.str()));
+}
+
+void MainPage::key_settings_changed(IInspectable const&, Controls::Primitives::RangeBaseValueChangedEventArgs const&) {
+    if (!loading_profile_ && !shutting_down_) { update_key_values(); }
+}
+
+void MainPage::clean_black_click(IInspectable const&, RoutedEventArgs const&) {
+    if (busy_ || shutting_down_) { return; }
+    const fuser::chroma_key_settings defaults;
+    KeyColor().SelectedIndex(2);
+    KeyTolerance().Value(defaults.tolerance);
+    KeySoftness().Value(defaults.softness);
+    RecoverBlackEdges().IsChecked(true);
+    apply_key_click(nullptr, nullptr);
+}
+
+void MainPage::exact_black_click(IInspectable const&, RoutedEventArgs const&) {
+    if (busy_ || shutting_down_) { return; }
+    KeyColor().SelectedIndex(2);
+    KeyTolerance().Value(0.0);
+    KeySoftness().Value(0.0);
+    RecoverBlackEdges().IsChecked(false);
+    apply_key_click(nullptr, nullptr);
+}
+
+void MainPage::apply_key_click(IInspectable const&, RoutedEventArgs const&) {
+    if (busy_ || shutting_down_) { return; }
+    try {
+        configuration_.key = read_key_settings();
+        save_key_settings();
+        update_key_values();
+        if (streaming_) {
+            session_->set_key(configuration_.key);
+            report(L"Key settings saved and applied to the live video.");
+        } else { report(L"Key settings saved. Connect or draw a test pattern to preview them."); }
+    } catch (const hresult_error& error) { report(error.message()); }
+      catch (const std::exception& error) { report(to_hstring(error.what())); }
 }
 
 void MainPage::restore_resize_limits() {

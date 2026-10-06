@@ -62,11 +62,23 @@
                               SelectionChanged="key_color_changed">
                         <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" /><ComboBoxItem Content="Black" />
                     </ComboBox>
-                    <TextBlock Text="Black with zero tolerance and softness removes only black. Raise tolerance to remove compression noise. Save profile to apply changes."
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="CleanBlackButton" Content="Clean black background" Click="clean_black_click" />
+                        <Button x:Name="ExactBlackButton" Content="Exact black" Click="exact_black_click" />
+                    </StackPanel>
+                    <TextBlock Text="Clean black background removes near-black video noise and recovers bright text edges. Exact black preserves all nonblack dark details. Both buttons apply immediately."
                                TextWrapping="Wrap" FontSize="12" />
-                    <Slider x:Name="KeyTolerance" Header="Key tolerance" Minimum="0" Maximum="1" Value="0" />
-                    <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0" />
-                    <Slider x:Name="KeyOpacity" Header="HUD opacity" Minimum="0" Maximum="1" Value="1" />
+                    <Slider x:Name="KeyTolerance" Header="Key tolerance" Minimum="0" Maximum="1" Value="0"
+                            StepFrequency="0.005" SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
+                    <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0"
+                            StepFrequency="0.005" SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
+                    <Slider x:Name="KeyOpacity" Header="HUD opacity" Minimum="0" Maximum="1" Value="1"
+                            StepFrequency="0.005" SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
+                    <TextBlock x:Name="KeyValuesText" TextWrapping="Wrap" FontSize="12" />
+                    <CheckBox x:Name="RecoverBlackEdges" Content="Recover bright HUD edges (Black)" IsChecked="False" />
+                    <TextBlock Text="Edge recovery makes dark grey artwork translucent. Turn it off to preserve solid dark panels. Apply key settings saves these controls and updates a live stream."
+                               TextWrapping="Wrap" FontSize="12" />
+                    <Button x:Name="ApplyKeyButton" Content="Apply key settings" Click="apply_key_click" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Save profile" Click="save_profile_click" />
                         <Button x:Name="ConnectButton" Content="Connect" Click="connect_click" />

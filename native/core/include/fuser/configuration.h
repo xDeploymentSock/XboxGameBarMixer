@@ -30,6 +30,9 @@ struct chroma_key_settings {
     float spill_suppression{0.6F};
     float opacity{1.0F};
     bool enabled{true};
+    // For bright artwork drawn over black: infer edge coverage from brightness.
+    // Leave disabled when dark greys are intentional opaque HUD content.
+    bool recover_black_edges{false};
 };
 
 struct overlay_configuration {

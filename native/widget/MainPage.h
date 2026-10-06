@@ -24,6 +24,10 @@ struct MainPage : MainPageT<MainPage> {
     void full_screen_fit_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void reset_position_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
+    void key_settings_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const&);
+    void clean_black_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void exact_black_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void apply_key_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     void video_layout_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     void apply_video_fit_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
@@ -31,6 +35,9 @@ struct MainPage : MainPageT<MainPage> {
 
 private:
     [[nodiscard]] fuser::overlay_configuration read_profile(bool require_host);
+    [[nodiscard]] fuser::chroma_key_settings read_key_settings();
+    void save_key_settings();
+    void update_key_values();
     void load_profile();
     void attach_renderer();
     void update_widget_state();

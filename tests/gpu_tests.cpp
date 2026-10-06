@@ -196,6 +196,58 @@ int main() {
         frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
         require(renderer.draw_frame(frame, key).succeeded(), "Black-key noise tolerance must be accepted.");
         require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0}, "Optional tolerance must remove near-black compression noise.");
+        // White antialiased artwork over black already carries coverage in RGB.
+        // Threshold-only alpha turns those grey edge samples into a dark fringe
+        // over a white receiver background, even after low-level noise is cut.
+        key.tolerance = 0.12F;
+        key.softness = 0.08F;
+        key.recover_black_edges = true;
+        for (const auto range : {fuser::color_range::limited, fuser::color_range::full}) {
+            frame.range = range;
+            const bool limited = range == fuser::color_range::limited;
+            texture = make_nv12(renderer, limited ? 26 : 10, 130, 126);
+            frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+            require(renderer.draw_frame(frame, key).succeeded(), "Noisy black with chroma deviations must be accepted.");
+            require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0},
+                    "Cleanup must remove near-black luma and chroma residue.");
+            for (const auto level : std::array<std::uint8_t, 4>{32, 64, 128, 192}) {
+                const auto luma = limited ? static_cast<std::uint8_t>(16 + level * 219 / 255) : level;
+                texture = make_nv12(renderer, luma, 128, 128);
+                frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+                require(renderer.draw_frame(frame, key).succeeded(), "Antialiased white edge must be accepted.");
+                const auto edge = read_pixel(renderer, 6, 22);
+                require(edge[3] > 0 && edge[3] < 255, "Bright HUD edges must recover fractional coverage.");
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    require(edge[channel] <= edge[3], "Cleanup output must remain premultiplied.");
+                    require(edge[channel] + 255 - edge[3] >= 253,
+                            "White HUD edges must not leave a dark fringe over white.");
+                }
+            }
+            texture = make_nv12(renderer, limited ? 235 : 255, 128, 128);
+            frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+            require(renderer.draw_frame(frame, key).succeeded(), "White HUD body must be accepted.");
+            require(read_pixel(renderer, 6, 22) == pixel{255, 255, 255, 255},
+                    "Cleanup must preserve the opaque white body of the HUD.");
+        }
+        frame.range = fuser::color_range::full;
+        texture = make_nv12(renderer, 128, 128, 128);
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        key.opacity = 0.5F;
+        require(renderer.draw_frame(frame, key).succeeded(), "Recovered edges must support overall HUD opacity.");
+        const auto faded_edge = read_pixel(renderer, 6, 22);
+        require(close_to(faded_edge[3], 64) && faded_edge[0] == faded_edge[3] &&
+                faded_edge[1] == faded_edge[3] && faded_edge[2] == faded_edge[3],
+                "HUD opacity must scale recovered coverage and premultiplied colour exactly once.");
+        key.opacity = 1.0F;
+        key.enabled = false;
+        require(renderer.draw_frame(frame, key).succeeded(), "Disabled keying must ignore edge recovery.");
+        require(read_pixel(renderer, 6, 22) == pixel{128, 128, 128, 255},
+                "Disabled keying must preserve opaque source colours.");
+        key.enabled = true;
+        key.recover_black_edges = false;
+        require(renderer.draw_frame(frame, key).succeeded(), "Recovery can be disabled independently of noise tolerance.");
+        require(read_pixel(renderer, 6, 22) == pixel{128, 128, 128, 255},
+                "Disabling recovery must preserve solid dark panels above the cutoff.");
         texture = make_nv12(renderer, 145, 54, 34);
         frame.matrix = fuser::color_matrix::bt601;
         frame.range = fuser::color_range::limited;
@@ -203,6 +255,25 @@ int main() {
         require(renderer.draw_frame(frame, key).succeeded(), "Coloured HUD under black key must be accepted.");
         const auto green_hud = read_pixel(renderer, 6, 22);
         require(green_hud[1] >= 254 && green_hud[3] == 255, "Black key must preserve coloured HUD pixels without spill suppression.");
+        key.recover_black_edges = true;
+        require(renderer.draw_frame(frame, key).succeeded(), "Black edge recovery must accept coloured HUD content.");
+        require(read_pixel(renderer, 6, 22) == green_hud,
+                "Recovery must preserve fully bright coloured HUD pixels.");
+        key.color = {0.0F, 1.0F, 0.0F};
+        require(renderer.draw_frame(frame, key).succeeded(), "Green keying must accept the saved recovery option.");
+        require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0},
+                "Black edge recovery must not interfere with the green key.");
+        key.color = {1.0F, 0.0F, 1.0F};
+        key.tolerance = 0.0F;
+        key.softness = 0.0F;
+        frame.matrix = fuser::color_matrix::bt709;
+        frame.range = fuser::color_range::full;
+        texture = make_nv12(renderer, 128, 128, 128);
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        require(renderer.draw_frame(frame, key).succeeded(), "Nonblack keying must accept neutral HUD content.");
+        require(read_pixel(renderer, 6, 22) == pixel{128, 128, 128, 255},
+                "Black recovery must leave the magenta-key path unchanged.");
+        key.recover_black_edges = false;
         frame.format = fuser::pixel_format::p010;
         require(renderer.draw_frame(frame, key).code == fuser::operation_code::unsupported_format,
                 "Unsupported HDR input must be reported explicitly.");
@@ -253,7 +324,21 @@ int main() {
             require(read_pixel(renderer, destination[0] / 2, destination[1] / 2) == pixel{0, 0, 0, 0},
                     "Video fitting must preserve transparent black inside the scaled feed.");
         }
-        std::cout << "GPU black/green/magenta alpha, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
+        // Exercise cleanup after bilinear rescaling at an actual black/white
+        // boundary rather than only uniform input samples.
+        renderer.resize(100, 70);
+        key.tolerance = 0.12F;
+        key.softness = 0.08F;
+        key.recover_black_edges = true;
+        require(renderer.draw_frame(frame, key).succeeded(), "Scaled marker edges must support cleanup.");
+        for (std::uint32_t x = 15; x < 23; ++x) {
+            const auto edge = read_pixel(renderer, x, 5);
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                require(edge[channel] <= edge[3] && edge[channel] + 255 - edge[3] >= 253,
+                        "Rescaling bright edges must not add a dark fringe over white.");
+            }
+        }
+        std::cout << "GPU key/noise/bright-edge alpha, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
         return 0;
     } catch (const winrt::hresult_error& error) {
         std::cerr << winrt::to_string(error.message()) << '\n';

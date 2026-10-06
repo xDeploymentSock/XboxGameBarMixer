@@ -129,6 +129,7 @@ d3d11_renderer::shader_parameters d3d11_renderer::parameters(
     shader_parameters result{};
     result.key_color_tolerance = {key.color[0], key.color[1], key.color[2], key.tolerance};
     result.controls = {key.softness, key.spill_suppression, key.opacity, 0.0F};
+    result.key_options[0] = key.recover_black_edges ? 1.0F : 0.0F;
     result.dimensions_sequence = {static_cast<float>(width_), static_cast<float>(height_),
                                  static_cast<float>(sequence % 256), key.enabled ? 1.0F : 0.0F};
     return result;
