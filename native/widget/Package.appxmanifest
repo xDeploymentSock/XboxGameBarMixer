@@ -4,7 +4,7 @@
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
          IgnorableNamespaces="uap uap3 mp">
-  <Identity Name="SoftwareFuser.Widget" Publisher="CN=SoftwareFuser.Development, OID.2.25.311729368913984317654407730594956997722=1" Version="0.2.0.9" />
+  <Identity Name="SoftwareFuser.Widget" Publisher="CN=SoftwareFuser.Development, OID.2.25.311729368913984317654407730594956997722=1" Version="0.2.0.10" />
   <mp:PhoneIdentity PhoneProductId="f25aa2f0-9c02-42d0-a0a9-87b4ff9d1a55" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Software Fuser</DisplayName>
@@ -23,8 +23,8 @@
       </uap:VisualElements>
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
-          <uap3:AppExtension Name="microsoft.gameBarUIExtension" Id="RemoteHud"
-              DisplayName="Software Fuser" Description="Remote transparent HUD overlay" PublicFolder="GameBar">
+          <uap3:AppExtension Name="microsoft.gameBarUIExtension" Id="RemoteHudStartupTest"
+              DisplayName="Software Fuser startup test" Description="Fixed startup size experiment" PublicFolder="GameBar">
             <uap3:Properties>
               <GameBarWidget Type="Standard">
                 <HomeMenuVisible>true</HomeMenuVisible>
@@ -32,9 +32,10 @@
                 <Window>
                   <AllowForegroundTransparency>true</AllowForegroundTransparency>
                   <Size>
-                    <Width>480</Width><Height>700</Height>
-                    <MinWidth>240</MinWidth><MinHeight>240</MinHeight>
-                    <MaxWidth>7680</MaxWidth><MaxHeight>4320</MaxHeight>
+                    <!-- Controlled PoC comparison: 2560x1440 view pixels at scale 1. -->
+                    <Width>2560</Width><Height>1440</Height>
+                    <MinWidth>2560</MinWidth><MinHeight>1440</MinHeight>
+                    <MaxWidth>2560</MaxWidth><MaxHeight>1440</MaxHeight>
                   </Size>
                   <ResizeSupported><Horizontal>true</Horizontal><Vertical>true</Vertical></ResizeSupported>
                 </Window>

@@ -28,7 +28,7 @@ Prepare a controlled in-host startup test with initial/minimum/maximum sizes all
 
 Draw the existing outer white diagnostic border, then inspect settled widget/client/render bounds and visible top, bottom, left, and right edges together. Test pin/dismiss/reopen, transparency, and click-through. Keep a Reset route available. Do not claim coverage from the initial transient layout or from the configured dimensions alone. If startup sizing passes, separately determine whether explicit Fit and typed Apply can establish and preserve the same result; a fixed startup result alone does not satisfy dynamic sizing acceptance.
 
-This experiment has **not** been built, installed, or visually tested. The installed widget remains 0.2.0.9; its previously measured settled bounds remain (0,46), 2558x1394 on a 2560x1440 display.
+The experiment is now isolated on `codex/fixed-startup-coverage`; see [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md) for its configuration and verification status. The previously measured 0.2.0.9 settled bounds remain (0,46), 2558x1394 on a 2560x1440 display.
 
 ## Host evidence and limits of the conclusion
 

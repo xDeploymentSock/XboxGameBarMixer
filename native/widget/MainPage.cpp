@@ -79,7 +79,19 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     widget_ = args.Parameter().try_as<XboxGameBarWidget>();
     fuser::widget::log(widget_ ? L"MainPage attached to Game Bar." : L"MainPage standalone.");
     if (widget_) {
-        restore_resize_limits();
+        // Preserve the manifest's fixed startup constraints for the PoC test.
+        // Explicit Fit/Apply/Reset actions can still restore flexible limits.
+        // A saved Reset from the baseline must not contaminate startup sizing.
+        reset_pending_ = false;
+        const auto minimum = widget_.MinWindowSize();
+        const auto maximum = widget_.MaxWindowSize();
+        fuser::widget::log(L"Fixed startup test: extension=" + widget_.AppExtensionId()
+            + L" min=" + to_hstring(minimum.Width) + L"x" + to_hstring(minimum.Height)
+            + L" max=" + to_hstring(maximum.Width) + L"x" + to_hstring(maximum.Height)
+            + L" horizontalResize=" + to_hstring(widget_.HorizontalResizeSupported())
+            + L" verticalResize=" + to_hstring(widget_.VerticalResizeSupported())
+            + L". No initial resize or centering request; saved Reset deferred.");
+        report(L"Startup-size test. Draw the test pattern and check all four edges before using Fit, Apply, or Reset.");
         const auto update = [weak = get_weak()](auto const&, auto const&) {
             if (const auto self = weak.get()) {
                 // Game Bar callbacks are not guaranteed to use the XAML thread.
