@@ -30,7 +30,7 @@ Earlier mostly idle source streams had near-total zero host-processing fields. M
 
 ## Remaining acceptance
 
-Version 0.2.0.1 remains installed. During an idle interval, install the prepared 0.2.0.2 package and confirm activation, visible video, normal disconnect, and its new diagnostic fields. Defer deployment and disruptive runtime/performance tests during gaming.
+Version 0.2.0.2 is installed with Windows package status OK. Its x64 package publisher matches the previous installation, and its Windows minimum version and VCLibs runtime requirement were verified before deployment. Confirm Game Bar activation, visible video, normal disconnect, and its new diagnostic fields during an idle interval. Defer deployment and disruptive runtime/performance tests during gaming.
 
 Full-monitor overlay support and black-pixel transparency are now explicit backlog items. Current shader key modes are green and magenta; transparent-black behavior has not been implemented or validated.
 

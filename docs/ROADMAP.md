@@ -2,7 +2,7 @@
 
 ## Current milestone and next priorities
 
-- Continue with prepared version 0.2.0.2. Version 0.2.0.1 remains installed; schedule the update and runtime checks for an idle interval because deployment closes the widget and opens a Windows elevation prompt.
+- Version 0.2.0.2 is installed with Windows package status OK. Confirm its Game Bar video, normal Disconnect, and diagnostic fields during an idle interval. Deployment closes the widget and opens a Windows elevation prompt.
 - Accept measured throughput above 200 FPS with the source display at 244 Hz for this milestone. Existing live measurements around 225–226 FPS exceed that threshold; finer FPS tuning and proof of 240 distinct displayed source frames per second are deferred.
 - Add full-monitor overlay support: size and place the video surface across the selected monitor, verify all four corners, and handle DPI, monitor changes, pinning, and click-through.
 - Add black-pixel transparency: expose a black-background key mode, convert keyed pixels to premultiplied transparent alpha, preserve nonblack HUD pixels, and provide a near-black tolerance for compression artifacts. Validate transparent black and opaque white/color pixels when implemented. Current source supports green and magenta key modes only.
@@ -40,7 +40,7 @@
 - Keep compressed reference ordering intact. Handle decoder backpressure and keyframe recovery explicitly; drop stale frames only after decoding.
 - Supply color metadata and frame leases. Coordinate context access, handle padded textures, and retire GPU readers before decoder-pool reuse.
 - Implemented: session controller joining previous callbacks before transport -> decoder -> mailbox -> renderer is reset/reconnected. Three native cycles reuse the session and renderer with zero decoder errors and joined stop under 174 ms. Validate UI recovery and reconnection under source/monitor faults.
-- Implemented: separate receive/decode/present-call rates, mailbox replacements, and decoder-error counters in UI/local logs. The local timestamp begins at decode-callback delivery, not first network-packet arrival. Latest source adds frame-assembly, enqueue-to-submission, queue-depth, and host-processing diagnostics; these have not replaced the installed package. Displayed FPS and end-to-end latency still need external evidence.
+- Implemented: separate receive/decode/present-call rates, mailbox replacements, and decoder-error counters in UI/local logs. The local timestamp begins at decode-callback delivery, not first network-packet arrival. Installed 0.2.0.2 adds frame-assembly, enqueue-to-submission, queue-depth, and host-processing diagnostics; their runtime checks remain pending. Displayed FPS and end-to-end latency still need external evidence.
 
 ## 5. End-to-end acceptance
 

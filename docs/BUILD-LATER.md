@@ -53,7 +53,7 @@ Replace RECEIVER_LAN_IP and SOURCE_LAN_IP with your own addresses. Open `http://
 
 The manifest uses Microsoft's Windows 11 unsigned-development publisher OID. `Deploy.ps1` checks the package identity, asks Windows for administrator elevation, and calls `Add-AppxPackage -AllowUnsigned` for this package. It does not enable global Developer Mode or install a signing certificate. This is a local development package, not a signed distribution release. See the [official unsigned-package procedure](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package).
 
-The verified Release registration is `SoftwareFuser.Widget_6g84c2f4w9w1a`, version 0.2.0.1, package status 0. A canceled UAC prompt leaves deployment unfinished; it is not success. Debug deployment additionally supplies the SDK's matching VCLibs debug framework when needed. Protected app-local pairing survives updates with this package identity.
+The verified Release registration is `SoftwareFuser.Widget_6g84c2f4w9w1a`, version 0.2.0.2, package status OK (0). A canceled UAC prompt leaves deployment unfinished; it is not success. Debug deployment additionally supplies the SDK's matching VCLibs debug framework when needed. Protected app-local pairing survives updates with this package identity.
 
 The manifest version determines the package directory under AppPackages/FuserWidget. Debug and Release verification builds have zero warnings/errors. Version 0.2.0.2 adds packet/timing, renderer-adapter LUID, and associated-display dimensions to the local runtime log; the recorded live results belong to 0.2.0.1. Use `Get-FileHash -Algorithm SHA256` to verify your built package. Deployment uses the manifest's current version and closes this widget's active process. Existing protected pairing uses the same package identity.
 
@@ -122,3 +122,15 @@ python .\tools\analyze_widget_observation.py .\build\widget-observation-YYYYMMDD
 ```
 
 The analyzer reports observed duration, profiles, counter regressions, process resources, and CPU usage as a percentage of one logical processor. Rate samples older than ten seconds (twice the widget's five-second logging period), or followed by a disconnect, are excluded from rate summaries and counted separately. A partial recording remains marked below the requested duration. Confirm the observer's exit separately: CSV duration alone does not prove process completion. These sampled rates do not establish scanout, a complete frame count, or controlled source/game workloads.
+
+## Checkpoints
+
+Save source, packages, and selected local evidence with a freshly verified installed version:
+
+```powershell
+$checkpointWidget = Get-AppxPackage -Name 'SoftwareFuser.Widget'
+if (-not $checkpointWidget -or $checkpointWidget.Status.ToString() -ne 'Ok') { throw 'Verify the installed widget before recording its version.' }
+python .\tools\create_checkpoint.py --installed-widget $checkpointWidget.Version.ToString()
+```
+
+The archive and verification receipt stay under ignored `build/checkpoints`. If the installed version cannot be verified, omit `--installed-widget`; the archive records it as unknown rather than assuming an old version. The tool verifies every archived file hash and ZIP integrity. At each checkpoint, separately inspect the authored Git changes for private data and keys, commit and push them, and confirm that the remote branch matches the local commit. Keep packages, runtime logs, credentials, and private notes excluded from publication.

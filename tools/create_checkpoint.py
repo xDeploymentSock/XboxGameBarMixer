@@ -60,9 +60,12 @@ def source_files(root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default=datetime.now().strftime("%Y%m%d-%H%M%S"))
+    parser.add_argument("--installed-widget", help="Version from a fresh Get-AppxPackage check; omit if unknown")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9-]{1,64}", args.label):
         parser.error("Label must contain 1–64 letters, digits, or hyphens")
+    if args.installed_widget is not None and not re.fullmatch(r"\d+\.\d+\.\d+\.\d+", args.installed_widget):
+        parser.error("Installed widget version must contain four numeric components")
     root = Path(__file__).resolve().parent.parent
     output_directory = root / "build/checkpoints"
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -73,7 +76,7 @@ def main():
     files = source_files(root)
     manifest = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
-        "installed_widget": "0.2.0.1", "prepared_widget": "0.2.0.2",
+        "installed_widget": args.installed_widget, "prepared_widget": "0.2.0.2",
         "limits": "Excludes installed app state, protected pairing credentials, build dependencies, and downloaded tools. Restore into a separate directory before selecting files to copy back.",
         "files": [],
     }
