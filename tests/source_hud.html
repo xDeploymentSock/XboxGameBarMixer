@@ -11,10 +11,10 @@
   p { margin: 10px 0 0; max-width: 540px; }
   #error { color: #ffaaaa; }
 </style>
-<canvas id="hud" aria-label="Animated source HUD with green or magenta background"></canvas>
+<canvas id="hud" aria-label="Animated source HUD with black, green, or magenta background"></canvas>
 <div id="controls">
   <button id="fullscreen">Fullscreen and hide controls</button>
-  <button id="key">Use magenta</button>
+  <button id="key">Use black</button>
   <button id="motion">Freeze</button>
   <p>Press H to show or hide controls. The source animation rate is separate from stream and monitor measurements.</p>
   <p id="error" role="status"></p>
@@ -25,6 +25,8 @@ const canvas = document.getElementById("hud");
 const context = canvas.getContext("2d", { alpha: false });
 const controls = document.getElementById("controls");
 let background = "#00ff00", moving = true, frame = 0, dirty = true;
+const backgrounds = ["#00ff00", "#000000", "#ff00ff"];
+const backgroundNames = ["green", "black", "magenta"];
 let intervalFrames = 0, intervalStart = performance.now(), sourceRate = 0;
 let width = 1, height = 1, visibleWidth = 1, visibleHeight = 1, scale = 1;
 function resize() {
@@ -64,6 +66,12 @@ function draw(now) {
   context.font = "22px Segoe UI";
   context.fillText(`Frame ${frame} · source animation ${moving ? sourceRate.toFixed(1) + " FPS" : "paused"} · canvas ${width} × ${height}`, 64, 78);
   context.fillText(moving ? "Changing content · H shows controls" : "Frozen content · H shows controls", 64, visibleHeight - 30);
+  // These patches expose over-aggressive black thresholds and colour spill.
+  ["#010101", "#101010", "#808080", "#ff0000", "#00ff00", "#0000ff"].forEach((colour, index) => {
+    context.fillStyle = colour;
+    context.fillRect(64 + index * 56, 110, 40, 40);
+  });
+  context.fillStyle = "#ffffff";
   const phase = (frame % 480) / 480;
   const x = 64 + Math.max(0, visibleWidth - 192) * phase;
   const y = visibleHeight / 2 + Math.sin(phase * Math.PI * 4) * visibleHeight / 6;
@@ -86,10 +94,11 @@ document.getElementById("fullscreen").addEventListener("click", async () => {
   } catch (error) { document.getElementById("error").textContent = error.message; }
 });
 document.getElementById("key").addEventListener("click", event => {
-  background = background === "#00ff00" ? "#ff00ff" : "#00ff00";
+  const index = (backgrounds.indexOf(background) + 1) % backgrounds.length;
+  background = backgrounds[index];
   dirty = true;
   document.body.style.background = background;
-  event.target.textContent = background === "#00ff00" ? "Use magenta" : "Use green";
+  event.target.textContent = "Use " + backgroundNames[(index + 1) % backgrounds.length];
 });
 document.getElementById("motion").addEventListener("click", event => {
   moving = !moving;

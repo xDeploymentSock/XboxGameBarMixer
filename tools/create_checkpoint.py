@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import xml.etree.ElementTree as ET
 import zipfile
 
 
@@ -47,7 +48,7 @@ EVIDENCE_FILES = (
 )
 
 
-def source_files(root):
+def source_files(root, extra_files=()):
     selected = {root / name for name in ROOT_FILES}
     for directory in SOURCE_DIRECTORIES:
         for folder, subdirectories, filenames in os.walk(root / directory, followlinks=False):
@@ -59,6 +60,7 @@ def source_files(root):
                 if path.suffix.lower() not in EXCLUDED_SUFFIXES and not path.is_symlink():
                     selected.add(path)
     selected.update(root / name for name in EVIDENCE_FILES)
+    selected.update(root / name for name in extra_files)
     for path in selected:
         if not path.resolve().is_relative_to(root) or not path.is_file():
             raise ValueError(f"Missing or outside-workspace checkpoint input: {path}")
@@ -69,22 +71,34 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default=datetime.now().strftime("%Y%m%d-%H%M%S"))
     parser.add_argument("--installed-widget", help="Version from a fresh Get-AppxPackage check; omit if unknown")
+    parser.add_argument("--evidence", action="append", default=[], help="Additional workspace-relative evidence file")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9-]{1,64}", args.label):
         parser.error("Label must contain 1–64 letters, digits, or hyphens")
     if args.installed_widget is not None and not re.fullmatch(r"\d+\.\d+\.\d+\.\d+", args.installed_widget):
         parser.error("Installed widget version must contain four numeric components")
     root = Path(__file__).resolve().parent.parent
+    namespace = {"appx": "http://schemas.microsoft.com/appx/manifest/foundation/windows10"}
+    identity = ET.parse(root / "native/widget/Package.appxmanifest").find("appx:Identity", namespace)
+    version = identity.attrib["Version"]
+    package = f"AppPackages/FuserWidget/FuserWidget_{version}_x64_Test/FuserWidget_{version}_x64.msix"
+    # Read the actual built package instead of assuming a version from source.
+    with zipfile.ZipFile(root / package) as built_package:
+        built_identity = ET.fromstring(built_package.read("AppxManifest.xml")).find("appx:Identity", namespace)
+        if built_identity.attrib["Version"] != version or built_identity.attrib["Name"] != identity.attrib["Name"]:
+            raise ValueError("Prepared package identity does not match source")
+    current_evidence = [package, f"build/prepared-widget-{version}.json",
+                        f"build/widget-Release-{version}.log", f"build/widget-Debug-{version}.log"]
     output_directory = root / "build/checkpoints"
     output_directory.mkdir(parents=True, exist_ok=True)
     archive_path = output_directory / f"software-fuser-{args.label}.zip"
     receipt_path = archive_path.with_suffix(".json")
     if archive_path.exists() or receipt_path.exists():
         parser.error("Checkpoint already exists; use a new label")
-    files = source_files(root)
+    files = source_files(root, current_evidence + args.evidence)
     manifest = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
-        "installed_widget": args.installed_widget, "prepared_widget": "0.2.0.2",
+        "installed_widget": args.installed_widget, "prepared_widget": built_identity.attrib["Version"],
         "limits": "Excludes installed app state, protected pairing credentials, build dependencies, and downloaded tools. Restore into a separate directory before selecting files to copy back.",
         "files": [],
     }

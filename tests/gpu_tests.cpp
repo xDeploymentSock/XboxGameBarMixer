@@ -104,6 +104,12 @@ int main() {
         key.color = {1.0F, 0.0F, 1.0F};
         renderer.draw_diagnostic(key, 0);
         require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0}, "Magenta diagnostic background must be transparent black.");
+        key.color = {0.0F, 0.0F, 0.0F};
+        key.tolerance = 0.0F;
+        key.softness = 0.0F;
+        renderer.draw_diagnostic(key, 0);
+        require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0}, "Black diagnostic background must be transparent black.");
+        require(read_pixel(renderer, 0, 0) == pixel{255, 255, 255, 255}, "Black key must preserve white corner markers.");
         key.opacity = 0.5F;
         renderer.draw_diagnostic(key, 0);
         const auto half_white = read_pixel(renderer, 0, 0);
@@ -135,9 +141,59 @@ int main() {
         frame.range = fuser::color_range::limited;
         key.enabled = true;
         key.color = {0.0F, 1.0F, 0.0F};
+        key.tolerance = 0.12F;
+        key.softness = 0.08F;
         require(renderer.draw_frame(frame, key).succeeded(), "Limited-range green NV12 frame must be accepted.");
         require(lease.expired(), "Completed GPU readers must release old surface leases.");
         require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0}, "NV12-converted green must be removed by chroma keying.");
+
+        // Exercise the actual NV12 shader path in both stream colour ranges.
+        key.color = {0.0F, 0.0F, 0.0F};
+        key.tolerance = 0.0F;
+        key.softness = 0.0F;
+        frame.matrix = fuser::color_matrix::bt709;
+        for (const auto range : {fuser::color_range::limited, fuser::color_range::full}) {
+            frame.range = range;
+            const bool limited = range == fuser::color_range::limited;
+            texture = make_nv12(renderer, limited ? 16 : 0, 128, 128);
+            frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+            require(renderer.draw_frame(frame, key).succeeded(), "Black NV12 frame must be accepted.");
+            require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0}, "Decoded black must produce zero premultiplied RGB and alpha.");
+
+            texture = make_nv12(renderer, limited ? 17 : 1, 128, 128);
+            frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+            require(renderer.draw_frame(frame, key).succeeded(), "Near-black NV12 frame must be accepted.");
+            const auto dark = read_pixel(renderer, 6, 22);
+            require(dark[0] > 0 && dark[1] > 0 && dark[2] > 0 && dark[3] == 255,
+                    "Exact black mode must preserve nonblack dark HUD pixels.");
+
+            texture = make_nv12(renderer, limited ? 235 : 255, 128, 128);
+            frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+            require(renderer.draw_frame(frame, key).succeeded(), "White NV12 frame must be accepted.");
+            require(read_pixel(renderer, 6, 22) == pixel{255, 255, 255, 255}, "Black key must preserve decoded white.");
+        }
+        frame.range = fuser::color_range::full;
+        texture = make_nv12(renderer, 100, 128, 128);
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        key.tolerance = 0.6F;
+        key.softness = 0.2F;
+        require(renderer.draw_frame(frame, key).succeeded(), "Soft black-key edge must be accepted.");
+        const auto soft = read_pixel(renderer, 6, 22);
+        require(soft[3] > 0 && soft[3] < 255 && close_to(soft[0], 100 * soft[3] / 255)
+                && soft[0] == soft[1] && soft[1] == soft[2], "Soft black-key edges must remain neutral and premultiplied.");
+        key.tolerance = 0.02F;
+        key.softness = 0.0F;
+        texture = make_nv12(renderer, 2, 128, 128);
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        require(renderer.draw_frame(frame, key).succeeded(), "Black-key noise tolerance must be accepted.");
+        require(read_pixel(renderer, 6, 22) == pixel{0, 0, 0, 0}, "Optional tolerance must remove near-black compression noise.");
+        texture = make_nv12(renderer, 145, 54, 34);
+        frame.matrix = fuser::color_matrix::bt601;
+        frame.range = fuser::color_range::limited;
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        require(renderer.draw_frame(frame, key).succeeded(), "Coloured HUD under black key must be accepted.");
+        const auto green_hud = read_pixel(renderer, 6, 22);
+        require(green_hud[1] >= 254 && green_hud[3] == 255, "Black key must preserve coloured HUD pixels without spill suppression.");
         frame.format = fuser::pixel_format::p010;
         require(renderer.draw_frame(frame, key).code == fuser::operation_code::unsupported_format,
                 "Unsupported HDR input must be reported explicitly.");
@@ -166,7 +222,7 @@ int main() {
         renderer.resize(128, 96);
         renderer.draw_diagnostic(key, 0);
         require(read_pixel(renderer, 127, 95) == pixel{255, 255, 255, 255}, "Resize must recreate the render target and viewport.");
-        std::cout << "GPU alpha, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
+        std::cout << "GPU black/green/magenta alpha, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
         return 0;
     } catch (const winrt::hresult_error& error) {
         std::cerr << winrt::to_string(error.message()) << '\n';

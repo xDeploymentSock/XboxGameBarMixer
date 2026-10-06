@@ -19,6 +19,8 @@ struct MainPage : MainPageT<MainPage> {
     void draw_preview_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void clear_preview_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void fit_monitor_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void cover_monitor_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     void shutdown() noexcept;
 
@@ -27,6 +29,8 @@ private:
     void load_profile();
     void attach_renderer();
     void update_widget_state();
+    void schedule_monitor_fit();
+    void update_coverage();
     fire_and_forget fit_monitor_async();
     fire_and_forget control_async(bool pairing);
     fire_and_forget connect_async();
@@ -41,7 +45,10 @@ private:
     std::shared_ptr<fuser::windows::d3d11_renderer> renderer_;
     std::vector<fuser::host_application> applications_;
     Windows::UI::Xaml::DispatcherTimer stats_timer_{nullptr};
+    Windows::UI::Xaml::DispatcherTimer fit_timer_{nullptr};
+    Windows::Graphics::Display::DisplayInformation display_{nullptr};
     bool busy_{}, streaming_{};
+    bool loading_profile_{true}, fitting_monitor_{}, fit_pending_{};
     std::atomic<bool> shutting_down_{};
     fuser::pipeline_statistics previous_counters_;
     fuser::monotonic_time previous_sample_{};
@@ -51,6 +58,10 @@ private:
     event_token opacity_token_{};
     event_token mode_token_{};
     event_token click_token_{};
+    event_token bounds_token_{};
+    event_token dpi_token_{};
+    event_token orientation_token_{};
+    event_token contents_token_{};
     std::uint64_t diagnostic_sequence_{};
 };
 

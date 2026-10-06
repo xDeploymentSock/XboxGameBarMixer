@@ -2,9 +2,13 @@
 
 Source framework for a transparent Xbox Game Bar HUD receiving a Sunshine/Moonlight video stream from another PC.
 
-Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, reserved green or magenta source background, local mouse/keyboard input. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; finer FPS tuning is deferred. Full-monitor coverage and black-pixel transparency are planned features.
+Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, green, or magenta source background, local mouse/keyboard input. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; finer FPS tuning is deferred. Full-monitor coverage remains under investigation.
 
 ## Current state
+
+Version 0.2.0.3 is built in Debug and Release with zero warnings/errors and installed with Windows package status OK. It adds a saved Black background option, exact-black defaults, optional near-black tolerance, and automatic monitor fitting on activation, pinning transitions, and display/DPI changes. Core and hardware shader contracts pass in both configurations. On this runtime, Game Bar rejects 2560x1440 and retains 2551x1389 content even when pinned; full-monitor coverage is incomplete.
+
+Choose **Black**, use zero tolerance and softness to preserve nonblack HUD pixels, and **Save profile** to apply the key to a live stream. Raise tolerance only as needed for compressed near-black noise. Existing saved green/magenta profiles retain their indices. **Cover this monitor** persists independently; **Fit monitor now** requests another fit. The settings show actual video dimensions and report host constraints rather than claiming full coverage. `tests/source_hud.html` cycles green, black, and magenta and includes corner markers and dark/coloured patches.
 
 Version 0.2 includes Sunshine PIN pairing, protected app-local credentials, authenticated application selection, Moonlight transport, hardware FFmpeg decoding, and a render worker connected through a single-frame mailbox. Release builds without warnings or errors. Six controlled pairing/storage tests pass, including wrong PINs, forged signatures, TLS public-key changes, forbidden XML DOCTYPEs, and encrypted credential round-trips. The six core/GPU/decoder tests pass in Debug and Release, including concurrent H.264/HEVC decoding and presentation of inter-coded fixtures.
 
@@ -41,10 +45,10 @@ The preview draws **one local test frame per request**. Stream setup FPS and mea
 
 ## Next work
 
-Continue using installed 0.2.0.2 at the accepted above-200-FPS throughput milestone. Its live pipeline and normal Disconnect have log evidence; further visual, lifecycle, and controlled workload checks remain future validation. Deployment closes the widget and opens a Windows elevation prompt. While gaming, defer deployment and any test that changes displays, stops streams, opens an overlay, or adds substantial GPU load.
+The installed version is 0.2.0.3. Version 0.2.0.2 established the accepted above-200-FPS live pipeline checkpoint. Full-monitor placement and on-screen black-key acceptance remain pending. Deployment closes the widget and opens a Windows elevation prompt. While gaming, defer deployment and tests that interrupt the user's session or add substantial GPU load.
 
-- Add full-monitor overlay sizing and placement, including DPI and monitor changes.
-- Add a black-background key mode that converts black pixels to transparent alpha; the current key modes are green and magenta.
+- Resolve the reproduced Game Bar size constraint and verify four-corner coverage, DPI, and monitor changes.
+- Confirm on-screen black transparency and click-through; decoded full/limited-range black, nonblack preservation, and premultiplied soft edges pass GPU tests.
 - Defer fine FPS tuning while the measured pipeline remains above 200 FPS.
 
 Read [the architecture](docs/ARCHITECTURE.md), [build and deployment instructions](docs/BUILD-LATER.md), and [the implementation backlog](docs/ROADMAP.md). At each checkpoint, verify and commit the important source/documentation changes, push them to the configured Git remote, and confirm the remote commit matches. Keep local evidence archives and private data excluded.

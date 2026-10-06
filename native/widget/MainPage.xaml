@@ -18,7 +18,10 @@
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
-                    <Button Content="Request monitor-sized widget" Click="fit_monitor_click" />
+                    <CheckBox x:Name="CoverMonitor" Content="Cover this monitor" IsChecked="True"
+                              Checked="cover_monitor_changed" Unchecked="cover_monitor_changed" />
+                    <Button Content="Fit monitor now" Click="fit_monitor_click" />
+                    <TextBlock x:Name="CoverageText" TextWrapping="Wrap" FontSize="12" />
                     <TextBox x:Name="HostAddress" Header="Source PC IP address or hostname"
                              PlaceholderText="Enter your Sunshine host" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -39,11 +42,14 @@
                     <ComboBox x:Name="VideoCodec" Header="Codec" SelectedIndex="1" HorizontalAlignment="Stretch">
                         <ComboBoxItem Content="H.264" /><ComboBoxItem Content="HEVC" />
                     </ComboBox>
-                    <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="0" HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" />
+                    <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="2" HorizontalAlignment="Stretch"
+                              SelectionChanged="key_color_changed">
+                        <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" /><ComboBoxItem Content="Black" />
                     </ComboBox>
-                    <Slider x:Name="KeyTolerance" Header="Key tolerance" Minimum="0" Maximum="1" Value="0.12" />
-                    <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0.08" />
+                    <TextBlock Text="Black with zero tolerance and softness removes only black. Raise tolerance to remove compression noise. Save profile to apply changes."
+                               TextWrapping="Wrap" FontSize="12" />
+                    <Slider x:Name="KeyTolerance" Header="Key tolerance" Minimum="0" Maximum="1" Value="0" />
+                    <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0" />
                     <Slider x:Name="KeyOpacity" Header="HUD opacity" Minimum="0" Maximum="1" Value="1" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Save profile" Click="save_profile_click" />

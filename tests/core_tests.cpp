@@ -1,5 +1,6 @@
 #include <fuser/configuration.h>
 #include <fuser/latest_frame_mailbox.h>
+#include <fuser/monitor_layout.h>
 
 #include <cmath>
 #include <iostream>
@@ -41,6 +42,19 @@ int main() {
         configuration.stream.frames_per_second = 240;
         configuration.key.opacity = std::numeric_limits<float>::quiet_NaN();
         require(!fuser::validate(configuration).empty(), "NaN cannot reach a shader");
+
+        const auto monitor = fuser::monitor_view_extent(2560, 1440, 1.0);
+        require(fuser::matches_monitor_extent(2560, 1440, monitor, 1.0), "1440p coverage uses the whole display");
+        require(!fuser::matches_monitor_extent(1920, 1080, monitor, 1.0), "a smaller widget cannot count as full coverage");
+        const auto scaled_monitor = fuser::monitor_view_extent(2560, 1440, 1.5);
+        require(fuser::matches_monitor_extent(1707, 960, scaled_monitor, 1.5), "fractional DPI allows one physical pixel of rounding");
+        require(!fuser::matches_monitor_extent(1705, 960, scaled_monitor, 1.5), "fractional DPI must not hide clipped pixels");
+        const auto second_monitor = fuser::monitor_view_extent(1920, 1080, 1.25);
+        require(fuser::matches_monitor_extent(1536, 864, second_monitor, 1.25), "moving to a different display uses its own size and DPI");
+        bool invalid_display_rejected{};
+        try { (void)fuser::monitor_view_extent(2560, 1440, 0.0); }
+        catch (const std::invalid_argument&) { invalid_display_rejected = true; }
+        require(invalid_display_rejected, "invalid display scale must not reach Game Bar");
 
         fuser::latest_frame_mailbox mailbox;
         require(!mailbox.take_latest(), "empty mailbox has no frame");

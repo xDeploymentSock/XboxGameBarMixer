@@ -3,6 +3,7 @@
 #include "MainPage.g.cpp"
 #include "RuntimeLog.h"
 #include "AppCredentials.h"
+#include <fuser/monitor_layout.h>
 #include <windows.ui.composition.interop.h>
 
 #include <algorithm>
@@ -43,6 +44,7 @@ std::uint32_t pixels(double logical_size, double scale) {
 MainPage::MainPage() {
     InitializeComponent();
     load_profile();
+    loading_profile_ = false;
     const auto folder = Windows::Storage::ApplicationData::Current().LocalFolder().Path();
     control_ = std::make_shared<fuser::streaming::sunshine_control>(
         std::make_shared<fuser::widget::app_credentials>(std::filesystem::path{folder.c_str()}));
@@ -54,10 +56,19 @@ MainPage::MainPage() {
     stats_timer_.Tick([weak = get_weak()](auto const&, auto const&) {
         if (const auto self = weak.get()) { self->update_statistics(); }
     });
+    fit_timer_ = DispatcherTimer{};
+    fit_timer_.Interval(std::chrono::milliseconds{200});
+    fit_timer_.Tick([weak = get_weak()](auto const&, auto const&) {
+        if (const auto self = weak.get()) {
+            self->fit_timer_.Stop();
+            self->fit_monitor_async();
+        }
+    });
     Loaded([weak = get_weak()](auto const&, auto const&) {
         if (const auto self = weak.get()) {
             fuser::widget::log(L"Page loaded; video host=" + to_hstring(self->VideoHost().ActualWidth())
                 + L"x" + to_hstring(self->VideoHost().ActualHeight()));
+            self->schedule_monitor_fit();
         }
     });
     fuser::widget::log(L"MainPage created.");
@@ -84,7 +95,33 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
         opacity_token_ = widget_.RequestedOpacityChanged(update);
         mode_token_ = widget_.GameBarDisplayModeChanged(update);
         click_token_ = widget_.ClickThroughEnabledChanged(update);
+        bounds_token_ = widget_.WindowBoundsChanged([weak = get_weak()](auto const&, auto const&) {
+            if (const auto self = weak.get()) {
+                const auto ignored = self->Dispatcher().RunAsync(
+                    Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
+                        if (const auto page = weak.get()) { page->update_coverage(); }
+                    });
+                (void)ignored;
+            }
+        });
     }
+    display_ = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+    const auto display_changed = [weak = get_weak()](auto const&, auto const&) {
+        if (const auto self = weak.get()) {
+            const auto ignored = self->Dispatcher().RunAsync(
+                Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
+                    if (const auto page = weak.get()) {
+                        // DPI can change without a change to the logical XAML size.
+                        page->video_host_size_changed(nullptr, nullptr);
+                        page->schedule_monitor_fit();
+                    }
+                });
+            (void)ignored;
+        }
+    };
+    dpi_token_ = display_.DpiChanged(display_changed);
+    orientation_token_ = display_.OrientationChanged(display_changed);
+    contents_token_ = Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated(display_changed);
     update_widget_state();
 }
 
@@ -100,8 +137,12 @@ fuser::overlay_configuration MainPage::read_profile(bool require_host) {
     case 1: result.stream.codec = fuser::video_codec::hevc; break;
     default: throw std::invalid_argument{"Select a codec."};
     }
-    result.key.color = KeyColor().SelectedIndex() == 1
-        ? std::array<float, 3>{1.0F, 0.0F, 1.0F} : std::array<float, 3>{0.0F, 1.0F, 0.0F};
+    switch (KeyColor().SelectedIndex()) {
+    case 0: result.key.color = {0.0F, 1.0F, 0.0F}; break;
+    case 1: result.key.color = {1.0F, 0.0F, 1.0F}; break;
+    case 2: result.key.color = {0.0F, 0.0F, 0.0F}; break;
+    default: throw std::invalid_argument{"Select a source background."};
+    }
     result.key.tolerance = static_cast<float>(KeyTolerance().Value());
     result.key.softness = static_cast<float>(KeySoftness().Value());
     result.key.opacity = static_cast<float>(KeyOpacity().Value());
@@ -129,8 +170,14 @@ void MainPage::load_profile() {
         VideoCodec().SelectedIndex(index >= 0 && index <= 1 ? index : 1);
     }
     if (values.HasKey(L"KeyColor")) {
-        const auto index = unbox_value_or<int32_t>(values.Lookup(L"KeyColor"), 0);
-        KeyColor().SelectedIndex(index == 1 ? 1 : 0);
+        const auto index = unbox_value_or<int32_t>(values.Lookup(L"KeyColor"), 2);
+        KeyColor().SelectedIndex(index >= 0 && index <= 2 ? index : 2);
+    }
+    const bool black = KeyColor().SelectedIndex() == 2;
+    KeyTolerance().Value(black ? 0.0 : 0.12);
+    KeySoftness().Value(black ? 0.0 : 0.08);
+    if (values.HasKey(L"CoverMonitor")) {
+        CoverMonitor().IsChecked(unbox_value_or<bool>(values.Lookup(L"CoverMonitor"), true));
     }
     const auto restore_slider = [&values](hstring const& name, auto const& slider) {
         if (values.HasKey(name)) {
@@ -409,6 +456,7 @@ void MainPage::clear_preview_click(IInspectable const&, RoutedEventArgs const&) 
 }
 
 void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs const&) {
+    update_coverage();
     if (!renderer_ || VideoHost().ActualWidth() < 1.0 || VideoHost().ActualHeight() < 1.0) {
         return;
     }
@@ -427,30 +475,97 @@ void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs
 }
 
 void MainPage::fit_monitor_click(IInspectable const&, RoutedEventArgs const&) {
-    fit_monitor_async();
+    if (!CoverMonitor().IsChecked().Value()) { CoverMonitor().IsChecked(true); }
+    else { schedule_monitor_fit(); }
+}
+
+void MainPage::key_color_changed(IInspectable const&, Controls::SelectionChangedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    const bool black = KeyColor().SelectedIndex() == 2;
+    KeyTolerance().Value(black ? 0.0 : 0.12);
+    KeySoftness().Value(black ? 0.0 : 0.08);
+}
+
+void MainPage::cover_monitor_changed(IInspectable const&, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    try {
+        Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
+            L"CoverMonitor", box_value(CoverMonitor().IsChecked().Value()));
+        if (CoverMonitor().IsChecked().Value()) { schedule_monitor_fit(); }
+        else { fit_timer_.Stop(); update_coverage(); }
+    } catch (const hresult_error& error) { report(error.message()); }
+}
+
+void MainPage::schedule_monitor_fit() {
+    if (loading_profile_ || shutting_down_ || !widget_ || !CoverMonitor().IsChecked().Value()) { return; }
+    if (fitting_monitor_) { fit_pending_ = true; return; }
+    fit_timer_.Stop();
+    fit_timer_.Start();
+}
+
+void MainPage::update_coverage() {
+    if (loading_profile_ || shutting_down_ || !widget_) { return; }
+    try {
+        const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+        const auto scale = display.RawPixelsPerViewPixel();
+        const auto expected = fuser::monitor_view_extent(
+            display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
+        const auto bounds = widget_.WindowBounds();
+        const bool matched = fuser::matches_monitor_extent(bounds.Width, bounds.Height, expected, scale)
+            && fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
+        const auto message = (matched ? hstring{L"Monitor size matched. "} : hstring{L"Monitor coverage constrained. "})
+            + L"Video area " + to_hstring(std::round(VideoHost().ActualWidth() * scale))
+            + L" x " + to_hstring(std::round(VideoHost().ActualHeight() * scale))
+            + L" / monitor " + to_hstring(display.ScreenWidthInRawPixels())
+            + L" x " + to_hstring(display.ScreenHeightInRawPixels())
+            + (matched ? L". Check all four corner markers."
+                : L". Pin and close Game Bar to retry without its menu.");
+        if (CoverageText().Text() != message) {
+            CoverageText().Text(message);
+            fuser::widget::log(message + L" Bounds: x=" + to_hstring(bounds.X)
+                + L" y=" + to_hstring(bounds.Y) + L" width=" + to_hstring(bounds.Width)
+                + L" height=" + to_hstring(bounds.Height) + L" scale=" + to_hstring(scale));
+        }
+    } catch (const hresult_error& error) { fuser::widget::log(L"Coverage query: " + error.message()); }
+      catch (const std::exception& error) { fuser::widget::log(to_hstring(error.what())); }
 }
 
 fire_and_forget MainPage::fit_monitor_async() {
     const auto lifetime = get_strong();
+    const auto foreground = Dispatcher();
+    if (shutting_down_ || fitting_monitor_ || !CoverMonitor().IsChecked().Value()) { co_return; }
+    fitting_monitor_ = true;
+    fit_pending_ = false;
     try {
         if (!widget_) {
             report(L"Open the widget through Game Bar before requesting its size.");
-            co_return;
-        }
+        } else {
         const auto widget = widget_;
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
-        const Size requested{static_cast<float>(display.ScreenWidthInRawPixels() / scale),
-                             static_cast<float>(display.ScreenHeightInRawPixels() / scale)};
+        const auto extent = fuser::monitor_view_extent(
+            display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
+        const Size requested{extent.width, extent.height};
         widget.MaxWindowSize(requested);
-        const auto resized = co_await widget.TryResizeWindowAsync(requested);
-        co_await widget.CenterWindowAsync();
-        const auto bounds = widget.WindowBounds();
-        report((resized ? hstring{L"Resize accepted. Actual widget: "} : hstring{L"Resize constrained. Actual widget: "})
-            + to_hstring(bounds.Width) + L" x " + to_hstring(bounds.Height)
-            + L" logical units. Verify corner coverage separately.");
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            const auto resized = co_await widget.TryResizeWindowAsync(requested);
+            if (shutting_down_ || !CoverMonitor().IsChecked().Value()) { break; }
+            co_await widget.CenterWindowAsync();
+            // Allow the hosted view to receive its layout change before checking it.
+            co_await resume_after(std::chrono::milliseconds{150});
+            co_await resume_foreground(foreground);
+            if (shutting_down_) { break; }
+            update_coverage();
+            fuser::widget::log(L"Monitor fit: resizeAccepted=" + to_hstring(resized)
+                + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
+            if (fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), extent, scale)
+                || widget.GameBarDisplayMode() != XboxGameBarDisplayMode::PinnedOnly) { break; }
+        }
+        }
     } catch (const hresult_error& error) { report(error.message()); }
       catch (const std::exception& error) { report(to_hstring(error.what())); }
+    fitting_monitor_ = false;
+    if (fit_pending_) { schedule_monitor_fit(); }
 }
 
 void MainPage::update_widget_state() {
@@ -472,6 +587,7 @@ void MainPage::update_widget_state() {
             + L" requestedOpacity=" + to_hstring(widget_.RequestedOpacity())
             + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled()));
     }
+    schedule_monitor_fit();
 }
 
 void MainPage::report(hstring const& message) {
@@ -483,6 +599,7 @@ void MainPage::shutdown() noexcept {
     fuser::widget::log(L"MainPage shutting down.");
     shutting_down_ = true;
     if (stats_timer_) { stats_timer_.Stop(); }
+    if (fit_timer_) { fit_timer_.Stop(); }
     if (control_) { control_->cancel(); }
     if (session_) {
         session_->cancel();
@@ -493,7 +610,14 @@ void MainPage::shutdown() noexcept {
             widget_.RequestedOpacityChanged(opacity_token_);
             widget_.GameBarDisplayModeChanged(mode_token_);
             widget_.ClickThroughEnabledChanged(click_token_);
+            widget_.WindowBoundsChanged(bounds_token_);
             widget_ = nullptr;
+        }
+        if (display_) {
+            display_.DpiChanged(dpi_token_);
+            display_.OrientationChanged(orientation_token_);
+            Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated(contents_token_);
+            display_ = nullptr;
         }
         ElementCompositionPreview::SetElementChildVisual(VideoHost(), nullptr);
         visual_ = nullptr;

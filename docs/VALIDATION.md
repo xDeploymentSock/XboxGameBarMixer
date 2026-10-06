@@ -4,6 +4,8 @@ The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox G
 
 ## Completed checks
 
+- Version 0.2.0.3 builds in Debug and Release with zero warnings/errors and is installed with Windows package status OK. Both core/GPU contract suites pass. Black diagnostic and full/limited-range NV12 pixels produce zero premultiplied RGB/alpha; white, coloured, and one-code-value-above-black pixels remain opaque at exact-black settings. Optional noise tolerance and neutral premultiplied soft edges are covered.
+
 - Debug and Release UWP/C++/XAML/HLSL builds completed with zero warnings/errors.
 - Six core/GPU/decoder contracts passed in both configurations, including concurrent H.264/HEVC decoding and presentation of owned inter-coded fixtures.
 - Six controlled pairing/storage tests passed, covering wrong PINs, forged signatures, TLS public-key changes, forbidden XML DOCTYPEs, and encrypted credential round-trips. These fixtures generate temporary keys; no production credentials are committed.
@@ -39,7 +41,7 @@ A separate three-minute passive observer finished successfully with 37 observati
 
 Version 0.2.0.2's x64 package publisher matches the previous installation, and its Windows minimum version and VCLibs runtime requirement were verified before deployment. Current-process logs verify activation, the live pipeline, normal Disconnect, and the new diagnostic fields. Further visual confirmation and broader lifecycle checks remain future validation. Defer deployment and disruptive runtime/performance tests during gaming.
 
-Full-monitor overlay support and black-pixel transparency are now explicit backlog items. Current shader key modes are green and magenta; transparent-black behavior has not been implemented or validated.
+Version 0.2.0.3 exposes green, magenta, and black keys. GPU black-alpha contracts pass; visible black-key and click-through acceptance is pending. Automatic fitting is implemented, but current-process logs show rejected 2560x1440 resize requests with 2551x1389 content at scale 1, including two attempts in pinned mode. Full-monitor coverage is incomplete. The SDK exposes sizing and centering requests, whose documented bounds rules can resize or reposition content. An open [resize-limit report](https://github.com/microsoft/XboxGameBarSamples/issues/141) and [fullscreen feature request](https://github.com/microsoft/XboxGameBarSamples/issues/111) describe related limitations; they do not establish a workaround on this runtime.
 
 For later FPS tuning, use the fullscreen owned source HUD to establish animation rate and changing frame IDs, isolate one streaming client, inspect keying/corner alignment, and record the instrumented widget's receive/decode/Present, packet-gap, queue, and timing counters. Compare stock Moonlight on the same profile and PCs. Then test representative local-game load, Game Bar lifecycle/reconnect, source restart, DPI/monitor changes, and device removal.
 
