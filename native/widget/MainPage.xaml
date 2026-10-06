@@ -5,7 +5,7 @@
     <Grid Background="Transparent">
         <Grid x:Name="VideoHost" Background="Transparent" SizeChanged="video_host_size_changed" />
         <Border x:Name="SettingsCard" Background="#E6202530" Padding="20"
-                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16">
+                HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="16">
             <ScrollViewer MaxHeight="660" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Width="360" Spacing="10">
                     <TextBlock Text="Software Fuser" FontSize="24" FontWeight="SemiBold" />
@@ -14,13 +14,16 @@
                         <Button Content="Draw test pattern" Click="draw_preview_click" />
                         <Button Content="Clear" Click="clear_preview_click" />
                     </StackPanel>
+                    <Button Content="Reset widget position" Click="reset_position_click" />
                     <TextBlock x:Name="StatusText" Text="Idle. Pair with Sunshine, then select an application."
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
-                    <CheckBox x:Name="CoverMonitor" Content="Cover this monitor" IsChecked="True"
+                    <CheckBox x:Name="CoverMonitor" Content="Cover this monitor when pinned" IsChecked="True"
                               Checked="cover_monitor_changed" Unchecked="cover_monitor_changed" />
                     <Button Content="Fit monitor now" Click="fit_monitor_click" />
+                    <TextBlock Text="Pin the widget and close Game Bar to fit the overlay. Reopen Game Bar to move it or reset its position."
+                               TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="CoverageText" TextWrapping="Wrap" FontSize="12" />
                     <TextBox x:Name="HostAddress" Header="Source PC IP address or hostname"
                              PlaceholderText="Enter your Sunshine host" />

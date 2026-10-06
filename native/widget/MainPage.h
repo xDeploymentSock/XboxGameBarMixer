@@ -19,6 +19,7 @@ struct MainPage : MainPageT<MainPage> {
     void draw_preview_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void clear_preview_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void fit_monitor_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void reset_position_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void cover_monitor_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
@@ -32,6 +33,7 @@ private:
     void schedule_monitor_fit();
     void update_coverage();
     void log_view_geometry();
+    void restore_resize_limits();
     fire_and_forget fit_monitor_async();
     fire_and_forget control_async(bool pairing);
     fire_and_forget connect_async();
@@ -50,6 +52,9 @@ private:
     Windows::Graphics::Display::DisplayInformation display_{nullptr};
     bool busy_{}, streaming_{};
     bool loading_profile_{true}, fitting_monitor_{}, fit_pending_{};
+    bool reset_pending_{}, settings_fit_pending_{}, layout_visible_{};
+    int layout_mode_{-1};
+    std::uint64_t layout_revision_{};
     std::atomic<bool> shutting_down_{};
     fuser::pipeline_statistics previous_counters_;
     fuser::monotonic_time previous_sample_{};
