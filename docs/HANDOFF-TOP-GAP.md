@@ -8,9 +8,9 @@ The user permits manual intervention to establish coverage, but their latest tes
 
 ## Current state
 
-- The `codex/fixed-startup-coverage` branch prepares a 0.2.0.10 startup-size experiment while main remains at a6a9a85. Read [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md) for the exact configuration, build evidence, and pending live procedure. The test uses a fresh extension ID but the original package identity. The installed baseline remains 0.2.0.9; no experiment deployment or coverage result is claimed.
+- The `codex/fixed-startup-coverage` branch contains a 0.2.0.10 startup-size experiment while main remains at a6a9a85. Read [FIXED-STARTUP-TEST.md](FIXED-STARTUP-TEST.md) for the exact configuration, build evidence, and pending live procedure. After the user's explicit install request, the experiment is installed with status OK, a fresh extension ID, and the original package identity. The 0.2.0.9 source/package baseline is preserved; no live coverage result is claimed.
 
-- Installed package: SoftwareFuser.Widget, version 0.2.0.9, status OK. Pairing is retained in protected app-local storage.
+- Installed package on the test branch: SoftwareFuser.Widget, version 0.2.0.10, status OK. The preceding baseline was 0.2.0.9. Pairing is retained in protected app-local storage under the same package identity.
 - Feature commit: b957ff0cf893d4ee4e9386fcf21b4aae84372e07. Follow-up evidence commit: acd297635917584f2acd6a1d21ad520f38f8d4c2. Both were pushed to main at https://github.com/xDeploymentSock/XboxGameBarMixer.git.
 - The checkout was clean at handoff preparation. Read the current HEAD rather than assuming it stays at these revisions.
 - Debug and Release widget builds: zero warnings/errors. Focused core contracts: 1/1 pass in each configuration. These checks prove code/build behavior, not successful on-screen coverage.

@@ -12,7 +12,7 @@ Explicit Fit, Apply dimensions, and Reset retain their previous behavior and res
 
 ## Build and live procedure
 
-Build using the existing [build commands](BUILD-LATER.md). Building does not install the experiment. Until an explicit test deployment, the installed baseline remains 0.2.0.9.
+Build using the existing [build commands](BUILD-LATER.md). Building does not install the experiment. The user explicitly requested deployment after preparation; the Release test is now installed as 0.2.0.10.
 
 1. Record the installed version and keep the existing baseline package. Close Software Fuser before explicitly deploying the experimental Release package with `tools/Deploy.ps1`; avoid deployment during gaming. Do not uninstall the application or clear protected app-local storage.
 2. Open **Software Fuser startup test** from the Game Bar widget menu on the 2560x1440 display at 100% scale. Do not click Fit, Apply, full-screen fit, or Reset yet. Confirm that the local runtime log records fixed 2560x1440 startup limits and both resize flags enabled.
@@ -27,4 +27,4 @@ The source main branch and the baseline 0.2.0.9 package remain available. Return
 
 Debug and Release widget builds completed with zero widget warnings/errors. Each dependency-library rebuild emitted four C4244 conversion warnings in the existing upstream FFmpeg libavutil/common.h header; no streaming or decoder source was changed. The existing core layout contracts passed 1/1 in both configurations. Inspection of the built Release manifest verified version 0.2.0.10, the original package identity, the fresh extension ID, all six fixed dimension values, and both resize flags enabled.
 
-An independent package query still reports installed 0.2.0.9 with status OK, and the original Release package's SHA-256 is unchanged. The test package has not been installed or launched. No live fixed-startup result has been recorded. The previously measured baseline remains (0,46), 2558x1394 on the 2560x1440 monitor.
+After the user's explicit install request, deployment completed and an independent package query reports installed 0.2.0.10 with status OK and the original package family identity. The installed Release package matches the verified build hash. The original 0.2.0.9 Release package's SHA-256 remains unchanged. No live fixed-startup result has been recorded. The previously measured baseline remains (0,46), 2558x1394 on the 2560x1440 monitor.
