@@ -492,7 +492,17 @@ void MainPage::cover_monitor_changed(IInspectable const&, RoutedEventArgs const&
         Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
             L"CoverMonitor", box_value(CoverMonitor().IsChecked().Value()));
         if (CoverMonitor().IsChecked().Value()) { schedule_monitor_fit(); }
-        else { fit_timer_.Stop(); update_coverage(); }
+        else {
+            fit_timer_.Stop();
+            fit_pending_ = false;
+            if (widget_) {
+                widget_.MinWindowSize({240.0F, 240.0F});
+                widget_.MaxWindowSize({7680.0F, 4320.0F});
+                widget_.HorizontalResizeSupported(true);
+                widget_.VerticalResizeSupported(true);
+            }
+            update_coverage();
+        }
     } catch (const hresult_error& error) { report(error.message()); }
 }
 
@@ -546,7 +556,18 @@ fire_and_forget MainPage::fit_monitor_async() {
         const auto extent = fuser::monitor_view_extent(
             display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
         const Size requested{extent.width, extent.height};
+        // Reset the old minimum before moving to a smaller monitor. A full
+        // overlay requires this content size; accepting a smaller minimum lets
+        // Game Bar shrink it to accommodate its own chrome.
+        widget.MinWindowSize({240.0F, 240.0F});
         widget.MaxWindowSize(requested);
+        widget.MinWindowSize(requested);
+        widget.HorizontalResizeSupported(false);
+        widget.VerticalResizeSupported(false);
+        const auto minimum = widget.MinWindowSize();
+        const auto maximum = widget.MaxWindowSize();
+        fuser::widget::log(L"Monitor size limits: min=" + to_hstring(minimum.Width) + L"x" + to_hstring(minimum.Height)
+            + L" max=" + to_hstring(maximum.Width) + L"x" + to_hstring(maximum.Height));
         for (int attempt = 0; attempt < 2; ++attempt) {
             const auto resized = co_await widget.TryResizeWindowAsync(requested);
             if (shutting_down_ || !CoverMonitor().IsChecked().Value()) { break; }

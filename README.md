@@ -6,6 +6,8 @@ Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, 
 
 ## Current state
 
+The installed candidate is 0.2.0.4, built in both configurations with zero warnings/errors. It sets the monitor-sized minimum and maximum while **Cover this monitor** is enabled, and restores resizable limits when disabled. A fresh activation reports 2560x1440 video content and widget bounds at x=0, y=-44. Four-edge placement and visible black-key acceptance are still pending; matching dimensions alone do not establish coverage.
+
 Version 0.2.0.3 is built in Debug and Release with zero warnings/errors and installed with Windows package status OK. It adds a saved Black background option, exact-black defaults, optional near-black tolerance, and automatic monitor fitting on activation, pinning transitions, and display/DPI changes. Core and hardware shader contracts pass in both configurations. On this runtime, Game Bar rejects 2560x1440 and retains 2551x1389 content even when pinned; full-monitor coverage is incomplete.
 
 Choose **Black**, use zero tolerance and softness to preserve nonblack HUD pixels, and **Save profile** to apply the key to a live stream. Raise tolerance only as needed for compressed near-black noise. Existing saved green/magenta profiles retain their indices. **Cover this monitor** persists independently; **Fit monitor now** requests another fit. The settings show actual video dimensions and report host constraints rather than claiming full coverage. `tests/source_hud.html` cycles green, black, and magenta and includes corner markers and dark/coloured patches.
@@ -45,7 +47,7 @@ The preview draws **one local test frame per request**. Stream setup FPS and mea
 
 ## Next work
 
-The installed version is 0.2.0.3. Version 0.2.0.2 established the accepted above-200-FPS live pipeline checkpoint. Full-monitor placement and on-screen black-key acceptance remain pending. Deployment closes the widget and opens a Windows elevation prompt. While gaming, defer deployment and tests that interrupt the user's session or add substantial GPU load.
+The installed version is 0.2.0.4. Version 0.2.0.2 established the accepted above-200-FPS live pipeline checkpoint. Full-monitor placement and on-screen black-key acceptance remain pending. Deployment closes the widget and opens a Windows elevation prompt. While gaming, defer deployment and tests that interrupt the user's session or add substantial GPU load.
 
 - Resolve the reproduced Game Bar size constraint and verify four-corner coverage, DPI, and monitor changes.
 - Confirm on-screen black transparency and click-through; decoded full/limited-range black, nonblack preservation, and premultiplied soft edges pass GPU tests.
