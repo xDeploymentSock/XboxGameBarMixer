@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Software Fuser source HUD test</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #00ff00; color: white; font-family: Segoe UI, sans-serif; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #controls { position: fixed; top: 110px; left: 32px; padding: 16px; background: #202530; border-radius: 8px; }
+  button { font: inherit; padding: 8px 14px; cursor: pointer; margin-right: 8px; }
+  p { margin: 10px 0 0; max-width: 540px; }
+  #error { color: #ffaaaa; }
+</style>
+<canvas id="hud" aria-label="Animated source HUD with green or magenta background"></canvas>
+<div id="controls">
+  <button id="fullscreen">Fullscreen and hide controls</button>
+  <button id="key">Use magenta</button>
+  <button id="motion">Freeze</button>
+  <p>Press H to show or hide controls. The source animation rate is separate from stream and monitor measurements.</p>
+  <p id="error" role="status"></p>
+</div>
+<script>
+"use strict";
+const canvas = document.getElementById("hud");
+const context = canvas.getContext("2d", { alpha: false });
+const controls = document.getElementById("controls");
+let background = "#00ff00", moving = true, frame = 0, dirty = true;
+let intervalFrames = 0, intervalStart = performance.now(), sourceRate = 0;
+let width = 1, height = 1, visibleWidth = 1, visibleHeight = 1, scale = 1;
+function resize() {
+  scale = window.devicePixelRatio || 1;
+  visibleWidth = window.innerWidth;
+  visibleHeight = window.innerHeight;
+  width = Math.round(visibleWidth * scale);
+  height = Math.round(visibleHeight * scale);
+  canvas.width = width;
+  canvas.height = height;
+  context.setTransform(scale, 0, 0, scale, 0, 0);
+  dirty = true;
+}
+window.addEventListener("resize", resize);
+resize();
+function draw(now) {
+  if (moving) { frame++; }
+  intervalFrames++;
+  if (now - intervalStart >= 1000) {
+    sourceRate = intervalFrames * 1000 / (now - intervalStart);
+    intervalFrames = 0;
+    intervalStart = now;
+  }
+  if (!moving && !dirty) { requestAnimationFrame(draw); return; }
+  dirty = false;
+  context.fillStyle = background;
+  context.fillRect(0, 0, visibleWidth, visibleHeight);
+  context.fillStyle = "#ffffff";
+  const margin = 16, corner = 32;
+  for (const x of [margin, visibleWidth - margin - corner]) {
+    for (const y of [margin, visibleHeight - margin - corner]) {
+      context.fillRect(x, y, corner, corner);
+    }
+  }
+  context.font = "bold 28px Segoe UI";
+  context.fillText("Software Fuser · source HUD test", 64, 42);
+  context.font = "22px Segoe UI";
+  context.fillText(`Frame ${frame} · source animation ${moving ? sourceRate.toFixed(1) + " FPS" : "paused"} · canvas ${width} × ${height}`, 64, 78);
+  context.fillText(moving ? "Changing content · H shows controls" : "Frozen content · H shows controls", 64, visibleHeight - 30);
+  const phase = (frame % 480) / 480;
+  const x = 64 + Math.max(0, visibleWidth - 192) * phase;
+  const y = visibleHeight / 2 + Math.sin(phase * Math.PI * 4) * visibleHeight / 6;
+  context.fillRect(x, y, 64, 64);
+  // Sixteen bits let external capture distinguish frame IDs without OCR.
+  const bitSize = 18;
+  for (let bit = 0; bit < 16; bit++) {
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = 2;
+    context.strokeRect(64 + bit * 24, visibleHeight - 100, bitSize, bitSize);
+    if ((frame >>> bit) & 1) { context.fillRect(66 + bit * 24, visibleHeight - 98, bitSize - 4, bitSize - 4); }
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+document.getElementById("fullscreen").addEventListener("click", async () => {
+  try {
+    await document.documentElement.requestFullscreen();
+    controls.hidden = true;
+  } catch (error) { document.getElementById("error").textContent = error.message; }
+});
+document.getElementById("key").addEventListener("click", event => {
+  background = background === "#00ff00" ? "#ff00ff" : "#00ff00";
+  dirty = true;
+  document.body.style.background = background;
+  event.target.textContent = background === "#00ff00" ? "Use magenta" : "Use green";
+});
+document.getElementById("motion").addEventListener("click", event => {
+  moving = !moving;
+  dirty = true;
+  event.target.textContent = moving ? "Freeze" : "Animate";
+});
+document.addEventListener("keydown", event => {
+  if (event.key.toLowerCase() === "h") { controls.hidden = !controls.hidden; }
+});
+</script>
+</html>

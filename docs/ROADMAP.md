@@ -1,0 +1,42 @@
+# Implementation backlog
+
+## 1. Validate the native widget baseline
+
+- Inventory both PCs' GPU models, Windows builds, display modes, network link speed, and local target applications.
+- Done: restore pinned SDKs and build the UWP/XAML/HLSL package in Debug and Release; the latest source builds without warnings/errors, and core/GPU/decoder contracts pass in both configurations.
+- Done: install Release with Windows 11 per-package unsigned-development deployment.
+- User confirmed activation, pinning, test pattern, and click-through in the installed baseline. Repeat activation, idle startup, close/suspend, saved profile, edge/opacity behavior, and keyboard input still need detailed checks.
+- Verify full-monitor alignment at 100%, 125%, and 150% scaling; record actual widget bounds rather than assuming resize acceptance means full coverage.
+- Add DPI-change and device-loss handling where the measured baseline requires it.
+
+## 2. Establish local presentation feasibility
+
+- Add an explicitly started/stopped diagnostic render worker. Keep it independent of XAML layout, use a bounded render queue, and stop when hidden/closed.
+- Draw changing binary frame IDs at requested 60, 120, and 240 FPS. Measure frame submission and actual display timing separately.
+- Run idle and normal local-game GPU workloads. Record skipped/repeated frames, timing percentiles, and local-game performance impact.
+- A 60 s PresentMon/ETW trace tracks the installed widget's sole swap chain at 225.606 display updates/s. Verify source frame IDs and physical monitor mapping; use external high-speed capture where necessary. Do not infer distinct displayed source frames from Present calls or unverified content.
+- If full-screen coverage or 240 FPS cannot be achieved in Game Bar, identify the layer responsible and present evidence before discussing a platform change.
+
+## 3. Integrate Sunshine/Moonlight transport
+
+- Pin a reviewed revision of moonlight-common-c and its bundled ENet dependency. Record source/license notices before adding vendor code.
+- Implemented: HTTP discovery, authenticated/pinned HTTPS, PIN pairing, app-local LOCAL=user credential protection, application enumeration, and active-app-preserving launch/resume. Six controlled tests pass in Debug and Release; real widget pairing, offscreen native playback, and Game Bar HEVC video/disconnect pass. The observed widget pipeline rate is 63–72 FPS alongside a separate 100 FPS Moonlight control session; a single-stream changing workload and target throughput remain pending.
+- Separate pairing UI from Connect. Show actual negotiation and stage-specific failures. Do not reuse another client's private credentials implicitly.
+- Implemented: concrete session with cancellable setup, ordered compressed decode units, termination status, and joined transport/render shutdown. It owns Moonlight codec-setup callbacks directly; the portable stream_client interface remains a design boundary. Three live native reconnect cycles in one process pass; Game Bar cancellation/reconnect remains to be validated.
+- Request 2560x1440 at 240 FPS, report negotiated values, and never silently label a fallback as the requested profile. Keep audio and input forwarding disabled in the adapter.
+
+## 4. Integrate GPU decoding and frame orchestration
+
+- Implemented: hardware-only FFmpeg/D3D11VA on the renderer's GPU device; H.264/HEVC sequential and concurrent fixture tests pass in Debug and Release. Moving compressed fixtures process approximately 240 FPS offscreen for 60 seconds per codec; live native decode and joined stop pass, including a two-minute HEVC run. Idle packet telemetry strongly suggests repeated source frames explain most of the lower live receive rate. Isolate the control session and measure the fullscreen animated source before attributing a hardware limit. Sunshine reports a GTX 1070 with H.264/HEVC encoders; the widget UI offers those two codecs.
+- Keep compressed reference ordering intact. Handle decoder backpressure and keyframe recovery explicitly; drop stale frames only after decoding.
+- Supply color metadata and frame leases. Coordinate context access, handle padded textures, and retire GPU readers before decoder-pool reuse.
+- Implemented: session controller joining previous callbacks before transport -> decoder -> mailbox -> renderer is reset/reconnected. Three native cycles reuse the session and renderer with zero decoder errors and joined stop under 174 ms. Validate UI recovery and reconnection under source/monitor faults.
+- Implemented: separate receive/decode/present-call rates, mailbox replacements, and decoder-error counters in UI/local logs. The local timestamp begins at decode-callback delivery, not first network-packet arrival. Latest source adds frame-assembly, enqueue-to-submission, queue-depth, and host-processing diagnostics; these have not replaced the installed package. Displayed FPS and end-to-end latency still need external evidence.
+
+## 5. End-to-end acceptance
+
+- Establish a stock Moonlight baseline on the same hardware, profile, and wired connection.
+- Compare the widget at 60/120/240 requested FPS with bitrate sweeps appropriate to the HUD; evaluate fine text, thin lines, compressed-key halos, and spill.
+- A 30-minute passive recording finished, with 118 fresh observations averaging 225.719 received units/s and zero decoder errors. The stream disconnected before the last three observations; this is not a continuous 30-minute acceptance pass. Its source/local-game workloads were uncontrolled. Still run the representative local-game acceptance workload and test disconnect/reconnect, source restart, resize, DPI, monitor changes, and device removal.
+- Record whether 240 distinct displayed frames per second and exact coverage are achieved. Classify unavailable measurements honestly. Keep the user's target intact when a layer fails.
+- Require runtime evidence before calling the streaming overlay complete. The current foundation does not meet this runtime gate.

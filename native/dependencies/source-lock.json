@@ -1,0 +1,14 @@
+{
+  "vcpkg": {
+    "repository": "https://github.com/microsoft/vcpkg.git",
+    "revision": "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  },
+  "moonlight-common-c": {
+    "repository": "https://github.com/moonlight-stream/moonlight-common-c.git",
+    "revision": "f900dd4767759c7b9d0e93bcea666b55c69ea62f"
+  },
+  "moonlight-xbox-reference": {
+    "repository": "https://github.com/TheElixZammuto/moonlight-xbox.git",
+    "revision": "1813da6e9f96a197bc338faa22ccff891f15f114"
+  }
+}

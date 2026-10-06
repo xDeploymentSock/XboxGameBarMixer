@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.200203.5\build\native\Microsoft.Windows.CppWinRT.props"
+          Condition="Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200203.5\build\native\Microsoft.Windows.CppWinRT.props')" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{F25AA2F0-9C02-42D0-A0A9-87B4FF9D1A55}</ProjectGuid>
+    <ProjectName>FuserWidget</ProjectName>
+    <RootNamespace>SoftwareFuser</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == ''">10.0.26100.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.22000.0</WindowsTargetPlatformMinVersion>
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDebugLibraries Condition="'$(Configuration)' == 'Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)' == 'Release'">false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <StreamingRoot>$(ProjectDir)..\..\build\streaming\$(Configuration)\</StreamingRoot>
+    <NativeDependencyRoot>$(ProjectDir)..\..\build\dependencies\x64-uwp\</NativeDependencyRoot>
+    <NativeDependencyFlavor Condition="'$(Configuration)' == 'Debug'">debug\</NativeDependencyFlavor>
+    <NativeCurlLibrary>libcurl.lib</NativeCurlLibrary>
+    <NativeExpatLibrary>libexpat.lib</NativeExpatLibrary>
+    <NativeCurlLibrary Condition="'$(Configuration)' == 'Debug'">libcurl-d.lib</NativeCurlLibrary>
+    <NativeExpatLibrary Condition="'$(Configuration)' == 'Debug'">libexpatd.lib</NativeExpatLibrary>
+    <OutDir>$(ProjectDir)..\..\out\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)..\..\build\widget\$(Platform)\$(Configuration)\</IntDir>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxBundle>Never</AppxBundle>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\core\include;$(NativeDependencyRoot)include;$(IntDir)GeneratedShaders;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WINRT_NO_MAKE_DETECTION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/bigobj /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>fuser_session.lib;fuser_control.lib;fuser_decoder.lib;moonlight-common-c.lib;enet.lib;avcodec.lib;avutil.lib;$(NativeCurlLibrary);libcrypto.lib;libssl.lib;$(NativeExpatLibrary);ws2_32.lib;OneCore.lib;WindowsApp.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(StreamingRoot);$(NativeDependencyRoot)$(NativeDependencyFlavor)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <FxCompile>
+      <EntryPointName>main</EntryPointName>
+      <ShaderModel>5.0</ShaderModel>
+      <ShaderObjectFileName>$(IntDir)GeneratedShaders\%(Filename).cso</ShaderObjectFileName>
+    </FxCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainPage.xaml" />
+    <Midl Include="App.idl"><DependentUpon>App.xaml</DependentUpon></Midl>
+    <Midl Include="MainPage.idl"><DependentUpon>MainPage.xaml</DependentUpon></Midl>
+    <AppxManifest Include="Package.appxmanifest" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.h"><DependentUpon>App.xaml</DependentUpon></ClInclude>
+    <ClInclude Include="MainPage.h"><DependentUpon>MainPage.xaml</DependentUpon></ClInclude>
+    <ClInclude Include="RuntimeLog.h" />
+    <ClInclude Include="AppCredentials.h" />
+    <ClInclude Include="..\windows\D3D11Renderer.h" />
+    <ClInclude Include="..\windows\D3D11Surface.h" />
+    <ClInclude Include="..\streaming\OverlaySession.h" />
+    <ClInclude Include="..\streaming\SunshineControl.h" />
+    <ClInclude Include="..\core\include\fuser\configuration.h" />
+    <ClInclude Include="..\core\include\fuser\video_frame.h" />
+    <ClInclude Include="..\core\include\fuser\latest_frame_mailbox.h" />
+    <ClInclude Include="..\core\include\fuser\stream_interfaces.h" />
+    <ClCompile Include="pch.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
+    <ClCompile Include="App.cpp"><DependentUpon>App.xaml</DependentUpon></ClCompile>
+    <ClCompile Include="MainPage.cpp"><DependentUpon>MainPage.xaml</DependentUpon></ClCompile>
+    <ClCompile Include="AppCredentials.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\windows\D3D11Renderer.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\core\src\configuration.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(NativeDependencyRoot)$(NativeDependencyFlavor)bin\*.dll">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Text Include="..\..\third_party\licenses\*.txt">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Licenses\%(Filename)%(Extension)</Link>
+      <TargetPath>Licenses\%(Filename)%(Extension)</TargetPath>
+    </Text>
+    <FxCompile Include="..\shaders\FullscreenVs.hlsl">
+      <ShaderType>Vertex</ShaderType>
+      <HeaderFileOutput>$(IntDir)GeneratedShaders\FullscreenVs.h</HeaderFileOutput>
+      <VariableName>g_fullscreen_vs</VariableName>
+    </FxCompile>
+    <FxCompile Include="..\shaders\ChromaKeyPs.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <HeaderFileOutput>$(IntDir)GeneratedShaders\ChromaKeyPs.h</HeaderFileOutput>
+      <VariableName>g_chroma_key_ps</VariableName>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\StoreLogo.png" />
+    <Image Include="Assets\Square44x44Logo.png" />
+    <Image Include="Assets\Square150x150Logo.png" />
+    <Image Include="Assets\SplashScreen.png" />
+    <Text Include="GameBar\README.txt"><DeploymentContent>true</DeploymentContent></Text>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.200203.5\build\native\Microsoft.Windows.CppWinRT.targets"
+            Condition="Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200203.5\build\native\Microsoft.Windows.CppWinRT.targets')" />
+    <Import Project="..\..\packages\Microsoft.Gaming.XboxGameBar.7.2.240903001\build\native\Microsoft.Gaming.XboxGameBar.targets"
+            Condition="Exists('..\..\packages\Microsoft.Gaming.XboxGameBar.7.2.240903001\build\native\Microsoft.Gaming.XboxGameBar.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureDependencies" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(StreamingRoot)fuser_session.lib')"
+           Text="Build the native streaming libraries with tools/BuildStreamingLibraries.ps1 for this configuration first." />
+    <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.200203.5\build\native\Microsoft.Windows.CppWinRT.targets')"
+           Text="Restore packages.config into the repository's packages directory before building. See docs/BUILD-LATER.md." />
+    <Error Condition="!Exists('..\..\packages\Microsoft.Gaming.XboxGameBar.7.2.240903001\build\native\Microsoft.Gaming.XboxGameBar.targets')"
+           Text="Game Bar SDK is missing. No automatic install is performed; see docs/BUILD-LATER.md." />
+  </Target>
+  <Target Name="PrepareShaderDirectory" BeforeTargets="FxCompile">
+    <MakeDir Directories="$(IntDir)GeneratedShaders" />
+  </Target>
+  <Target Name="GeneratePackageAssets" BeforeTargets="PrepareForBuild" DependsOnTargets="EnsureDependencies"
+          Inputs="$(ProjectDir)..\..\tools\PreparePackageAssets.ps1"
+          Outputs="$(ProjectDir)Assets\StoreLogo.png;$(ProjectDir)Assets\Square44x44Logo.png;$(ProjectDir)Assets\Square150x150Logo.png;$(ProjectDir)Assets\SplashScreen.png">
+    <!-- Runs only during a future explicit build, not when these files are authored. -->
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\..\tools\PreparePackageAssets.ps1&quot;" />
+  </Target>
+</Project>

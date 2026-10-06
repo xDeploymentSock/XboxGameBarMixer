@@ -1,0 +1,59 @@
+<Page
+    x:Class="SoftwareFuser.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="Transparent">
+        <Grid x:Name="VideoHost" Background="Transparent" SizeChanged="video_host_size_changed" />
+        <Border x:Name="SettingsCard" Background="#E6202530" Padding="20"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16">
+            <ScrollViewer MaxHeight="660" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Width="360" Spacing="10">
+                    <TextBlock Text="Software Fuser" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock Text="Remote HUD overlay" FontSize="14" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Draw test pattern" Click="draw_preview_click" />
+                        <Button Content="Clear" Click="clear_preview_click" />
+                    </StackPanel>
+                    <TextBlock x:Name="StatusText" Text="Idle. Pair with Sunshine, then select an application."
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
+                    <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
+                    <Button Content="Request monitor-sized widget" Click="fit_monitor_click" />
+                    <TextBox x:Name="HostAddress" Header="Source PC IP address or hostname"
+                             PlaceholderText="Enter your Sunshine host" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="PairButton" Content="Pair with Sunshine" Click="pair_click" />
+                        <Button x:Name="RefreshButton" Content="Refresh apps" Click="refresh_apps_click" />
+                    </StackPanel>
+                    <TextBlock x:Name="PairingPinText" TextWrapping="Wrap" FontSize="16" />
+                    <ComboBox x:Name="SourceApplication" Header="Sunshine application" HorizontalAlignment="Stretch" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="VideoWidth" Header="Width" Text="2560" InputScope="Number" />
+                        <TextBox x:Name="VideoHeight" Grid.Column="1" Header="Height" Text="1440" InputScope="Number" />
+                        <TextBox x:Name="VideoFps" Grid.Column="2" Header="Requested FPS" Text="240" InputScope="Number" />
+                    </Grid>
+                    <TextBox x:Name="VideoBitrate" Header="Bitrate (kbps)" Text="80000" InputScope="Number" />
+                    <ComboBox x:Name="VideoCodec" Header="Codec" SelectedIndex="1" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="H.264" /><ComboBoxItem Content="HEVC" />
+                    </ComboBox>
+                    <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="0" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" />
+                    </ComboBox>
+                    <Slider x:Name="KeyTolerance" Header="Key tolerance" Minimum="0" Maximum="1" Value="0.12" />
+                    <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0.08" />
+                    <Slider x:Name="KeyOpacity" Header="HUD opacity" Minimum="0" Maximum="1" Value="1" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Save profile" Click="save_profile_click" />
+                        <Button x:Name="ConnectButton" Content="Connect" Click="connect_click" />
+                        <Button Content="Disconnect / Cancel" Click="disconnect_click" />
+                    </StackPanel>
+                    <TextBlock Text="Pin this widget, then enable Game Bar click-through to keep input on this PC."
+                               TextWrapping="Wrap" FontSize="12" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Page>
