@@ -21,7 +21,7 @@
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
                     <CheckBox x:Name="CoverMonitor" Content="Cover this monitor when pinned" IsChecked="True"
                               Checked="cover_monitor_changed" Unchecked="cover_monitor_changed" />
-                    <Button Content="Fit monitor now" Click="fit_monitor_click" />
+                    <Button Content="Enable monitor coverage" Click="fit_monitor_click" />
                     <TextBlock Text="Pin the widget and close Game Bar to fit the overlay. Reopen Game Bar to move it or reset its position."
                                TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="CoverageText" TextWrapping="Wrap" FontSize="12" />

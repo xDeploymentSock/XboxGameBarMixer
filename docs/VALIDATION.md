@@ -4,7 +4,9 @@ The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox G
 
 ## Completed checks
 
-- Version 0.2.0.6 builds in Debug and Release with zero warnings/errors. Deployment completed, and an independent package query confirms version 0.2.0.6 with status OK. The user confirmed Reset works, then explicitly confirmed all four monitor edges, black transparency, and click-through after pinning and closing Game Bar. This acceptance covers the test pattern on the current monitor.
+- Version 0.2.0.7 builds in Debug and Release with zero warnings/errors. Deployment completed, and an independent package query confirms version 0.2.0.7 with status OK. The built package identity and SHA-256 match the local receipt. The update only changes the coverage-button label and package version; no new runtime or performance result is attributed to it.
+
+- Version 0.2.0.6 built in Debug and Release with zero warnings/errors and was installed with status OK before 0.2.0.7. The user confirmed Reset works, then explicitly confirmed all four monitor edges, black transparency, and click-through after pinning and closing Game Bar. This acceptance covers the test pattern on the current monitor.
 
 - Version 0.2.0.3 built in Debug and Release with zero warnings/errors and was installed with Windows package status OK before replacement by 0.2.0.4. Both core/GPU contract suites passed. Black diagnostic and full/limited-range NV12 pixels produced zero premultiplied RGB/alpha; white, coloured, and one-code-value-above-black pixels remained opaque at exact-black settings. Optional noise tolerance and neutral premultiplied soft edges are covered.
 
