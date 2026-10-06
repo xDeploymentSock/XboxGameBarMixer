@@ -1,10 +1,16 @@
 [CmdletBinding()]
-param([ValidateRange(6, 60)][int]$WaitSeconds = 30)
+param(
+    [ValidateRange(6, 60)][int]$WaitSeconds = 30,
+    [ValidateSet('startup', 'center')][string]$Mode = 'startup'
+)
 $ErrorActionPreference = 'Stop'
 $probeRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $probePackage = Get-AppxPackage -Name SoftwareFuser.Widget
 if (-not $probePackage -or $probePackage.Version -lt [version]'0.2.0.14') {
     throw 'Install the 0.2.0.14 overscan viewport test or a later version first.'
+}
+if ($Mode -eq 'center' -and $probePackage.Version -lt [version]'0.2.0.16') {
+    throw 'The foreground centering test requires 0.2.0.16 or later.'
 }
 [xml]$probeManifest = Get-Content -LiteralPath (Join-Path $probePackage.InstallLocation 'AppxManifest.xml') -Raw
 $probeApplication = [string]$probeManifest.Package.Applications.Application.Id
@@ -14,8 +20,8 @@ $probeWidgetId = $probePackage.PackageFamilyName + '_' + $probeApplication + '_'
 $probeLog = Join-Path $env:LOCALAPPDATA ('Packages/' + $probePackage.PackageFamilyName + '/LocalState/runtime.log')
 $probeCutoff = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $probeClock = [Diagnostics.Stopwatch]::StartNew()
-Start-Process -FilePath ('ms-gamebar://launch/activate/' + $probeWidgetId + '?coverage=startup')
-Write-Output 'Requested the overscan diagnostic through the public Game Bar activation URI. No resize is requested.'
+Start-Process -FilePath ('ms-gamebar://launch/activate/' + $probeWidgetId + '?coverage=' + $Mode)
+Write-Output ('Requested the overscan ' + $Mode + ' diagnostic through the public Game Bar activation URI. No resize is requested.')
 while ($probeClock.Elapsed.TotalSeconds -lt $WaitSeconds) {
     $probeLines = @(Get-Content -LiteralPath $probeLog -Tail 250 | Where-Object {
         $_ -match '^(\d+) ' -and [long]$Matches[1] -ge $probeCutoff
@@ -25,6 +31,7 @@ while ($probeClock.Elapsed.TotalSeconds -lt $WaitSeconds) {
         $probeResult = [ordered]@{
             Version = $probePackage.Version.ToString()
             ObservedProbe = $true
+            Mode = $Mode
             GeometryAligned = $probeSettled.Matches[0].Groups[1].Value -eq 'true'
             Pinned = $probeSettled.Matches[0].Groups[2].Value -eq 'true'
             Visible = $probeSettled.Matches[0].Groups[3].Value -eq 'true'
@@ -38,7 +45,7 @@ while ($probeClock.Elapsed.TotalSeconds -lt $WaitSeconds) {
         $probeResult | ConvertTo-Json -Depth 4
         exit 0 # Completed observation, not proof of visible coverage or pinning.
     }
-    $probeRefused = $probeLines | Select-String -Pattern 'URI startup probe requires' | Select-Object -Last 1
+    $probeRefused = $probeLines | Select-String -Pattern 'URI startup probe requires|Open Game Bar and the overscan widget before the centering test' | Select-Object -Last 1
     if ($probeRefused) { Write-Output $probeRefused.Line; exit 2 }
     Start-Sleep -Milliseconds 500
 }

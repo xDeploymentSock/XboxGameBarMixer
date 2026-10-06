@@ -27,8 +27,9 @@ struct MainPage : MainPageT<MainPage> {
     void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     void viewport_root_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
+    void overscan_center_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     fire_and_forget run_pinned_probe();
-    fire_and_forget run_startup_probe();
+    fire_and_forget run_startup_probe(bool center = false);
     void shutdown() noexcept;
 
 private:

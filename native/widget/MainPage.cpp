@@ -641,17 +641,46 @@ fire_and_forget MainPage::run_pinned_probe() {
       catch (const std::exception& error) { report(to_hstring(error.what())); }
 }
 
-fire_and_forget MainPage::run_startup_probe() {
+void MainPage::overscan_center_click(IInspectable const&, RoutedEventArgs const&) {
+    run_startup_probe(true);
+}
+
+fire_and_forget MainPage::run_startup_probe(bool center) {
     const auto lifetime = get_strong();
     const auto foreground = Dispatcher();
+    bool centering_started{};
+    const auto finish_center = [&] {
+        if (centering_started) {
+            centering_started = false;
+            fitting_monitor_ = false;
+            start_layout_request();
+        }
+    };
     try {
         co_await resume_after(std::chrono::milliseconds{250});
         co_await resume_foreground(foreground);
         if (shutting_down_) { co_return; }
         if (!widget_ || widget_.AppExtensionId() != L"RemoteHudOverscanTest" || busy_ || streaming_
-            || fitting_monitor_ || layout_requests_.has_pending()) {
+            || fitting_monitor_ || layout_requests_.has_pending() || !overscan_viewport_active_) {
             report(L"URI startup probe requires an idle overscan widget with no layout request in progress.");
             co_return;
+        }
+        if (center && (!widget_.Visible() || widget_.GameBarDisplayMode() != XboxGameBarDisplayMode::Foreground)) {
+            report(L"Open Game Bar and the overscan widget before the centering test. Fit and Reset are separate actions.");
+            co_return;
+        }
+        if (center) {
+            centering_started = true;
+            fitting_monitor_ = true;
+            fuser::widget::log(L"Overscan center: one public CenterWindowAsync request, without a preceding resize.");
+            co_await widget_.CenterWindowAsync();
+            co_await resume_foreground(foreground);
+            if (shutting_down_ || !widget_ || !overscan_viewport_active_ || layout_requests_.has_pending()) {
+                finish_center();
+                co_return;
+            }
+            update_overscan_viewport();
+            log_view_geometry();
         }
         fuser::widget::log(L"URI startup probe: explicit diagnostic command received. No host resize request.");
         KeyColor().SelectedIndex(2);
@@ -660,8 +689,11 @@ fire_and_forget MainPage::run_startup_probe() {
         draw_preview_click(nullptr, nullptr);
         co_await resume_after(std::chrono::seconds{5});
         co_await resume_foreground(foreground);
-        if (shutting_down_ || !widget_ || fitting_monitor_ || layout_requests_.has_pending()
-            || !overscan_viewport_active_) { co_return; }
+        if (shutting_down_ || !widget_ || (!center && fitting_monitor_) || layout_requests_.has_pending()
+            || !overscan_viewport_active_) {
+            finish_center();
+            co_return;
+        }
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
         const auto extent = fuser::monitor_view_extent(display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
@@ -679,10 +711,12 @@ fire_and_forget MainPage::run_startup_probe() {
         fuser::widget::log(L"Overscan viewport settled: geometryAligned=" + to_hstring(aligned)
             + L" pinned=" + to_hstring(widget_.Pinned()) + L" visible=" + to_hstring(widget_.Visible())
             + L" mode=" + to_hstring(static_cast<int>(widget_.GameBarDisplayMode())));
+        if (center) { fuser::widget::log(L"Overscan center: settled observation completed."); }
         report(aligned ? L"Overscan video bounds align at 2560x1440. Check all four white edges in Game Bar; pinning and visibility still need verification."
             : L"Overscan video bounds do not align. Reset restores accessible controls.");
     } catch (const hresult_error& error) { report(error.message()); }
       catch (const std::exception& error) { report(to_hstring(error.what())); }
+    finish_center();
 }
 
 void MainPage::save_overlay_dimensions() {
