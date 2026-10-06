@@ -4,7 +4,7 @@ Version 0.2.1.1 adds **Clean black background**, **Exact black** and **Apply key
 
 ## Live check
 
-In the prepared 0.2.1.2 menu, cleanup controls are in **HUD**, and noise cutoff/softness values are under **Fine tuning**. The installed 0.2.1.1 still uses the original scrolling menu.
+In the menu introduced in 0.2.1.2 and included in installed 0.2.1.3, cleanup controls are in **HUD**, and noise cutoff/softness values are under **Fine tuning**.
 
 1. Open Software Fuser through Win+G and connect the existing black-background HUD. Hide the source fixture's controls with H, or use its fullscreen button, to inspect the artwork alone.
 2. Click **Clean black background**. It selects Black, sets tolerance to 0.120 and softness to 0.080, enables **Recover bright HUD edges (Black)**, and saves/applies those settings immediately. The existing HUD opacity is retained.

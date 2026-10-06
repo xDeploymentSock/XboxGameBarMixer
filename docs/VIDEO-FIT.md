@@ -4,7 +4,7 @@ Version 0.2.1.0 on main adds a destination fit for the existing Game Bar UWP ren
 
 ## Controls
 
-In the prepared 0.2.1.2 menu, these controls are grouped under **Layout**; the installed 0.2.1.1 retains the original scrolling menu.
+In the menu introduced in 0.2.1.2 and included in installed 0.2.1.3, these controls are grouped under **Layout**.
 
 Open Software Fuser through Win+G. Leave **Keep full video above taskbar** checked, enter **Taskbar height (physical px)** and click **Apply video fit**. The initial height is an adjustable estimate of 48 view pixels converted to physical pixels at the current DPI; it is not a measured taskbar rectangle. Use 0 for a hidden taskbar. Uncheck the option and apply to restore drawing across the full widget client.
 

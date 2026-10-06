@@ -23,6 +23,6 @@ Debug and Release UWP/C++/XAML/HLSL builds completed with zero warnings/errors. 
 
 These checks establish compilation, wiring and intended bounds. Actual native appearance, keyboard navigation, high-contrast behavior, expanded-panel scrolling and live view switching still need the installed-widget check. No new rendering or performance result is attributed to this menu change.
 
-The 0.2.1.2 package is prepared locally. Version 0.2.1.1 remains installed for the user's pending black-cleanup test; this menu update has not been installed while the user is away.
+The menu was initially prepared in 0.2.1.2 while 0.2.1.1 remained installed. It is now included in installed 0.2.1.3, with Windows package status OK. Live menu and black-cleanup acceptance remain pending.
 
 After installation, open Software Fuser through Win+G. Visit all four views and expand Stream options and Fine tuning. Confirm that the current profile is restored, connection controls remain reachable, presets still apply to a live feed, and Reset/Apply video fit behave as before. Resize to a narrow window and confirm the dropdown preserves the selected view, then pin and close Game Bar to confirm only the overlay remains.
