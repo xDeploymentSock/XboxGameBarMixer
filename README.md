@@ -6,7 +6,7 @@ Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, 
 
 ## Current state
 
-The installed candidate is 0.2.0.4, built in both configurations with zero warnings/errors. It sets the monitor-sized minimum and maximum while **Cover this monitor** is enabled, and restores resizable limits when disabled. A fresh activation reports 2560x1440 video content and widget bounds at x=0, y=-44. Four-edge placement and visible black-key acceptance are still pending; matching dimensions alone do not establish coverage.
+The installed candidate is 0.2.0.4, built in both configurations with zero warnings/errors. It sets the monitor-sized minimum and maximum while **Cover this monitor** is enabled, and restores resizable limits when disabled. A fresh activation reports 2560x1440 video content and widget bounds at x=0, y=-44. The supplied foreground screenshot confirms the test surface is shifted upward by about 44 pixels and its lower white border stops above the visible taskbar. Pinned placement and visible black-key acceptance are still pending; matching dimensions alone do not establish coverage. See the [taskbar test](docs/BUILD-LATER.md#taskbar-placement-test).
 
 Version 0.2.0.5 is prepared but not installed. Both widget configurations build with zero warnings/errors. It logs widget bounds, client and visible bounds, and the video surface's local origin to distinguish a content offset from Game Bar's frame. It also observes pin/visibility changes and skips monitor-fit requests while the widget is hidden. The installed 0.2.0.4 visual test remains pending.
 

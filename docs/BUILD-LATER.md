@@ -72,6 +72,17 @@ The manifest version determines the package directory under AppPackages/FuserWid
 
 Offscreen GPU and controlled pairing tests do not prove these live compositor/lifecycle behaviors or 240 displayed FPS. Audio output is muted; the protocol may still receive audio packets.
 
+## Taskbar placement test
+
+The 0.2.0.4 foreground screenshot shows a full-sized test surface shifted upward about 44 pixels, with the bottom border above the taskbar. The cyan rectangle is an inset diagnostic marker; the outer white border and white center lines establish coverage. Game Bar's [centering API](https://learn.microsoft.com/en-us/xbox/game-bar/api/xgb-widget) can move or resize a widget to satisfy host bounds. A taskbar/work-area restriction is a hypothesis to test, not a verified explanation of every offset.
+
+1. In Windows **Settings → Personalization → Taskbar → Taskbar behaviors**, temporarily enable **Automatically hide the taskbar**. Move the pointer away from the bottom edge and let the taskbar hide. This is a user-wide preference and can be restored after the test; see [Microsoft's instructions](https://support.microsoft.com/en-us/windows/experience/personalization/customize-the-taskbar-in-windows).
+2. Reopen the widget on the intended monitor and use **Fit monitor now**. If the widget's title/pin control is offscreen, disable **Cover this monitor**, resize it to a manageable size, pin it, then enable fitting again.
+3. Choose **Black** and **Draw test pattern**, close Game Bar, and check all four white edges and the center lines. Check transparent areas against a visible nonblack app underneath and verify click-through.
+4. Report whether hiding the taskbar changes placement, and whether the pinned widget remains visible. A positive result is a tested configuration workaround; it does not establish support with a permanently visible taskbar.
+
+If placement remains clipped, use the prepared geometry candidate to record the hosted client and visible area before changing layout. Stretching the video or adding a fixed margin cannot recover pixels outside a clipped hosted surface.
+
 ## Sunshine probe
 
 ```powershell
