@@ -79,6 +79,13 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     widget_ = args.Parameter().try_as<XboxGameBarWidget>();
     fuser::widget::log(widget_ ? L"MainPage attached to Game Bar." : L"MainPage standalone.");
     if (widget_) {
+        if (widget_.AppExtensionId() == L"RemoteHudOverscanTest") {
+            // This isolated fixture has 44 extra view pixels above the video.
+            // The measured host origin is -44, so the 1440-row viewport begins
+            // at screen zero without enlarging or rescaling the Sunshine feed.
+            VideoHost().Margin({0.0, 44.0, 0.0, 0.0});
+            SettingsCard().Margin({16.0, 60.0, 16.0, 16.0});
+        }
         // Preserve the manifest's fixed startup constraints for the PoC test.
         // Explicit Fit/Apply/Reset actions can still restore flexible limits.
         // A saved Reset from the baseline must not contaminate startup sizing.
@@ -568,6 +575,53 @@ fire_and_forget MainPage::run_pinned_probe() {
       catch (const std::exception& error) { report(to_hstring(error.what())); }
 }
 
+fire_and_forget MainPage::run_startup_probe() {
+    const auto lifetime = get_strong();
+    const auto foreground = Dispatcher();
+    try {
+        co_await resume_after(std::chrono::milliseconds{250});
+        co_await resume_foreground(foreground);
+        if (shutting_down_) { co_return; }
+        if (!widget_ || widget_.AppExtensionId() != L"RemoteHudOverscanTest" || busy_ || streaming_
+            || fitting_monitor_ || layout_requests_.has_pending()) {
+            report(L"URI startup probe requires an idle overscan widget with no layout request in progress.");
+            co_return;
+        }
+        fuser::widget::log(L"URI startup probe: explicit diagnostic command received. No host resize request.");
+        KeyColor().SelectedIndex(2);
+        KeyTolerance().Value(0.0);
+        KeySoftness().Value(0.0);
+        draw_preview_click(nullptr, nullptr);
+        co_await resume_after(std::chrono::seconds{5});
+        co_await resume_foreground(foreground);
+        if (shutting_down_ || !widget_ || fitting_monitor_ || layout_requests_.has_pending()
+            || VideoHost().Margin().Top != 44.0) { co_return; }
+        const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+        const auto scale = display.RawPixelsPerViewPixel();
+        const auto extent = fuser::monitor_view_extent(display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
+        const auto bounds = widget_.WindowBounds();
+        const auto client = Window::Current().CoreWindow().Bounds();
+        const auto visible = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().VisibleBounds();
+        const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
+        const auto contains_viewport = [&](Rect const& rectangle) {
+            return rectangle.X <= 0.0F && rectangle.Y <= 0.0F
+                && rectangle.X + rectangle.Width >= extent.width
+                && rectangle.Y + rectangle.Height >= extent.height;
+        };
+        const bool aligned = renderer_ && fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
+            VideoHost().ActualWidth(), VideoHost().ActualHeight(), extent, scale)
+            && contains_viewport(client) && contains_viewport(visible);
+        previous_geometry_ = L"";
+        log_view_geometry();
+        fuser::widget::log(L"Overscan viewport settled: geometryAligned=" + to_hstring(aligned)
+            + L" pinned=" + to_hstring(widget_.Pinned()) + L" visible=" + to_hstring(widget_.Visible())
+            + L" mode=" + to_hstring(static_cast<int>(widget_.GameBarDisplayMode())));
+        report(aligned ? L"Overscan video bounds align at 2560x1440. Check all four white edges in Game Bar; pinning and visibility still need verification."
+            : L"Overscan video bounds do not align. Reset restores accessible controls.");
+    } catch (const hresult_error& error) { report(error.message()); }
+      catch (const std::exception& error) { report(to_hstring(error.what())); }
+}
+
 void MainPage::save_overlay_dimensions() {
     const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
     values.Insert(L"OverlayWidth", box_value(OverlayWidth().Text()));
@@ -614,6 +668,8 @@ void MainPage::full_screen_fit_click(IInspectable const&, RoutedEventArgs const&
 void MainPage::reset_position_click(IInspectable const&, RoutedEventArgs const&) {
     if (loading_profile_ || shutting_down_) { return; }
     try {
+        VideoHost().Margin({0.0, 0.0, 0.0, 0.0});
+        SettingsCard().Margin({16.0, 16.0, 16.0, 16.0});
         const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
         values.Insert(L"CoverMonitor", box_value(false));
         values.Insert(L"ResetWidgetPosition", box_value(true));

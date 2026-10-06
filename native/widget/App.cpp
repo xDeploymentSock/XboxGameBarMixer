@@ -54,18 +54,21 @@ void App::OnActivated(IActivatedEventArgs const& args) {
     fuser::widget::log(activation ? (activation.IsLaunchActivation() ? L"Widget launch activation." : L"Widget repeat activation.")
                                 : L"Activation has no Game Bar arguments.");
     if (!activation) { return; }
-    bool pinned_probe_requested{};
+    bool pinned_probe_requested{}, startup_probe_requested{};
     try {
         const auto query = protocol.Uri().QueryParsed();
         pinned_probe_requested = query.Size() == 1 && query.GetAt(0).Name() == L"coverage"
             && query.GetAt(0).Value() == L"pinned";
+        startup_probe_requested = query.Size() == 1 && query.GetAt(0).Name() == L"coverage"
+            && query.GetAt(0).Value() == L"startup" && activation.AppExtensionId() == L"RemoteHudOverscanTest";
     } catch (const hresult_error&) {
         fuser::widget::log(L"Malformed widget activation command ignored.");
     }
     if (!activation.IsLaunchActivation()) {
         // Keep the initial widget alive during repeat activation.
-        if (pinned_probe_requested && widget_ && activation.AppExtensionId() == widget_.AppExtensionId()) {
-            dispatch_pinned_probe();
+        if ((pinned_probe_requested || startup_probe_requested) && widget_
+            && activation.AppExtensionId() == widget_.AppExtensionId()) {
+            dispatch_coverage_probe(pinned_probe_requested);
         }
         return;
     }
@@ -82,17 +85,18 @@ void App::OnActivated(IActivatedEventArgs const& args) {
     });
     widget_window_.Activate();
     fuser::widget::log(L"Widget window activation completed.");
-    if (pinned_probe_requested) { dispatch_pinned_probe(); }
+    if (pinned_probe_requested || startup_probe_requested) { dispatch_coverage_probe(pinned_probe_requested); }
 }
 
-void App::dispatch_pinned_probe() {
+void App::dispatch_coverage_probe(bool pinned) {
     if (!widget_window_) { return; }
     const auto ignored = widget_window_.Dispatcher().RunAsync(
-        Windows::UI::Core::CoreDispatcherPriority::Normal, [weak = get_weak(), window = widget_window_] {
+        Windows::UI::Core::CoreDispatcherPriority::Normal, [weak = get_weak(), window = widget_window_, pinned] {
             if (weak.get()) {
                 if (const auto frame = window.Content().try_as<Frame>()) {
                     if (const auto page = frame.Content().try_as<SoftwareFuser::MainPage>()) {
-                        get_self<MainPage>(page)->run_pinned_probe();
+                        if (pinned) { get_self<MainPage>(page)->run_pinned_probe(); }
+                        else { get_self<MainPage>(page)->run_startup_probe(); }
                     }
                 }
             }

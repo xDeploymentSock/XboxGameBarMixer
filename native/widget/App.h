@@ -10,7 +10,7 @@ struct App : AppT<App> {
     void OnActivated(Windows::ApplicationModel::Activation::IActivatedEventArgs const& args);
 
 private:
-    void dispatch_pinned_probe();
+    void dispatch_coverage_probe(bool pinned);
     void shutdown_current_view() noexcept;
     Microsoft::Gaming::XboxGameBar::XboxGameBarWidget widget_{nullptr};
     Windows::UI::Xaml::Window widget_window_{nullptr};

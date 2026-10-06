@@ -27,6 +27,7 @@ struct MainPage : MainPageT<MainPage> {
     void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
     fire_and_forget run_pinned_probe();
+    fire_and_forget run_startup_probe();
     void shutdown() noexcept;
 
 private:
