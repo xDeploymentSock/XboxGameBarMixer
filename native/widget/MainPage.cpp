@@ -4,6 +4,7 @@
 #include "RuntimeLog.h"
 #include "AppCredentials.h"
 #include <fuser/monitor_layout.h>
+#include <fuser/video_layout.h>
 #include <windows.ui.composition.interop.h>
 #include <winrt/Windows.ApplicationModel.Core.h>
 #include <winrt/Windows.UI.ViewManagement.h>
@@ -63,6 +64,7 @@ MainPage::MainPage() {
         if (const auto self = weak.get()) {
             fuser::widget::log(L"Page loaded; video host=" + to_hstring(self->VideoHost().ActualWidth())
                 + L"x" + to_hstring(self->VideoHost().ActualHeight()));
+            self->update_video_layout();
             if (self->reset_pending_) {
                 self->reset_pending_ = false;
                 self->layout_requests_.request(fuser::widget_layout_action::reset_position);
@@ -101,7 +103,10 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
             if (const auto self = weak.get()) {
                 const auto ignored = self->Dispatcher().RunAsync(
                     Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
-                        if (const auto page = weak.get()) { page->update_coverage(); }
+                        if (const auto page = weak.get()) {
+                            page->update_video_layout();
+                            page->update_coverage();
+                        }
                     });
                 (void)ignored;
             }
@@ -109,6 +114,12 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     }
     display_ = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
     const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+    if (!values.HasKey(L"TaskbarHeightPixels") || reserved_bottom_pixels_ >= display_.ScreenHeightInRawPixels()) {
+        // Start with an adjustable estimate of 48 view pixels; do not treat it
+        // as a queried Windows taskbar rectangle.
+        reserved_bottom_pixels_ = pixels(48.0, display_.RawPixelsPerViewPixel());
+    }
+    TaskbarHeight().Text(to_hstring(reserved_bottom_pixels_));
     if (!values.HasKey(L"OverlayWidth") && !values.HasKey(L"OverlayHeight")) {
         use_monitor_dimensions();
     }
@@ -119,6 +130,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
                     if (const auto page = weak.get()) {
                         // DPI can change without a change to the logical XAML size.
                         page->layout_requests_.invalidate();
+                        page->update_video_layout();
                         page->video_host_size_changed(nullptr, nullptr);
                         if (page->fitting_monitor_) {
                             page->report(L"Display changed during fitting. Click Fit my monitor again on the intended display.");
@@ -132,6 +144,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     orientation_token_ = display_.OrientationChanged(display_changed);
     contents_token_ = Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated(display_changed);
     update_widget_state();
+    update_video_layout();
 }
 
 fuser::overlay_configuration MainPage::read_profile(bool require_host) {
@@ -164,6 +177,14 @@ fuser::overlay_configuration MainPage::read_profile(bool require_host) {
 
 void MainPage::load_profile() {
     const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+    if (values.HasKey(L"FitVideoAboveTaskbar")) {
+        video_fit_enabled_ = unbox_value_or<bool>(values.Lookup(L"FitVideoAboveTaskbar"), true);
+    }
+    if (values.HasKey(L"TaskbarHeightPixels")) {
+        reserved_bottom_pixels_ = unbox_value_or<std::uint32_t>(values.Lookup(L"TaskbarHeightPixels"), 48);
+    }
+    FitVideoAboveTaskbar().IsChecked(video_fit_enabled_);
+    TaskbarHeight().Text(to_hstring(reserved_bottom_pixels_));
     const auto restore_text = [&values](hstring const& name, auto const& box) {
         if (values.HasKey(name)) {
             box.Text(unbox_value_or<hstring>(values.Lookup(name), box.Text()));
@@ -432,7 +453,9 @@ void MainPage::attach_renderer() {
         reinterpret_cast<ABI::Windows::UI::Composition::ICompositionSurface**>(put_abi(surface))));
     const auto visual = compositor.CreateSpriteVisual();
     visual.Size({static_cast<float>(VideoHost().ActualWidth()), static_cast<float>(VideoHost().ActualHeight())});
-    visual.Brush(compositor.CreateSurfaceBrush(surface));
+    const auto brush = compositor.CreateSurfaceBrush(surface);
+    brush.Stretch(Windows::UI::Composition::CompositionStretch::Fill);
+    visual.Brush(brush);
     ElementCompositionPreview::SetElementChildVisual(VideoHost(), visual);
     visual_ = visual;
     renderer_ = std::move(renderer);
@@ -487,6 +510,72 @@ void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs
         renderer_->present();
     } catch (const hresult_error& error) { report(error.message()); }
       catch (const std::exception& error) { report(to_hstring(error.what())); }
+}
+
+void MainPage::video_layout_size_changed(IInspectable const&, SizeChangedEventArgs const&) {
+    if (!loading_profile_ && !shutting_down_) { update_video_layout(); }
+}
+
+void MainPage::apply_video_fit_click(IInspectable const&, RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) { return; }
+    try {
+        const auto text = to_string(TaskbarHeight().Text());
+        const auto first = text.find_first_not_of(" \t\r\n");
+        const auto last = text.find_last_not_of(" \t\r\n");
+        const auto input = first == std::string::npos ? std::string{} : text.substr(first, last - first + 1);
+        const auto inset = input == "0" ? 0U : fuser::parse_widget_dimension(input);
+        const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+        if (inset >= display.ScreenHeightInRawPixels()) {
+            throw std::invalid_argument{"Taskbar height must be smaller than this monitor's height."};
+        }
+        reserved_bottom_pixels_ = inset;
+        const auto checked = FitVideoAboveTaskbar().IsChecked();
+        video_fit_enabled_ = checked && checked.Value();
+        TaskbarHeight().Text(to_hstring(inset));
+        const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+        values.Insert(L"TaskbarHeightPixels", box_value(inset));
+        values.Insert(L"FitVideoAboveTaskbar", box_value(video_fit_enabled_));
+        update_video_layout();
+        // No host resize, source crop, stream renegotiation or reconnect here.
+        report(video_fit_enabled_ ? L"Video fit applied. The whole feed fills the available area above the taskbar."
+                                 : L"Video now fills the widget's full client area.");
+    } catch (const hresult_error& error) { report(error.message()); }
+      catch (const std::exception& error) { report(to_hstring(error.what())); }
+}
+
+void MainPage::update_video_layout() {
+    if (VideoLayoutRoot().ActualWidth() < 1.0 || VideoLayoutRoot().ActualHeight() < 1.0) { return; }
+    try {
+        const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+        const auto scale = display.RawPixelsPerViewPixel();
+        const auto monitor = fuser::monitor_view_extent(display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
+        const auto bounds = widget_ ? widget_.WindowBounds() : Rect{};
+        const auto origin = VideoLayoutRoot().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
+        const auto area = video_fit_enabled_ ? fuser::usable_video_rectangle(
+            {bounds.X + origin.X, bounds.Y + origin.Y, VideoLayoutRoot().ActualWidth(), VideoLayoutRoot().ActualHeight()},
+            monitor.width, monitor.height, scale, reserved_bottom_pixels_)
+            : std::optional<fuser::video_rectangle>{{0, 0, VideoLayoutRoot().ActualWidth(), VideoLayoutRoot().ActualHeight()}};
+        VideoHost().Visibility(area ? Visibility::Visible : Visibility::Collapsed);
+        VideoHost().HorizontalAlignment(HorizontalAlignment::Left);
+        VideoHost().VerticalAlignment(VerticalAlignment::Top);
+        const auto rectangle = area.value_or(fuser::video_rectangle{});
+        VideoHost().Margin({rectangle.x, rectangle.y, 0, 0});
+        VideoHost().Width(rectangle.width);
+        VideoHost().Height(rectangle.height);
+        const auto clip = Windows::UI::Xaml::Media::RectangleGeometry{};
+        clip.Rect({0, 0, static_cast<float>(rectangle.width), static_cast<float>(rectangle.height)});
+        VideoHost().Clip(clip);
+        const auto message = !area ? hstring{L"No usable video area at this position. Move the widget above the taskbar."}
+            : L"Whole feed fills " + to_hstring(std::round(rectangle.width * scale)) + L" x "
+                + to_hstring(std::round(rectangle.height * scale)) + L" pixels. Taskbar reservation: "
+                + to_hstring(video_fit_enabled_ ? reserved_bottom_pixels_ : 0U) + L" px.";
+        if (VideoFitText().Text() != message) {
+            VideoFitText().Text(message);
+            fuser::widget::log(L"Video fit: " + message + L" local origin=" + to_hstring(rectangle.x)
+                + L"," + to_hstring(rectangle.y));
+        }
+    } catch (const hresult_error& error) { fuser::widget::log(L"Video layout: " + error.message()); }
+      catch (const std::exception& error) { fuser::widget::log(L"Video layout: " + to_hstring(error.what())); }
 }
 
 void MainPage::fit_monitor_click(IInspectable const&, RoutedEventArgs const&) {
@@ -613,7 +702,8 @@ void MainPage::update_coverage() {
             VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
         const auto gaps = fuser::uncovered_monitor_edges(bounds.X + origin.X, bounds.Y + origin.Y,
             VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
-        const auto prefix = aligned ? hstring{L"Monitor bounds match. "}
+        const auto prefix = video_fit_enabled_ ? hstring{L"Usable-area video fit enabled. "}
+            : aligned ? hstring{L"Monitor bounds match. "}
             : sized ? hstring{L"Monitor size matched; positioning needed. "}
             : hstring{L"Manual adjustment available. "};
         const auto message = prefix
@@ -627,7 +717,8 @@ void MainPage::update_coverage() {
             + L", top " + to_hstring(std::round(gaps.top))
             + L", right " + to_hstring(std::round(gaps.right))
             + L", bottom " + to_hstring(std::round(gaps.bottom)) + L"."
-            + (aligned ? L" Check all four outer white edges, including over the taskbar."
+            + (video_fit_enabled_ ? L" The full source frame is scaled inside the visible area above the taskbar; move or resize the widget manually if more area is needed."
+                : aligned ? L" Check all four outer white edges, including over the taskbar."
                 : sized ? L" Drag the title bar to align all four outer edges, including over the taskbar."
                 : gaps.top > 1.0 ? L" Try full-screen fit for the top gap, or move the widget upward and resize the edges manually."
                 : L" Click Fit my monitor or Apply dimensions, then adjust the edges manually if needed.");
@@ -731,7 +822,7 @@ fire_and_forget MainPage::fit_monitor_async() {
                 update_coverage();
                 fuser::widget::log(L"Layout settled: " + kind + L" accepted=" + to_hstring(resized)
                     + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
-                const bool size_matched = fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(),
+                const bool size_matched = fuser::matches_monitor_extent(VideoLayoutRoot().ActualWidth(), VideoLayoutRoot().ActualHeight(),
                     {requested.Width, requested.Height}, scale);
                 if (resetting) {
                     if (size_matched) {
@@ -756,7 +847,10 @@ fire_and_forget MainPage::fit_monitor_async() {
                         ? L"Overlay dimensions applied: " + requested_text + L" pixels. Position is unchanged; check the edge gaps."
                         : L"Game Bar constrained the requested " + requested_text + L" pixel overlay. Actual size and edge gaps are shown below; drag or resize manually.");
                 } else {
-                    report(size_matched
+                    report(video_fit_enabled_
+                        ? size_matched ? L"Widget size applied. The full feed fills the usable area above the taskbar."
+                                       : L"Game Bar kept its current widget size. The full feed fits the usable area above the taskbar; move or resize the widget manually to enlarge it."
+                        : size_matched
                         ? L"Monitor size applied. Drag the title bar if an outer edge misses the screen or taskbar. Automatic fitting is off."
                         : L"Game Bar constrained the resize. Drag the title bar and resize edges to cover the monitor, including the taskbar. Automatic fitting is off.");
                 }

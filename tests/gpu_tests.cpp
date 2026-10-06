@@ -47,7 +47,7 @@ bool close_to(std::uint8_t actual, int expected) {
 
 ComPtr<ID3D11Texture2D> make_nv12(fuser::windows::d3d11_renderer& renderer,
                                  std::uint8_t y, std::uint8_t u, std::uint8_t v,
-                                 bool cropped = false) {
+                                 bool cropped = false, bool corner_markers = false) {
     std::vector<std::uint8_t> data(side * side * 3 / 2, y);
     for (std::size_t position = side * side; position < data.size(); position += 2) {
         data[position] = u;
@@ -65,6 +65,15 @@ ComPtr<ID3D11Texture2D> make_nv12(fuser::windows::d3d11_renderer& renderer,
             for (std::size_t column = 8; column < 40; column += 2) {
                 data[side * side + row * side + column] = 128;
                 data[side * side + row * side + column + 1] = 128;
+            }
+        }
+    }
+    if (corner_markers) {
+        for (std::uint32_t row = 0; row < side; ++row) {
+            for (std::uint32_t column = 0; column < side; ++column) {
+                if ((row < 12 || row >= side - 12) && (column < 12 || column >= side - 12)) {
+                    data[row * side + column] = 255;
+                }
             }
         }
     }
@@ -222,6 +231,28 @@ int main() {
         renderer.resize(128, 96);
         renderer.draw_diagnostic(key, 0);
         require(read_pixel(renderer, 127, 95) == pixel{255, 255, 255, 255}, "Resize must recreate the render target and viewport.");
+        // Use a full source frame with four markers, then deliberately change
+        // its aspect ratio to the host's usable area. Source edges must survive
+        // destination scaling, while the black background stays transparent.
+        texture = make_nv12(renderer, 0, 128, 128, false, true);
+        frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+        frame.source_x = frame.source_y = 0;
+        frame.width = frame.height = side;
+        key.enabled = true;
+        key.color = {0.0F, 0.0F, 0.0F};
+        key.tolerance = key.softness = 0.0F;
+        key.opacity = 1.0F;
+        for (const auto destination : std::array{std::array{2558U, 1346U}, std::array{1000U, 700U}}) {
+            renderer.resize(destination[0], destination[1]);
+            require(renderer.draw_frame(frame, key).succeeded(), "Full NV12 input must scale into the usable destination.");
+            for (const auto location : std::array{std::array{0U, 0U}, std::array{destination[0] - 1, 0U},
+                     std::array{0U, destination[1] - 1}, std::array{destination[0] - 1, destination[1] - 1}}) {
+                require(read_pixel(renderer, location[0], location[1]) == pixel{255, 255, 255, 255},
+                        "All four source corner markers must remain visible after unequal-axis scaling.");
+            }
+            require(read_pixel(renderer, destination[0] / 2, destination[1] / 2) == pixel{0, 0, 0, 0},
+                    "Video fitting must preserve transparent black inside the scaled feed.");
+        }
         std::cout << "GPU black/green/magenta alpha, NV12 conversion/cropping, resource retirement, clear and resize checks passed.\n";
         return 0;
     } catch (const winrt::hresult_error& error) {

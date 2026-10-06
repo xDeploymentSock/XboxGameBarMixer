@@ -2,6 +2,7 @@
 #include <fuser/latest_frame_mailbox.h>
 #include <fuser/monitor_layout.h>
 #include <fuser/widget_layout_requests.h>
+#include <fuser/video_layout.h>
 
 #include <cmath>
 #include <iostream>
@@ -45,6 +46,34 @@ int main() {
         require(!fuser::validate(configuration).empty(), "NaN cannot reach a shader");
 
         const auto monitor = fuser::monitor_view_extent(2560, 1440, 1.0);
+        const auto usable = fuser::usable_video_rectangle({0, 46, 2558, 1394}, 2560, 1440, 1.0, 48);
+        require(usable && usable->x == 0 && usable->y == 0 && usable->width == 2558 && usable->height == 1346,
+                "the whole feed must end above the taskbar inside the host's actual client");
+        const auto oversized = fuser::usable_video_rectangle({0, -44, 2560, 1484}, 2560, 1440, 1.0, 48);
+        require(oversized && oversized->y == 44 && oversized->height == 1392,
+                "an offscreen top strip must move the destination rather than crop source pixels");
+        const auto fractional = fuser::usable_video_rectangle({0, 32, 1706, 928}, 1706.6666667, 960, 1.5, 72);
+        require(fractional && fractional->height == 880,
+                "a physical taskbar reservation must convert at fractional DPI");
+        const auto shifted = fuser::usable_video_rectangle({-8, 100, 1000, 700}, 2560, 1440, 1.0, 48);
+        require(shifted && shifted->x == 8 && shifted->width == 992 && shifted->height == 700,
+                "manual placement must use the visible intersection of the client and usable monitor");
+        require(!fuser::usable_video_rectangle({0, 1392, 2560, 48}, 2560, 1440, 1.0, 48),
+                "a widget entirely behind the reserved taskbar must have no video output");
+        const auto no_taskbar = fuser::usable_video_rectangle({0, 0, 2560, 1440}, 2560, 1440, 1.0, 0);
+        require(no_taskbar && no_taskbar->height == 1440, "zero reservation supports a hidden taskbar");
+        for (const auto invalid : {0.0, -1.0, std::numeric_limits<double>::quiet_NaN()}) {
+            bool rejected{};
+            try { (void)fuser::usable_video_rectangle({0, 0, 2560, 1440}, 2560, 1440, invalid, 48); }
+            catch (const std::invalid_argument&) { rejected = true; }
+            require(rejected, "invalid DPI must not generate a video rectangle");
+        }
+        for (const auto invalid : {-1.0, 1440.0, std::numeric_limits<double>::quiet_NaN()}) {
+            bool rejected{};
+            try { (void)fuser::usable_video_rectangle({0, 0, 2560, 1440}, 2560, 1440, 1.0, invalid); }
+            catch (const std::invalid_argument&) { rejected = true; }
+            require(rejected, "invalid taskbar reservation must not hide the entire feed");
+        }
         require(fuser::matches_monitor_extent(2560, 1440, monitor, 1.0), "1440p coverage uses the whole display");
         require(!fuser::matches_monitor_extent(1920, 1080, monitor, 1.0), "a smaller widget cannot count as full coverage");
         const auto scaled_monitor = fuser::monitor_view_extent(2560, 1440, 1.5);

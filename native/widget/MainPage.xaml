@@ -2,7 +2,7 @@
     x:Class="SoftwareFuser.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="Transparent">
+    <Grid x:Name="VideoLayoutRoot" Background="Transparent" SizeChanged="video_layout_size_changed">
         <Grid x:Name="VideoHost" Background="Transparent" SizeChanged="video_host_size_changed" />
         <Border x:Name="SettingsCard" Background="#E6202530" Padding="20"
                 HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="16">
@@ -19,6 +19,12 @@
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
+                    <CheckBox x:Name="FitVideoAboveTaskbar" Content="Keep full video above taskbar" IsChecked="True" />
+                    <TextBox x:Name="TaskbarHeight" Header="Taskbar height (physical px)" Text="48" InputScope="Number" />
+                    <Button Content="Apply video fit" Click="apply_video_fit_click" />
+                    <TextBlock x:Name="VideoFitText" TextWrapping="Wrap" FontSize="12" />
+                    <TextBlock Text="The whole feed fills the visible widget area, allowing vertical compression. Adjust taskbar height if needed; use 0 for auto-hide. Move or resize the widget manually to enlarge the usable area."
+                               TextWrapping="Wrap" FontSize="12" />
                     <Button Content="Fit my monitor" Click="fit_monitor_click" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>

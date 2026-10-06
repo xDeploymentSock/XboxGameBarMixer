@@ -81,6 +81,7 @@
     <ClInclude Include="..\streaming\SunshineControl.h" />
     <ClInclude Include="..\core\include\fuser\configuration.h" />
     <ClInclude Include="..\core\include\fuser\monitor_layout.h" />
+    <ClInclude Include="..\core\include\fuser\video_layout.h" />
     <ClInclude Include="..\core\include\fuser\widget_layout_requests.h" />
     <ClInclude Include="..\core\include\fuser\video_frame.h" />
     <ClInclude Include="..\core\include\fuser\latest_frame_mailbox.h" />

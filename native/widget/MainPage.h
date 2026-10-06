@@ -25,6 +25,8 @@ struct MainPage : MainPageT<MainPage> {
     void reset_position_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
+    void video_layout_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
+    void apply_video_fit_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
     void shutdown() noexcept;
 
 private:
@@ -38,6 +40,7 @@ private:
     void restore_resize_limits();
     void save_overlay_dimensions();
     void use_monitor_dimensions();
+    void update_video_layout();
     fire_and_forget fit_monitor_async();
     fire_and_forget control_async(bool pairing);
     fire_and_forget connect_async();
@@ -55,6 +58,8 @@ private:
     Windows::Graphics::Display::DisplayInformation display_{nullptr};
     bool busy_{}, streaming_{};
     bool loading_profile_{true}, fitting_monitor_{}, reset_pending_{};
+    bool video_fit_enabled_{true};
+    std::uint32_t reserved_bottom_pixels_{48};
     fuser::widget_layout_requests layout_requests_;
     std::atomic<bool> shutting_down_{};
     fuser::pipeline_statistics previous_counters_;
