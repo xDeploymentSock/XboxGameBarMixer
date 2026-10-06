@@ -84,4 +84,6 @@ Deployment uses tools/Deploy.ps1, checks the project identity, closes this widge
 
 ## Acceptance
 
+Follow-up source comparison: read [GAME-BAR-POC-COMPARISON.md](GAME-BAR-POC-COMPARISON.md) before ruling out the referenced PoC. Its packaging manifest fixes the initial/minimum/maximum size before activation and leaves resizing enabled, with no centering call. The 0.2.0.4 attempt kept a small flexible startup manifest, set constraints at runtime, disabled resizing, and centered. Those are different tests. The exact PoC startup configuration remains unbuilt and unverified on this host; the user wants this in-host path investigated while retaining Sunshine and the existing renderer.
+
 The outer white diagnostic border reaches all four monitor edges, including the top strip and taskbar, simultaneously; black remains transparent and clicks pass through. Typed dimensions apply predictably, or accurately report a host refusal. Opening/closing/pinning must not undo a manual placement. Verify settled host/client/render bounds and live visuals, not only a boolean API result or draw submission. Build/test and push a verified checkpoint. If the in-host requirement cannot be met, report the precise measured limit and available alternatives without silently switching to a desktop overlay or declaring the issue fixed.
