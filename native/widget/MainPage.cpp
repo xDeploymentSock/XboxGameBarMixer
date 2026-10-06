@@ -58,19 +58,15 @@ MainPage::MainPage() {
     stats_timer_.Tick([weak = get_weak()](auto const&, auto const&) {
         if (const auto self = weak.get()) { self->update_statistics(); }
     });
-    fit_timer_ = DispatcherTimer{};
-    fit_timer_.Interval(std::chrono::milliseconds{200});
-    fit_timer_.Tick([weak = get_weak()](auto const&, auto const&) {
-        if (const auto self = weak.get()) {
-            self->fit_timer_.Stop();
-            self->fit_monitor_async();
-        }
-    });
     Loaded([weak = get_weak()](auto const&, auto const&) {
         if (const auto self = weak.get()) {
             fuser::widget::log(L"Page loaded; video host=" + to_hstring(self->VideoHost().ActualWidth())
                 + L"x" + to_hstring(self->VideoHost().ActualHeight()));
-            self->schedule_monitor_fit();
+            if (self->reset_pending_) {
+                self->reset_pending_ = false;
+                self->layout_requests_.request(fuser::widget_layout_action::reset_position);
+            }
+            self->start_layout_request();
         }
     });
     fuser::widget::log(L"MainPage created.");
@@ -82,6 +78,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     widget_ = args.Parameter().try_as<XboxGameBarWidget>();
     fuser::widget::log(widget_ ? L"MainPage attached to Game Bar." : L"MainPage standalone.");
     if (widget_) {
+        restore_resize_limits();
         const auto update = [weak = get_weak()](auto const&, auto const&) {
             if (const auto self = weak.get()) {
                 // Game Bar callbacks are not guaranteed to use the XAML thread.
@@ -116,9 +113,11 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
                 Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
                     if (const auto page = weak.get()) {
                         // DPI can change without a change to the logical XAML size.
-                        ++page->layout_revision_;
+                        page->layout_requests_.invalidate();
                         page->video_host_size_changed(nullptr, nullptr);
-                        page->schedule_monitor_fit();
+                        if (page->fitting_monitor_) {
+                            page->report(L"Display changed during fitting. Click Fit my monitor again on the intended display.");
+                        }
                     }
                 });
             (void)ignored;
@@ -181,12 +180,8 @@ void MainPage::load_profile() {
     const bool black = KeyColor().SelectedIndex() == 2;
     KeyTolerance().Value(black ? 0.0 : 0.12);
     KeySoftness().Value(black ? 0.0 : 0.08);
-    if (values.HasKey(L"CoverMonitor")) {
-        CoverMonitor().IsChecked(unbox_value_or<bool>(values.Lookup(L"CoverMonitor"), true));
-    }
     if (values.HasKey(L"ResetWidgetPosition")) {
         reset_pending_ = unbox_value_or<bool>(values.Lookup(L"ResetWidgetPosition"), false);
-        if (reset_pending_) { CoverMonitor().IsChecked(false); }
     }
     const auto restore_slider = [&values](hstring const& name, auto const& slider) {
         if (values.HasKey(name)) {
@@ -488,31 +483,37 @@ void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs
 }
 
 void MainPage::fit_monitor_click(IInspectable const&, RoutedEventArgs const&) {
-    if (!CoverMonitor().IsChecked().Value()) { CoverMonitor().IsChecked(true); }
-    else { schedule_monitor_fit(); }
-    if (widget_ && widget_.GameBarDisplayMode() != XboxGameBarDisplayMode::PinnedOnly) {
-        report(L"Pin the widget and close Game Bar to fit the overlay to this monitor.");
+    if (loading_profile_ || shutting_down_) { return; }
+    if (!widget_) {
+        report(L"Open Software Fuser through Win+G before fitting its monitor.");
+        return;
     }
+    try {
+        reset_pending_ = false;
+        Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
+            L"ResetWidgetPosition", box_value(false));
+        layout_requests_.request(fuser::widget_layout_action::fit_monitor);
+        report(fitting_monitor_ ? L"Fit queued after the current request; your latest action takes priority."
+                               : L"Fitting this monitor now. Drag or resize the widget if Game Bar constrains it.");
+        start_layout_request();
+    } catch (const hresult_error& error) { report(error.message()); }
 }
 
 void MainPage::reset_position_click(IInspectable const&, RoutedEventArgs const&) {
     if (loading_profile_ || shutting_down_) { return; }
     try {
-        CoverMonitor().IsChecked(false);
         const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
         values.Insert(L"CoverMonitor", box_value(false));
         values.Insert(L"ResetWidgetPosition", box_value(true));
-        reset_pending_ = true;
-        ++layout_revision_;
-        fit_timer_.Stop();
-        fit_pending_ = false;
+        reset_pending_ = false;
+        layout_requests_.request(fuser::widget_layout_action::reset_position);
         restore_resize_limits();
         if (!widget_) {
             report(L"Position reset saved. Reopen Software Fuser through the Game Bar widget menu.");
         } else if (fitting_monitor_) {
             report(L"Reset queued after the current layout request.");
         } else {
-            fit_monitor_async();
+            start_layout_request();
         }
     } catch (const hresult_error& error) { report(error.message()); }
 }
@@ -524,27 +525,6 @@ void MainPage::key_color_changed(IInspectable const&, Controls::SelectionChanged
     KeySoftness().Value(black ? 0.0 : 0.08);
 }
 
-void MainPage::cover_monitor_changed(IInspectable const&, RoutedEventArgs const&) {
-    if (loading_profile_ || shutting_down_) { return; }
-    try {
-        ++layout_revision_;
-        Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
-            L"CoverMonitor", box_value(CoverMonitor().IsChecked().Value()));
-        if (CoverMonitor().IsChecked().Value()) {
-            reset_pending_ = false;
-            Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
-                L"ResetWidgetPosition", box_value(false));
-            schedule_monitor_fit();
-        }
-        else {
-            fit_timer_.Stop();
-            fit_pending_ = false;
-            restore_resize_limits();
-            update_coverage();
-        }
-    } catch (const hresult_error& error) { report(error.message()); }
-}
-
 void MainPage::restore_resize_limits() {
     if (!widget_) { return; }
     widget_.MinWindowSize({240.0F, 240.0F});
@@ -553,12 +533,10 @@ void MainPage::restore_resize_limits() {
     widget_.VerticalResizeSupported(true);
 }
 
-void MainPage::schedule_monitor_fit() {
-    if (loading_profile_ || shutting_down_ || !widget_ || !widget_.Visible()
-        || (!reset_pending_ && !settings_fit_pending_ && !CoverMonitor().IsChecked().Value())) { return; }
-    if (fitting_monitor_) { fit_pending_ = true; return; }
-    fit_timer_.Stop();
-    fit_timer_.Start();
+void MainPage::start_layout_request() {
+    if (loading_profile_ || shutting_down_ || fitting_monitor_ || !widget_ || !widget_.Visible()
+        || !layout_requests_.has_pending()) { return; }
+    fit_monitor_async();
 }
 
 void MainPage::update_coverage() {
@@ -570,22 +548,24 @@ void MainPage::update_coverage() {
         const auto expected = fuser::monitor_view_extent(
             display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
         const auto bounds = widget_.WindowBounds();
-        const bool matched = fuser::matches_monitor_extent(bounds.Width, bounds.Height, expected, scale)
+        const auto origin = VideoHost().TransformToVisual(nullptr).TransformPoint({0.0F, 0.0F});
+        const bool sized = fuser::matches_monitor_extent(bounds.Width, bounds.Height, expected, scale)
             && fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
-        const bool foreground_fit = CoverMonitor().IsChecked().Value()
-            && widget_.GameBarDisplayMode() != XboxGameBarDisplayMode::PinnedOnly;
-        const auto prefix = foreground_fit ? hstring{L"Movable settings window. "}
-            : !CoverMonitor().IsChecked().Value() ? hstring{L"Manual placement. "}
-            : matched ? hstring{L"Monitor size matched. "} : hstring{L"Monitor coverage constrained. "};
+        const bool aligned = sized && fuser::matches_monitor_bounds(bounds.X + origin.X, bounds.Y + origin.Y,
+            VideoHost().ActualWidth(), VideoHost().ActualHeight(), expected, scale);
+        const auto prefix = aligned ? hstring{L"Monitor bounds match. "}
+            : sized ? hstring{L"Monitor size matched; positioning needed. "}
+            : hstring{L"Manual adjustment available. "};
         const auto message = prefix
             + L"Video area " + to_hstring(std::round(VideoHost().ActualWidth() * scale))
             + L" x " + to_hstring(std::round(VideoHost().ActualHeight() * scale))
             + L" / monitor " + to_hstring(display.ScreenWidthInRawPixels())
             + L" x " + to_hstring(display.ScreenHeightInRawPixels())
-            + (foreground_fit ? L". Pin and close Game Bar to fit the overlay."
-                : !CoverMonitor().IsChecked().Value() ? L". Enable monitor coverage to fit when pinned."
-                : matched ? L". Check all four corner markers."
-                : L". Pin and close Game Bar to retry without its menu.");
+            + L". Position " + to_hstring(std::round((bounds.X + origin.X) * scale))
+            + L", " + to_hstring(std::round((bounds.Y + origin.Y) * scale)) + L" pixels."
+            + (aligned ? L" Check all four outer white edges, including over the taskbar."
+                : sized ? L" Drag the title bar to align all four outer edges, including over the taskbar."
+                : L" Click Fit my monitor, or drag the title bar and resize edges to cover the monitor and taskbar.");
         if (CoverageText().Text() != message) {
             CoverageText().Text(message);
             fuser::widget::log(message + L" Bounds: x=" + to_hstring(bounds.X)
@@ -620,73 +600,62 @@ void MainPage::log_view_geometry() {
 fire_and_forget MainPage::fit_monitor_async() {
     const auto lifetime = get_strong();
     const auto foreground = Dispatcher();
-    if (shutting_down_ || fitting_monitor_ || !widget_ || !widget_.Visible()
-        || (!reset_pending_ && !settings_fit_pending_ && !CoverMonitor().IsChecked().Value())) { co_return; }
+    if (shutting_down_ || fitting_monitor_ || !widget_ || !widget_.Visible()) { co_return; }
+    const auto request = layout_requests_.take();
+    if (!request) { co_return; }
     fitting_monitor_ = true;
-    fit_pending_ = false;
-    settings_fit_pending_ = false;
-    const bool resetting = reset_pending_;
-    const auto revision = layout_revision_;
+    const bool resetting = request->action == fuser::widget_layout_action::reset_position;
     try {
         const auto widget = widget_;
-        const bool full_monitor = !resetting && CoverMonitor().IsChecked().Value()
-            && widget.Pinned() && widget.GameBarDisplayMode() == XboxGameBarDisplayMode::PinnedOnly;
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
         const auto scale = display.RawPixelsPerViewPixel();
         const auto extent = fuser::monitor_view_extent(
             display.ScreenWidthInRawPixels(), display.ScreenHeightInRawPixels(), scale);
-        const Size requested = full_monitor ? Size{extent.width, extent.height}
+        const Size requested = !resetting ? Size{extent.width, extent.height}
             : Size{std::clamp(extent.width - 80.0F, 240.0F, 480.0F),
                    std::clamp(extent.height - 120.0F, 240.0F, 700.0F)};
         restore_resize_limits();
-        if (full_monitor) {
-            // Keep the pin/title controls reachable in foreground. Exact size
-            // constraints apply only after Game Bar hides its own chrome.
-            widget.MaxWindowSize(requested);
-            widget.MinWindowSize(requested);
-            widget.HorizontalResizeSupported(false);
-            widget.VerticalResizeSupported(false);
-        }
         const auto current_request = [&] {
-            return !shutting_down_ && revision == layout_revision_ && widget_ && widget_.Visible();
+            return !shutting_down_ && layout_requests_.is_current(*request) && widget_ && widget_.Visible();
         };
-        const hstring kind = resetting ? L"reset" : full_monitor ? L"pinned overlay" : L"settings";
-        fuser::widget::log(L"Layout request: " + kind + L" revision=" + to_hstring(revision)
+        const hstring kind = resetting ? L"reset" : L"immediate fit";
+        fuser::widget::log(L"Layout request: " + kind + L" revision=" + to_hstring(request->revision)
             + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
-        const int attempts = full_monitor ? 2 : 1;
-        for (int attempt = 0; attempt < attempts; ++attempt) {
-            const auto resized = co_await widget.TryResizeWindowAsync(requested);
-            if (!current_request()) { break; }
-            fuser::widget::log(L"Layout before centering: " + kind + L" resizeAccepted=" + to_hstring(resized));
+        const auto resized = co_await widget.TryResizeWindowAsync(requested);
+        if (current_request()) {
+            fuser::widget::log(L"Layout resize result: " + kind + L" resizeAccepted=" + to_hstring(resized));
             log_view_geometry();
-            co_await widget.CenterWindowAsync();
+            // Fit keeps manual placement intact. Centering can shrink or shift
+            // the hosted surface to avoid Game Bar chrome; only Reset asks for it.
+            if (resetting) { co_await widget.CenterWindowAsync(); }
             // Allow the hosted view to receive its layout change before checking it.
             co_await resume_after(std::chrono::milliseconds{150});
             co_await resume_foreground(foreground);
-            if (!current_request()) { break; }
-            update_coverage();
-            fuser::widget::log(L"Layout after centering: " + kind + L" resizeAccepted=" + to_hstring(resized)
-                + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
-            const bool size_matched = fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(),
-                {requested.Width, requested.Height}, scale);
-            if (resetting) {
-                if (size_matched) {
-                    Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
-                        L"ResetWidgetPosition", box_value(false));
-                    report(L"Movable window restored. Drag its title bar to move it; enable monitor coverage to fit when pinned.");
+            if (current_request()) {
+                update_coverage();
+                fuser::widget::log(L"Layout settled: " + kind + L" resizeAccepted=" + to_hstring(resized)
+                    + L" requested=" + to_hstring(requested.Width) + L"x" + to_hstring(requested.Height));
+                const bool size_matched = fuser::matches_monitor_extent(VideoHost().ActualWidth(), VideoHost().ActualHeight(),
+                    {requested.Width, requested.Height}, scale);
+                if (resetting) {
+                    if (size_matched) {
+                        Windows::Storage::ApplicationData::Current().LocalSettings().Values().Insert(
+                            L"ResetWidgetPosition", box_value(false));
+                        report(L"Movable window restored. Drag its title bar, or click Fit my monitor to resize now.");
+                    } else {
+                        report(L"Game Bar declined the smaller window. Resize manually, or close and reopen to retry the saved reset.");
+                    }
                 } else {
-                    report(L"Game Bar declined the smaller window. Close and reopen the widget to retry the saved reset.");
+                    report(size_matched
+                        ? L"Monitor size applied. Drag the title bar if an outer edge misses the screen or taskbar. Automatic fitting is off."
+                        : L"Game Bar constrained the resize. Drag the title bar and resize edges to cover the monitor, including the taskbar. Automatic fitting is off.");
                 }
             }
-            if (size_matched) { break; }
         }
     } catch (const hresult_error& error) { report(error.message()); }
       catch (const std::exception& error) { report(to_hstring(error.what())); }
-    // A newer reset or mode transition keeps its request. An unchanged failed
-    // reset stays saved for reopening, without an automatic retry loop.
-    if (resetting && revision == layout_revision_) { reset_pending_ = false; }
     fitting_monitor_ = false;
-    if (fit_pending_ || reset_pending_ || settings_fit_pending_) { schedule_monitor_fit(); }
+    start_layout_request();
 }
 
 void MainPage::update_widget_state() {
@@ -707,19 +676,8 @@ void MainPage::update_widget_state() {
             + L" mode=" + to_hstring(static_cast<int>(widget_.GameBarDisplayMode()))
             + L" requestedOpacity=" + to_hstring(widget_.RequestedOpacity())
             + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled()));
-        const int mode = static_cast<int>(widget_.GameBarDisplayMode());
-        const bool visible = widget_.Visible();
-        const bool first_activation = layout_mode_ == -1;
-        const bool transition = mode != layout_mode_ || (visible && !layout_visible_);
-        layout_mode_ = mode;
-        layout_visible_ = visible;
-        if (transition) {
-            ++layout_revision_;
-            settings_fit_pending_ = visible && !pinned_only
-                && (first_activation || CoverMonitor().IsChecked().Value());
-            if (!pinned_only) { restore_resize_limits(); }
-            schedule_monitor_fit();
-        }
+        layout_requests_.visibility_changed(widget_.Visible());
+        start_layout_request();
     }
     update_coverage();
 }
@@ -733,7 +691,7 @@ void MainPage::shutdown() noexcept {
     fuser::widget::log(L"MainPage shutting down.");
     shutting_down_ = true;
     if (stats_timer_) { stats_timer_.Stop(); }
-    if (fit_timer_) { fit_timer_.Stop(); }
+    layout_requests_.invalidate();
     if (control_) { control_->cancel(); }
     if (session_) {
         session_->cancel();

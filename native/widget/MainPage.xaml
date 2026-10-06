@@ -19,10 +19,8 @@
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="StatsText" TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" />
-                    <CheckBox x:Name="CoverMonitor" Content="Cover this monitor when pinned" IsChecked="True"
-                              Checked="cover_monitor_changed" Unchecked="cover_monitor_changed" />
-                    <Button Content="Enable monitor coverage" Click="fit_monitor_click" />
-                    <TextBlock Text="Pin the widget and close Game Bar to fit the overlay. Reopen Game Bar to move it or reset its position."
+                    <Button Content="Fit my monitor" Click="fit_monitor_click" />
+                    <TextBlock Text="Fit requests the whole monitor immediately. If Game Bar clips or shifts it, drag the title bar or resize its edges to cover all four corners, including the taskbar. Pinning or reopening won't trigger another fit. Reset restores a smaller window."
                                TextWrapping="Wrap" FontSize="12" />
                     <TextBlock x:Name="CoverageText" TextWrapping="Wrap" FontSize="12" />
                     <TextBox x:Name="HostAddress" Header="Source PC IP address or hostname"

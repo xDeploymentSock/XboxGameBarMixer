@@ -28,4 +28,11 @@ struct monitor_extent {
         && std::abs(height - expected.height) * scale <= 1.0;
 }
 
+[[nodiscard]] inline bool matches_monitor_bounds(
+    double x, double y, double width, double height, monitor_extent expected, double scale) noexcept {
+    return matches_monitor_extent(width, height, expected, scale)
+        && std::isfinite(x) && std::isfinite(y)
+        && std::abs(x) * scale <= 1.0 && std::abs(y) * scale <= 1.0;
+}
+
 } // namespace fuser
