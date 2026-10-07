@@ -51,7 +51,9 @@ $env:PATH = (Join-Path (Get-Location) 'build/test-runtime/Release') + ';' + $env
 .\build\decoder\Release\fuser_fixture_benchmark.exe .\build\fixtures\moving-pattern.h264 h264 240 14400
 ```
 
-The arguments are fixture path, codec, paced FPS (0 means unpaced), and total decode inputs. Append `decode-only` to omit concurrent drawing from the timed input loop; output leases and alpha are still checked after decoder shutdown. The tool reports actual decoded/Present-call rates, frame replacements, unavailable GPU slots, pacing misses, and elapsed-time percentiles (including driver/context waits). It verifies key alpha after joined shutdown. It uses an offscreen composition swap chain, so these measurements exclude Sunshine/network, Game Bar, monitor scanout, and local-game load. The 60-second runs measured approximately 240 FPS on the validation receiver; see VALIDATION.md for exact results and limits.
+The arguments are fixture path, codec, paced FPS (0 means unpaced), and total decode inputs. Payload size and post-startup input allocation/copy timings are reported separately from decoder submit time. Append `decode-only` to omit concurrent drawing from the timed input loop; output leases and alpha are still checked after decoder shutdown. The tool reports actual decoded/Present-call rates, frame replacements, unavailable GPU slots, pacing misses, and elapsed-time percentiles (including driver/context waits). It verifies key alpha after joined shutdown. It uses an offscreen composition swap chain, so these measurements exclude Sunshine/network, Game Bar, monitor scanout, and local-game load. The 60-second runs measured approximately 240 FPS on the validation receiver; see VALIDATION.md for exact results and limits.
+
+For an owned 100 Mbps high-motion packet-size workload, run `GenerateDecoderFixtures.ps1 -IncludePayloadStress` and use `build/fixtures/payload-pattern.hevc` or `.h264`. The option is off by default. These fixtures retain alpha anchors but are not a source-HUD quality test. See [input preparation](RECEIVER-PERFORMANCE.md#compressed-input-preparation) for measurements and reproduction commands.
 
 ## GPU draw benchmark
 

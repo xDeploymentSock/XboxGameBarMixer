@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$FfmpegPath = 'ffmpeg')
+param([string]$FfmpegPath = 'ffmpeg', [switch]$IncludePayloadStress)
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $taskFixtures = Join-Path $taskRoot 'build\fixtures'
@@ -38,6 +38,22 @@ foreach ($taskCodec in @('h264', 'hevc')) {
     & $FfmpegPath @taskMovingArguments
     if ($LASTEXITCODE -ne 0) { throw "Moving HUD fixture encoding failed for $taskCodec with code $LASTEXITCODE." }
     Get-FileHash -LiteralPath $taskMovingOutput -Algorithm SHA256 | Select-Object Path,Hash
+    if ($IncludePayloadStress) {
+        # Owned high-motion input at the requested HUD bitrate. This stresses
+        # packet preparation; it is not a visual-quality or source-HUD fixture.
+        $taskPayloadOutput = Join-Path $taskFixtures "payload-pattern.$taskCodec"
+        $taskPayloadArguments = @('-hide_banner', '-loglevel', 'error', '-y',
+            '-f', 'lavfi', '-i', 'testsrc2=s=2560x1440:r=240', '-vf',
+            'drawbox=x=0:y=0:w=64:h=64:color=0x00ff00:t=fill,drawbox=x=64:y=64:w=128:h=128:color=white:t=fill,scale=in_color_matrix=bt601:out_color_matrix=bt709',
+            '-frames:v', '120', '-pix_fmt', 'yuv420p', '-c:v', "${taskCodec}_nvenc",
+            '-preset', 'p1', '-tune', 'ull', '-g', '60', '-bf', '0', '-rc', 'cbr',
+            '-b:v', '100M', '-maxrate', '100M', '-bufsize', '1M', '-colorspace', 'bt709',
+            '-color_trc', 'bt709', '-color_primaries', 'bt709', '-color_range', 'tv',
+            '-f', $taskCodec, $taskPayloadOutput)
+        & $FfmpegPath @taskPayloadArguments
+        if ($LASTEXITCODE -ne 0) { throw "Payload-stress fixture encoding failed for $taskCodec with code $LASTEXITCODE." }
+        Get-FileHash -LiteralPath $taskPayloadOutput -Algorithm SHA256 | Select-Object Path,Hash
+    }
 }
 
 # Rewrite only VUI metadata on our owned H.264 fixture. The decoder must reject

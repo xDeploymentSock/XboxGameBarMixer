@@ -113,13 +113,36 @@ fuser_gpu_draw_benchmark 2556 1396 2000
 
 Output dimensions and sample count are explicit arguments. Hardware GPU CTest includes a short timestamp/alpha smoke run; comprehensive color, scaling and lease checks remain in the existing shader contracts.
 
+### Compressed-input preparation
+
+The fixture benchmark now reports access-unit size and input allocation/copy percentiles after 20 startup units, separately from decoder submit time. Optional `GenerateDecoderFixtures.ps1 -IncludePayloadStress` creates owned high-motion H.264/HEVC input at 2560x1440, 240 FPS and 100 Mbps CBR, with green/white alpha anchors. This is a packet-size stress workload, not a source-HUD visual-quality comparison.
+
+Three unpaced HEVC runs of 1,200 units averaged 52,239 bytes per unit (maximum 86,647). Input preparation p95 was 0.0044, 0.0044 and 0.0048 ms; p99 was 0.0058, 0.0059 and 0.0071 ms. One H.264 run averaged 52,241 bytes (maximum 82,327), with preparation p95/p99 of 0.0044/0.0070 ms. All decoded outputs and post-stop alpha checks passed.
+
+A separate three-run synthetic probe reproduced fragment copying in 1,392-byte chunks followed by `av_new_packet`, packet-data copying, timing allocation and unref. It rotated 64 owned payloads per size, with 20,000 samples after 100 warmups. At 52,084 bytes (the average payload budget for 100 Mbps/240 FPS), median run-level p95 was 1.3 microseconds for assembly and 1.0 microseconds for packet preparation/free. At 1 MiB, those p95 values increased to 256.2 and 252.1 microseconds. These synthetic bytes were not submitted to the decoder; results exclude its driver waits and do not establish the live HUD's size distribution. The current copy/ownership path is preserved because the tested typical-size costs are small and no safe ownership rewrite has demonstrated a pipeline gain.
+
+One paced HEVC stress run decoded 1,200 units in 4.999 seconds (240.055/s), with input preparation p95 of 0.0069 ms. Accepted Present calls were only 118.827/s, with 605 display replacements and no occupied-GPU-slot retries. Other streams were active and the swap chain was offscreen. This is evidence that the presentation result varies under concurrent load, not an isolated widget regression or a 120 Hz display limit. It does not supersede the earlier idle-system paced results.
+
+A constant-upload cache was also tested in an isolated renderer copy, preserving input, shader and alpha checks while using changing frame IDs. Six sequential fitted-size runs (three per implementation, 2,000 samples per key preset) gave inconsistent CPU/GPU differences while other streams ran. It was not adopted; production still uploads the current constants on every draw. An attempted 40-second passive PresentMon capture lost ETW events and produced no CSV, so it supplies no reliable display measurements.
+
+Reproduce the owned-payload measurements after building Decoder:
+
+```powershell
+.\tools\GenerateDecoderFixtures.ps1 -IncludePayloadStress
+$env:PATH = (Join-Path (Get-Location) 'build/test-runtime/Release') + ';' + $env:PATH
+.\build\decoder\Release\fuser_fixture_benchmark.exe build/fixtures/payload-pattern.hevc hevc 0 1200 decode-only
+.\build\decoder\Release\fuser_fixture_benchmark.exe build/fixtures/payload-pattern.h264 h264 0 1200 decode-only
+```
+
+Supply `-FfmpegPath` when FFmpeg is not on PATH. Replace 0 with 240 and omit `decode-only` for the concurrent path. Keep comparisons sequential and record other active streams.
+
 ### Remaining performance verification
 
 Maximum performance remains unproven. Continue the review against these gates instead of treating reduced allocation counts as completion:
 
 | Area | Required evidence |
 | --- | --- |
-| Compressed input handling | Measure payload-copy/preparation cost on representative owned HUD access units before changing buffer ownership. |
+| Compressed input handling | Owned 100 Mbps and synthetic size probes are recorded above. Still verify the actual HUD access-unit distribution and any proposed ownership change against isolated pipeline timings. |
 | Shader and GPU reads | Isolated fitted-size timestamp/alpha checks are recorded above. Still compare representative HUD textures and gaming GPU load while preserving color/alpha/crop regressions. |
 | Presentation pacing | Controlled Game Bar trace with changing source frame IDs; distinguish accepted Present calls from display updates and source content. |
 | Source and transport | Isolated stream with a moving HUD, encoder processing/queue/assembly counters and otherwise identical codec settings. |

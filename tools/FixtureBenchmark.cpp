@@ -129,8 +129,11 @@ int main(int argc, char** argv) {
         fuser::latest_frame_mailbox mailbox;
         fuser::decoded_frame retained;
         std::uint64_t decoded{}, presented{}, unavailable{}, late_feeds{};
-        std::vector<double> submit_times, draw_times, feed_to_present_times, present_intervals;
+        std::vector<double> submit_times, draw_times, feed_to_present_times, present_intervals, input_preparation_times;
         submit_times.reserve(static_cast<std::size_t>(count));
+        input_preparation_times.reserve(static_cast<std::size_t>(count));
+        std::uint64_t input_bytes{};
+        std::size_t maximum_input_bytes{};
         feed_to_present_times.reserve(static_cast<std::size_t>(count));
         draw_times.reserve(static_cast<std::size_t>(count));
         present_intervals.reserve(static_cast<std::size_t>(count));
@@ -213,9 +216,13 @@ int main(int argc, char** argv) {
             const auto& packet = packets[static_cast<std::size_t>(index) % packets.size()];
             frame.bytes.resize(packet.size());
             std::memcpy(frame.bytes.data(), packet.data(), packet.size());
+            const auto preparation_ms = milliseconds(clock_type::now() - frame.received_at);
             const auto submitted = clock_type::now();
             require(decoder.submit(std::move(frame)));
             const auto submit_ms = milliseconds(clock_type::now() - submitted);
+            input_bytes += packet.size();
+            maximum_input_bytes = std::max(maximum_input_bytes, packet.size());
+            if (index >= 20) { input_preparation_times.push_back(preparation_ms); }
             submit_times.push_back(submit_ms);
             // Exclude initial hardware-pool setup, but report full totals too.
             if (index >= 20) { steady_submit_times.push_back(submit_ms); steady_submit_total += submit_ms; }
@@ -254,6 +261,10 @@ int main(int argc, char** argv) {
             << "Steady decode submit elapsed p50/p95/p99 ms " << percentile(steady_submit_times, 0.50) << '/'
             << percentile(steady_submit_times, 0.95) << '/' << percentile(steady_submit_times, 0.99)
             << " | mean ms " << (steady_submit_times.empty() ? 0 : steady_submit_total / static_cast<double>(steady_submit_times.size())) << '\n'
+            << "Encoded payload bytes mean/max " << static_cast<double>(input_bytes) / static_cast<double>(count)
+            << '/' << maximum_input_bytes << " | steady input preparation p50/p95/p99 ms "
+            << percentile(input_preparation_times, 0.50) << '/' << percentile(input_preparation_times, 0.95)
+            << '/' << percentile(input_preparation_times, 0.99) << '\n'
             << "Decoder wrapper allocations packet/receive/retained " << decoder_resources.packet_wrappers << '/'
             << decoder_resources.receive_frame_wrappers << '/' << decoder_resources.retained_frame_wrappers << '\n'
             << "Green/white alpha checks passed after joined shutdown. Submit timings include driver waits. Offscreen calls do not measure Game Bar or monitor scanout.\n";

@@ -13,6 +13,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - README and changelog skills recorded in the project skill lock.
 - Decode-only fixture benchmarking, decoder wrapper counters and callback-failure/restart coverage.
 - Owned-input GPU draw benchmarking with D3D11 timestamps, disjoint rejection and alpha checks.
+- Fixture input-preparation timings and optional 100 Mbps H.264/HEVC payload-stress fixtures.
 - A bounded benchmark failure regression using owned unsupported-matrix input, plus a [scoped code review](docs/CODE-REVIEW.md).
 
 ### Changed
