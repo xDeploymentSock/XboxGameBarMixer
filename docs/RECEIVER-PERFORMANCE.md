@@ -136,6 +136,14 @@ $env:PATH = (Join-Path (Get-Location) 'build/test-runtime/Release') + ';' + $env
 
 Supply `-FfmpegPath` when FFmpeg is not on PATH. Replace 0 with 240 and omit `decode-only` for the concurrent path. Keep comparisons sequential and record other active streams.
 
+### Live trace collection limitation
+
+A follow-up 20-second capture disabled GPU and input tracking while retaining display tracking. It still lost 634,740 ETW events and produced no CSV. A 10-second Present-only capture, additionally disabling display tracking, lost 6,332 events and produced no CSV. A five-second Present-only check against the existing Moonlight window also lost 2,815 events and produced no CSV. All tools exited normally; exit code zero alone does not prove valid measurement data.
+
+The executing account was not elevated, was a Performance Log Users member, and matched the widget process owner. Those checks do not establish why events were lost or that elevation will fix collection. No privilege/group settings or running sessions were changed. Further repeated captures with this setup are deferred until the collection path can be validated in the controlled test window.
+
+[PresentMon's versioned console documentation](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/README-ConsoleApplication.md) defines the tracking switches and CSV metrics. Disabling display tracking removes display-duration/latency measurements, so a successful Present-only capture would still be insufficient to establish displayed source FPS or capture-to-screen latency. Missing CSV data from these failed captures is not evidence that the widget did not present frames; its own receive/decode/Present counters remained active.
+
 ### Controlled live comparison
 
 The candidate package is prepared; installation and this comparison require an idle test window. Record the installed 0.2.1.7 baseline before updating it. Keep source content, dimensions, codec, bitrate, key/scaling settings and widget placement identical across the two versions.

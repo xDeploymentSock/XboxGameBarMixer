@@ -7,6 +7,10 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ## [Unreleased]
 
+### Added
+
+- Documented passive trace-collection failures and the requirement to validate display measurements before drawing optimization conclusions.
+
 ## [0.2.1.8]
 
 Prepared development candidate; not installed. Allocation reductions are measured, while controlled live performance remains pending.
