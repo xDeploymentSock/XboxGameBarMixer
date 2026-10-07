@@ -89,6 +89,30 @@ fuser_fixture_benchmark build/fixtures/inter-pattern.hevc hevc 0 6000 decode-onl
 
 Omit `decode-only` for the concurrent-present path. Use 240 instead of 0 for paced input. These tools never connect to Sunshine. FFmpeg documents refcounted input ownership and receiving into reusable frame wrappers in its [send/receive API](https://ffmpeg.org/doxygen/trunk/group__lavc__encdec.html); [av_frame_move_ref](https://ffmpeg.org/doxygen/trunk/group__lavu__frame.html) transfers references and resets the source.
 
+### GPU draw timing
+
+The developer `fuser_gpu_draw_benchmark` uses an owned 2560x1440 NV12 pattern, the production renderer, Crisp scaling and three key presets. D3D11 timestamps bracket draw commands after 50 warmups; query waits, flushes and alpha readback belong only to this diagnostic. Results are accepted only when the timestamp-disjoint flag is false and the frequency is nonzero, as required by [Microsoft's timestamp query documentation](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ns-d3d11-d3d11_query_data_timestamp_disjoint).
+
+One Release run at the currently logged fitted dimensions, 2556x1396, used 2,000 samples per preset:
+
+| Preset | GPU draw p50 | p95 | p99 | Mean |
+| --- | ---: | ---: | ---: | ---: |
+| Exact black | 0.022624 ms | 0.022688 ms | 0.022816 ms | 0.022622 ms |
+| Near-black cutoff | 0.022720 ms | 0.023424 ms | 0.023456 ms | 0.022977 ms |
+| Default green | 0.023392 ms | 0.023456 ms | 0.023520 ms | 0.023383 ms |
+
+A native 2560x1440 output run measured means of 0.023241, 0.023802 and 0.023989 ms respectively. Exact-black alpha, opaque white and near-black cutoff checks passed at both sizes. GPU draw commands cost roughly 0.023 ms on this receiver in isolation; these samples exclude decoding, CPU/context-lock waits, Present, Game Bar composition, scanout and gaming load. The repeated simple pattern is not a comprehensive shader workload.
+
+An isolated shader experiment replaced the hard-cutoff Euclidean distance with a squared-distance comparison while retaining the soft-key path. Three paired 2560x1394 runs measured exact-black median means of 0.022620 ms before and 0.023329 ms after; the other two presets also became about 0.0007 ms slower. The candidate was rejected and the production shader is unchanged. Removing source-level operations does not establish a GPU improvement without measurement.
+
+Reproduce after the GPU build:
+
+```text
+fuser_gpu_draw_benchmark 2556 1396 2000
+```
+
+Output dimensions and sample count are explicit arguments. Hardware GPU CTest includes a short timestamp/alpha smoke run; comprehensive color, scaling and lease checks remain in the existing shader contracts.
+
 ### Remaining performance verification
 
 Maximum performance remains unproven. Continue the review against these gates instead of treating reduced allocation counts as completion:
@@ -96,7 +120,7 @@ Maximum performance remains unproven. Continue the review against these gates in
 | Area | Required evidence |
 | --- | --- |
 | Compressed input handling | Measure payload-copy/preparation cost on representative owned HUD access units before changing buffer ownership. |
-| Shader and GPU reads | GPU timestamp measurements at the actual fitted dimensions, with the current natural-color black-removal settings; preserve color/alpha/crop regressions. |
+| Shader and GPU reads | Isolated fitted-size timestamp/alpha checks are recorded above. Still compare representative HUD textures and gaming GPU load while preserving color/alpha/crop regressions. |
 | Presentation pacing | Controlled Game Bar trace with changing source frame IDs; distinguish accepted Present calls from display updates and source content. |
 | Source and transport | Isolated stream with a moving HUD, encoder processing/queue/assembly counters and otherwise identical codec settings. |
 | Gaming impact and stability | Representative local-game load, reconnect and shutdown measurements; compare the verified package against the previous checkpoint. |

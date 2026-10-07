@@ -24,7 +24,7 @@ From the workspace root:
 
 `Build.ps1` also accepts `All` and either configuration. Core/GPU targets run CTest. The GPU target requires a hardware D3D11 device and tests shader output using test-only CPU readback. Production rendering does not read pixels back to the CPU. The Control target uses an existing Python runtime with `cryptography` to run loopback HTTP/TLS pairing fixtures and Windows protected-storage round-trips; it never pairs or launches on a real source PC.
 
-The explicit Decoder target builds pinned UWP dependencies, extracts the SDK runtime into the test directory, generates twelve intra-frame, 120 inter-coded-frame, and 120 moving-square-frame H.264/HEVC fixtures with the existing FFmpeg CLI/NVENC, and runs seven tests. It also rewrites H.264 matrix metadata into an owned BT.2020 rejection fixture. The Python regression verifies that a decoder error reports the expected message and joins the benchmark worker within five seconds. If ffmpeg is not on PATH, run GenerateDecoderFixtures.ps1 with -FfmpegPath pointing to the existing executable before the direct CMake build/test commands. Widget builds also invoke BuildStreamingLibraries for Sunshine control, Moonlight, FFmpeg, and session libraries. The view-only build removes Moonlight's source-mouse wake-up from an isolated copy of pinned source. Dependency builds use a task-specific temporary build tree and an FFmpeg response-file overlay to support spaces in the workspace path.
+The explicit Decoder target builds pinned UWP dependencies, extracts the SDK runtime into the test directory, generates twelve intra-frame, 120 inter-coded-frame, and 120 moving-square-frame H.264/HEVC fixtures with the existing FFmpeg CLI/NVENC, and runs eight tests. It also rewrites H.264 matrix metadata into an owned BT.2020 rejection fixture. The Python regression verifies that a decoder error reports the expected message and joins the benchmark worker within five seconds. If ffmpeg is not on PATH, run GenerateDecoderFixtures.ps1 with -FfmpegPath pointing to the existing executable before the direct CMake build/test commands. Widget builds also invoke BuildStreamingLibraries for Sunshine control, Moonlight, FFmpeg, and session libraries. The view-only build removes Moonlight's source-mouse wake-up from an isolated copy of pinned source. Dependency builds use a task-specific temporary build tree and an FFmpeg response-file overlay to support spaces in the workspace path.
 
 Widget builds generate C++/WinRT/XAML, compile HLSL, generate placeholder package logos, and produce an unsigned MSIX. Logs are in `build/widget-{Configuration}.log`; binaries are in `out/`; packages are in `AppPackages/`. No build target installs or starts the app.
 
@@ -51,7 +51,17 @@ $env:PATH = (Join-Path (Get-Location) 'build/test-runtime/Release') + ';' + $env
 .\build\decoder\Release\fuser_fixture_benchmark.exe .\build\fixtures\moving-pattern.h264 h264 240 14400
 ```
 
-The arguments are fixture path, codec, paced FPS (0 means unpaced), and total decode inputs. The tool reports actual decoded/Present-call rates, frame replacements, unavailable GPU slots, pacing misses, and CPU timing percentiles. It verifies key alpha after joined shutdown. It uses an offscreen composition swap chain, so these measurements exclude Sunshine/network, Game Bar, monitor scanout, and local-game load. The 60-second runs measured approximately 240 FPS on the validation receiver; see VALIDATION.md for exact results and limits.
+The arguments are fixture path, codec, paced FPS (0 means unpaced), and total decode inputs. Append `decode-only` to omit concurrent drawing from the timed input loop; output leases and alpha are still checked after decoder shutdown. The tool reports actual decoded/Present-call rates, frame replacements, unavailable GPU slots, pacing misses, and elapsed-time percentiles (including driver/context waits). It verifies key alpha after joined shutdown. It uses an offscreen composition swap chain, so these measurements exclude Sunshine/network, Game Bar, monitor scanout, and local-game load. The 60-second runs measured approximately 240 FPS on the validation receiver; see VALIDATION.md for exact results and limits.
+
+## GPU draw benchmark
+
+After `Build.ps1 -Target GPU -Configuration Release`:
+
+```powershell
+.\build\gpu\Release\fuser_gpu_draw_benchmark.exe 2556 1396 2000
+```
+
+Arguments are output width, output height and sample count. Use the logged video-area dimensions for a fitted-size comparison. The tool renders an owned 2560x1440 NV12 pattern with Crisp scaling, measures D3D11 draw-command timestamps for exact black, near-black cutoff and default green, rejects disjoint timing, and verifies alpha using diagnostic-only readback. It waits synchronously between samples, excludes Present/decoder/scanout costs and does not connect to Sunshine. See [receiver performance](RECEIVER-PERFORMANCE.md#gpu-draw-timing) for results and limits.
 
 ## Source animation fixture
 

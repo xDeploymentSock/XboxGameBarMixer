@@ -12,6 +12,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - Repository publication/link audits, contributor guidance, formatting rules and CPU-only Windows/Linux core CI.
 - README and changelog skills recorded in the project skill lock.
 - Decode-only fixture benchmarking, decoder wrapper counters and callback-failure/restart coverage.
+- Owned-input GPU draw benchmarking with D3D11 timestamps, disjoint rejection and alpha checks.
 - A bounded benchmark failure regression using owned unsupported-matrix input, plus a [scoped code review](docs/CODE-REVIEW.md).
 
 ### Changed
