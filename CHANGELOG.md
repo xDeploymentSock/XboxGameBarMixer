@@ -10,7 +10,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 ### Added
 
 - Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.
-- Recorded an installed 0.2.1.8 live HUD receiver baseline and the user's preference for near-black cleanup, with source/display and gaming verification limits.
+- Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
 
 ## [0.2.1.8]
 

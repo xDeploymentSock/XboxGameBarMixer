@@ -185,6 +185,28 @@ The session's ending histograms report callback-to-accepted-Present p95/p99 uppe
 
 The user confirmed 244 FPS on the source animation counter and that the separate Moonlight control stream was disconnected. The run used the instructed 100 Mbps HUD preset. The browser counter is separate from the receiver and display rates. No valid display trace or optical measurement was collected, so these numbers do not prove 240 distinct displayed frames, capture-to-screen latency or a version-to-version improvement. Representative local-game load and reconnect checks remain outstanding. Raw logs and observer/aggregate artifacts remain ignored; only reviewed aggregate results are published.
 
+### Installed H.264 comparison (0.2.1.8)
+
+The user reconnected with H.264 using the same 2560x1440, 240 requested FPS, 100 Mbps, near-black cleanup, Crisp scaling and fitted placement, and reported no perceptible text/edge quality difference from HEVC. Six passive observer samples over 75 seconds were fresh and connected. Beginning/ending counters cover a longer 151.174-second post-startup interval; rates and means below are normalized to each codec's own window.
+
+| Metric | HEVC baseline | H.264 comparison |
+| --- | ---: | ---: |
+| Counter window | 75.606 s | 151.174 s |
+| Received units / accepted-Present samples | 17,238 / 17,238 | 36,155 / 36,155 |
+| Received units / accepted-Present samples per second | 227.998 / 227.998 | 239.161 / 239.161 |
+| Host-reported nonzero processing average | 6.473 ms | 3.539 ms |
+| Decoder submit average | 0.114 ms | 0.109 ms |
+| Callback-to-accepted-Present average | 0.172 ms | 0.167 ms |
+| Assembly / enqueue-to-submission average | 0.0048 / 0.0077 ms | 0.0029 / 0.0080 ms |
+| Added decode errors / skipped frame indexes | 0 / 0 | 0 / 0 |
+| Added display replacements / GPU-slot retries / Present retries / wait timeouts | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+
+H.264's ending cumulative callback-to-Present p95/p99 upper bounds were 0.25/0.50 ms; accepted-Present gap bounds were 4.75/5.00 ms, with a cumulative maximum gap of 7.581 ms. Two display replacements and a peak decode queue of two occurred before the saved beginning counters; no additional replacements occurred within the measured interval. Private memory stayed approximately 137 MiB during the short observer window. These cumulative tails and differently sized windows are not a controlled interval-only comparison of rare stalls or long-term memory behavior.
+
+On this source/receiver setup, H.264 is the preferred next profile for load testing: source-reported processing was about 2.934 ms lower, receive/submission rate about 4.9% higher, receiver time essentially unchanged, and the user did not perceive a quality loss. This sequential comparison does not establish an end-to-end latency reduction of 2.934 ms or a universal codec recommendation. It changes only the streaming profile, not the installed package or renderer. Keep the same settings for a representative local-game test and save the profile if the result is accepted.
+
+No valid display trace or optical measurement was collected. Actual displayed source-frame timing, gaming impact and broader reconnect behavior remain outstanding. Logs and private calculations remain ignored; only these reviewed aggregates are published.
+
 ### Remaining performance verification
 
 Maximum performance remains unproven. Continue the review against these gates instead of treating reduced allocation counts as completion:
@@ -194,7 +216,7 @@ Maximum performance remains unproven. Continue the review against these gates in
 | Compressed input handling | Owned 100 Mbps and synthetic size probes are recorded above. Still verify the actual HUD access-unit distribution and any proposed ownership change against isolated pipeline timings. |
 | Shader and GPU reads | Isolated fitted-size timestamp/alpha checks are recorded above. Still compare representative HUD textures and gaming GPU load while preserving color/alpha/crop regressions. |
 | Presentation pacing | Controlled Game Bar trace with changing source frame IDs; distinguish accepted Present calls from display updates and source content. |
-| Source and transport | Isolated stream with a moving HUD, encoder processing/queue/assembly counters and otherwise identical codec settings. |
+| Source and transport | Idle moving-HUD HEVC/H.264 processing, queue and assembly results are recorded above. Still measure actual access-unit sizes and behavior under representative load before proposing transport ownership changes. |
 | Gaming impact and stability | Representative local-game load, reconnect and shutdown measurements; compare the verified package against the previous checkpoint. |
 
 ## Timer and lock review
