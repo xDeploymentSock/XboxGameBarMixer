@@ -157,10 +157,33 @@ These offscreen controls establish an active producer for the collection check, 
 Release 0.2.1.8 is installed and independently verified. A controlled 0.2.1.7 live baseline was not collected before the authorized update, so the next isolated run establishes the installed version's behavior without proving a before/after improvement. Any later comparison requires a verified baseline package and the same source content, dimensions, codec, bitrate, key/scaling settings and widget placement. This protocol requires an idle test window.
 
 1. Put the [owned HUD fixture](BUILD-LATER.md#source-animation-fixture) fullscreen on the source's captured display, select its black background and leave motion running. Confirm the canvas is 2560x1440 and the source animation counter is near the display refresh rate. Its browser counter is not received or displayed FPS.
-2. Disconnect the separate Moonlight control stream after the HUD is ready. Connect only Software Fuser using the 1440p HUD preset: HEVC, 240 requested FPS and 100,000 kbps. Use Remove black only and Crisp HUD. Pin it, enable click-through and close Game Bar.
+2. Disconnect the separate Moonlight control stream after the HUD is ready. Connect only Software Fuser using the 1440p HUD preset: HEVC, 240 requested FPS and 100,000 kbps. Use Crisp HUD and keep the chosen black-removal preset unchanged between samples; the installed baseline below uses Remove near-black noise. Pin it, enable click-through and close Game Bar.
 3. Observe for at least 60 seconds after startup. Save begin/end receiver statistics and record changing frame IDs, receive/decode/Present rates, display replacements, decode errors, source processing, assembly/queue timing, callback-to-Present percentiles and pacing gaps. Discard a trace with lost events. Accepted Present calls alone do not establish distinct displayed frames or capture-to-screen latency.
 4. Repeat the installed-version run under representative local-game load, recording game FPS/frame-time impact and HUD color/edge appearance. If a verified baseline becomes available, compare versions sequentially under the same conditions. Other streaming sessions confound source and receiver load.
 5. Verify Disconnect, reconnect and application selection, then restore the source-control session. Keep logs and captures local; publish only reviewed aggregate results.
+
+### Installed live HUD baseline (0.2.1.8)
+
+The user started the owned HUD test and preferred **Remove near-black noise**, reporting that exact-black removal still left visible dark pixels. This baseline uses that explicit preference rather than requiring exact-black removal. Private runtime settings confirm tolerance 0.12, softness 0, HUD opacity 1, Crisp scaling and independent video opacity 1 while pinned with click-through. Retained colors remain opaque; the cutoff also removes intentionally near-black artwork. This qualitative preference is not a pixel-exact source-color comparison.
+
+A passive observation captured a 75.606-second interval after startup from the installed HEVC widget at 2560x1440 and 240 requested FPS. Differences between beginning/ending cumulative counters give:
+
+| Metric | Measured result |
+| --- | ---: |
+| Received units / accepted-Present samples | 17,238 / 17,238 |
+| Received units / accepted-Present samples per second | 227.998 / 227.998 |
+| Host-reported nonzero processing average | 6.473 ms |
+| Decoder submit average | 0.114 ms |
+| Callback-to-accepted-Present average | 0.172 ms |
+| Assembly / enqueue-to-submission average | 0.0048 / 0.0077 ms |
+| Added decode errors / skipped frame indexes | 0 / 0 |
+| Added display / retained-retry replacements | 0 / 0 |
+| Added GPU-slot / Present retries / wait timeouts | 0 / 0 / 0 |
+| Added absent/repeated host timing samples | 0 |
+
+The session's ending histograms report callback-to-accepted-Present p95/p99 upper bounds of 0.50/0.50 ms and accepted-Present gap bounds of 4.75/4.75 ms, with a maximum gap of 5.456 ms. Those histograms include the session before this observation window; they are not interval-only percentiles. All six observer samples were fresh and connected, with private memory approximately 141 MiB. This short observation does not establish long-term leak behavior.
+
+The user confirmed 244 FPS on the source animation counter and that the separate Moonlight control stream was disconnected. The run used the instructed 100 Mbps HUD preset. The browser counter is separate from the receiver and display rates. No valid display trace or optical measurement was collected, so these numbers do not prove 240 distinct displayed frames, capture-to-screen latency or a version-to-version improvement. Representative local-game load and reconnect checks remain outstanding. Raw logs and observer/aggregate artifacts remain ignored; only reviewed aggregate results are published.
 
 ### Remaining performance verification
 
