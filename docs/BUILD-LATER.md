@@ -27,6 +27,19 @@ The explicit Decoder target builds pinned UWP dependencies, extracts the SDK run
 
 Widget builds generate C++/WinRT/XAML, compile HLSL, generate placeholder package logos, and produce an unsigned MSIX. Logs are in `build/widget-{Configuration}.log`; binaries are in `out/`; packages are in `AppPackages/`. No build target installs or starts the app.
 
+## Portable repository checks
+
+These CPU-only checks require CMake 3.24+, a C++20 compiler, Git and Python 3.10+. They do not restore streaming dependencies, install the widget or contact Sunshine:
+
+```text
+python tools/audit_repository.py
+cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build/core --config Release
+ctest --test-dir build/core -C Release --output-on-failure
+```
+
+GPU, decoder, control and display-probe targets are off by default. GitHub Actions runs the portable checks on Windows and Linux. Hardware/widget verification remains separate. See [contributing](../CONTRIBUTING.md) for staged-file auditing and checkpoint publication.
+
 ## Receiver-only paced benchmark
 
 After building the Decoder target, run these sequentially in a temporary PowerShell session so the test runtime PATH stays local to that process:
@@ -53,9 +66,9 @@ Replace RECEIVER_LAN_IP and SOURCE_LAN_IP with your own addresses. Open `http://
 
 The manifest uses Microsoft's Windows 11 unsigned-development publisher OID. `Deploy.ps1` checks the package identity, asks Windows for administrator elevation, and calls `Add-AppxPackage -AllowUnsigned` for this package. It does not enable global Developer Mode or install a signing certificate. This is a local development package, not a signed distribution release. See the [official unsigned-package procedure](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package).
 
-The verified Release registration is `SoftwareFuser.Widget_6g84c2f4w9w1a`, version 0.2.0.9, package status OK (0). A canceled UAC prompt leaves deployment unfinished; it is not success. Debug deployment additionally supplies the SDK's matching VCLibs debug framework when needed. Protected app-local pairing survives updates with this package identity.
+The verified Release registration is `SoftwareFuser.Widget_6g84c2f4w9w1a`, version 0.2.1.6, package status OK (0). A canceled UAC prompt leaves deployment unfinished; it is not success. Debug deployment additionally supplies the SDK's matching VCLibs debug framework when needed. Protected app-local pairing survives updates with this package identity.
 
-Version 0.2.0.9 is built and installed, with zero warnings/errors in both widget builds and passing focused layout contracts in Debug/Release. **Fit my monitor** requests detected monitor dimensions immediately; **Overlay width/height (px)** and **Apply dimensions** request a typed physical size independently of video negotiation. **Try full-screen fit** is an explicit Windows API compatibility test for the top gap; its result must be verified in Game Bar. Opening/closing/pinning Game Bar initiates no app resize or recenter. Only Reset centers a smaller window. Reset, black transparency, and click-through were previously confirmed, but automatic four-edge coverage remains unverified. `LocalState/runtime.log` records size, position, all four edge gaps, view/chrome geometry, explicit requests, and host responses.
+Historical placement baseline: 0.2.0.9 was built and installed, with zero warnings/errors in both widget builds and passing focused layout contracts in Debug/Release. The current 0.2.1.6 checkpoint retains explicit placement actions and adds usable-area video fitting, Crisp HUD scaling and opaque black removal. **Fit my monitor** requests detected monitor dimensions immediately; **Overlay width/height (px)** and **Apply dimensions** request a typed physical size independently of video negotiation. **Try full-screen fit** is an explicit Windows API compatibility test for the top gap; its result must be verified in Game Bar. Opening/closing/pinning Game Bar initiates no app resize or recenter. Only Reset centers a smaller window. Reset, black transparency, and click-through were previously confirmed, but automatic four-edge coverage remains unverified. `LocalState/runtime.log` records size, position, all four edge gaps, view/chrome geometry, explicit requests, and host responses.
 
 The manifest version determines the package directory under AppPackages/FuserWidget. Debug and Release verification builds have zero warnings/errors. Version 0.2.0.3 added black-key selection and automatic fitting with passing GPU contracts, but its on-screen coverage was incomplete. Version 0.2.0.2's new instrumentation was verified in a short live HEVC check with normal Disconnect. Earlier PresentMon and long passive recording results belong to 0.2.0.1. Use `Get-FileHash -Algorithm SHA256` to verify your built package. Deployment uses the manifest's current version and closes this widget's active process. Existing protected pairing uses the same package identity.
 
@@ -76,7 +89,7 @@ Offscreen GPU and controlled pairing tests do not prove these live compositor/li
 
 The 0.2.0.4 foreground screenshot showed a full-sized test surface shifted upward about 44 pixels, with the bottom border above the taskbar. Taskbar auto-hide made no difference. Reset later restored movement, but the user clarified that covering the taskbar required manual dragging. The built-in Audio widget can overlap the taskbar in the supplied comparison. The [centering API](https://learn.microsoft.com/en-us/xbox/game-bar/api/xgb-widget) can move or resize a widget to satisfy host bounds; 0.2.0.8 avoids it during Fit and removes automatic resizing on host transitions.
 
-On the tested host, 0.2.0.9's 2560x1440 Apply and full-screen requests were declined. Its app title bar is already hidden with zero height. The user then confirmed manual adjustment cannot cover the top and taskbar simultaneously. The procedure below records behavior; it is not a verified coverage workaround. A companion borderless renderer would change presentation ownership while retaining Game Bar controls and needs a separate implementation and live validation.
+On the tested host, 0.2.0.9's 2560x1440 Apply and full-screen requests were declined. Its app title bar is already hidden with zero height. The user then confirmed manual adjustment cannot cover the top and taskbar simultaneously. The procedure below records behavior; it is not a verified coverage workaround. Presentation remains inside the Game Bar UWP widget. Main fits video above the taskbar; the separate testing branch investigates host frame coverage. See [video fitting](VIDEO-FIT.md).
 
 1. Open Software Fuser through the Game Bar widget menu. Startup unlocks resize controls but does not request a new size or center unless a user-saved Reset is pending.
 2. Click **Reset widget position** and try moving its title bar. Reset requests a smaller centered window, preserving the Sunshine pairing and video/key profiles. If controls remain inaccessible, save a reset from the standalone settings page, close the widget, and reopen it through Game Bar.

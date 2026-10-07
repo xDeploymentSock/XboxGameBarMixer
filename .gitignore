@@ -55,3 +55,26 @@ docs/private/
 docs/LIVE-DEBUG.md
 docs/FEASIBILITY.md
 docs/MORNING-SUMMARY-*.md
+
+# Machine-local CMake/IDE state and compiler intermediates.
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+*.idb
+*.ilk
+*.ipch
+*.tlog
+*.lastbuildstate
+
+# Desktop metadata.
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local captures and crash dumps can contain private screen/memory data.
+codex-clipboard-*.png
+*.dmp
+*.mdmp

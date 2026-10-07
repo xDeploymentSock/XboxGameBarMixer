@@ -1,0 +1,38 @@
+name: Core and repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Portable core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check repository publication hygiene
+        run: python tools/audit_repository.py
+      - name: Configure portable tests
+        run: cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DFUSER_BUILD_GPU_TESTS=OFF -DFUSER_BUILD_DECODER_TESTS=OFF -DFUSER_BUILD_CONTROL_TESTS=OFF -DFUSER_BUILD_DISPLAY_PROBE=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build portable tests
+        run: cmake --build build/core --config Release --parallel 2
+      - name: Run portable tests
+        run: ctest --test-dir build/core -C Release --output-on-failure
