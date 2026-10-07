@@ -1,34 +1,66 @@
 # Software Fuser
 
-A transparent Xbox Game Bar widget that receives a Sunshine/Moonlight video feed from another PC and overlays its HUD on the local display. Video renders inside the UWP widget using D3D11, with hardware FFmpeg decoding and a view-only Moonlight transport.
+[![Core and repository checks](https://github.com/xDeploymentSock/XboxGameBarMixer/actions/workflows/core-checks.yml/badge.svg?branch=main)](https://github.com/xDeploymentSock/XboxGameBarMixer/actions/workflows/core-checks.yml)
 
-**Current development checkpoint: 0.2.1.6.** The installed color fix was accepted in live use. Black removal keeps surviving decoded colors opaque; pairing, pinning, transparency, click-through and live video have been confirmed.
+Overlay a remote PC's HUD on your local display with a transparent, pinned Xbox Game Bar widget. Sunshine supplies the video; Software Fuser decodes it on the GPU and removes a reserved background color. Mouse and keyboard input stay on the local PC.
 
-The target is **2560 x 1440 at 240 requested FPS** on Windows 11 x64 over wired LAN. Measured live pipeline rates exceeded the accepted 200 FPS milestone. Receive/decode/Present counts do not establish 240 distinct displayed frames or capture-to-screen latency. See the [validation record](docs/VALIDATION.md) for evidence and limits.
+**Current development checkpoint: 0.2.1.6.** The installed color fix was accepted in live use. See the [changelog](CHANGELOG.md) for version changes and [validation](docs/VALIDATION.md) for measured results.
 
-## Use the widget
+## Features
 
-1. Build and explicitly install the local development package using the [build guide](docs/BUILD-LATER.md). Builds do not install or start it.
-2. Press **Win+G** and open **Software Fuser** from the widget menu.
-3. On **Connect**, enter your Sunshine hostname or IP, choose **Pair with Sunshine**, and submit the displayed PIN on the source PC. Existing pairing survives package updates.
-4. Click **Refresh apps**, select **Desktop** or the intended application, and click **Connect**. Desktop selection is validated against Sunshine's current application mapping; another active application is preserved.
-5. On **HUD**, choose **Black** and **Remove black only** for opaque retained colors. **Remove near-black noise** also deletes very dark pixels. Use **Crisp HUD** scaling for thin text if preferred.
-6. On **Layout**, use **Apply video fit** to fill the usable area above the adjustable taskbar reservation. This scales the complete feed and permits vertical compression. Widget dimensions and negotiated stream dimensions are separate.
-7. Pin the widget, enable Game Bar click-through, and close Game Bar to use the overlay. **Disconnect** stops this client's stream.
+- Sunshine PIN pairing, saved protected credentials and application selection.
+- View-only H.264/HEVC streaming with hardware decoding.
+- Black, green and magenta background removal. **Remove black only** preserves surviving decoded colors with opaque alpha.
+- Pinned, transparent video with Game Bar's user-controlled click-through.
+- Whole-feed fitting above an adjustable taskbar reservation, Smooth/Crisp HUD scaling and manual widget dimensions.
+- Connect, HUD, Layout and Details views with saved profiles and stage-specific stream statistics.
 
-The source HUD should use a reserved black, green or magenta background. **Draw test pattern** submits one local diagnostic frame. Local mouse/keyboard input stays on the receiving PC; the client forwards no input and plays no audio. See [Desktop launch behavior](docs/DESKTOP-LAUNCH.md) and [the menu guide](docs/WIDGET-MENU.md).
+## Getting started
 
-## Placement and image quality
+The receiver needs **Windows 11 x64**, Xbox Game Bar and a GPU supporting D3D11 hardware decoding. Configure Sunshine on the source PC and connect both PCs over wired LAN.
 
-Game Bar controls the widget's outer frame and may reject size or full-screen requests. **Fit my monitor**, typed **Apply dimensions** and **Reset widget position** are explicit actions; reopening and pinning do not trigger app fitting. Manual placement may be necessary. Automatic simultaneous top-edge/taskbar coverage remains unresolved on the tested host and is being investigated separately.
+Build the local development package from a Windows checkout using Visual Studio 2022, v143 C++, UWP C++ tools and Windows SDK 10.0.26100.0:
 
-Main scales video into the available client area above the taskbar. This keeps the complete source frame visible while host coverage is investigated. Black removal preserves decoded RGB values; compression, chroma subsampling and scaling can still affect source text edges. Video opacity is independent of Game Bar opacity unless explicitly enabled in HUD fine tuning.
+```powershell
+.\tools\Build.ps1 -Target Widget -Configuration Release
+.\tools\Deploy.ps1 -Configuration Release
+```
 
-## Build and check
+The build restores pinned dependencies and creates an unsigned development MSIX. Deployment is explicit, closes an existing Software Fuser process and requests Windows elevation. The [build guide](docs/BUILD-LATER.md) covers prerequisites, package verification and troubleshooting.
 
-Use Visual Studio 2022 with v143 C++, UWP C++ tools and Windows SDK 10.0.26100.0 for the widget. The [build guide](docs/BUILD-LATER.md) covers pinned dependencies, GPU/control tests and explicit unsigned development deployment.
+1. Press **Win+G** and open **Software Fuser** from the widget menu.
+2. On **Connect**, enter the Sunshine hostname/IP, click **Pair with Sunshine**, and enter the displayed PIN on Sunshine's PIN page.
+3. Click **Refresh apps**, select **Desktop** or the intended application, then **Connect**. Another active Sunshine application is preserved; conflicts are reported.
+4. On **HUD**, select the source background and apply its key settings. For natural retained colors on black, click **Remove black only**. **Remove near-black noise** also deletes very dark pixels.
+5. On **Layout**, click **Apply video fit** and adjust the taskbar reservation. The complete feed fills the usable area, allowing slight vertical compression.
+6. Pin the widget, enable Game Bar click-through, and close Game Bar. Use **Disconnect** to stop this client's stream.
 
-The portable C++20 core needs CMake 3.24+, a C++20 compiler, Git and Python 3.10+ for repository checks:
+Pairing survives package updates. For sharp text, try **Crisp HUD** scaling. **Draw test pattern** is a local preview; it submits one frame. See the [menu guide](docs/WIDGET-MENU.md) for the remaining controls.
+
+## Architecture and technology
+
+```mermaid
+flowchart LR
+    Source[Source HUD] --> Sunshine[Sunshine encoder]
+    Sunshine --> Client[Moonlight transport]
+    Client --> Decode[FFmpeg D3D11VA]
+    Decode --> Key[D3D11 scaling and keying]
+    Key --> Widget[Game Bar UWP widget]
+```
+
+The client uses **C++20, C++/WinRT, XAML and D3D11**. A latest-frame mailbox bounds the decoded-frame queue; video stays inside the Game Bar UWP composition surface. Audio playback and remote input forwarding are disabled. [Architecture](docs/ARCHITECTURE.md) documents ownership and shutdown; the [build guide](docs/BUILD-LATER.md) and [dependency lock](native/dependencies/source-lock.json) record pinned dependencies.
+
+## Current limits
+
+The target is **2560 x 1440 at 240 requested FPS**. Live pipeline measurements exceeded the accepted 200 FPS milestone; 240 distinct displayed source frames and capture-to-screen latency remain unproven. Receive/decode/Present rates measure different pipeline stages.
+
+Game Bar may constrain widget size and position. Main fits the feed above the taskbar; automatic simultaneous top-edge/taskbar coverage remains unresolved. **Fit my monitor**, **Apply dimensions** and **Reset widget position** are explicit actions. Manual placement may be needed.
+
+Rendering currently supports SDR 8-bit NV12. HDR/P010 and 4:4:4 rendering remain future work. Compression, chroma subsampling and scaling can affect text edges before keying. Black removal preserves decoded RGB; video follows Game Bar opacity only when explicitly enabled in HUD fine tuning.
+
+## Development and testing
+
+Portable checks need CMake 3.24+, a C++20 compiler, Git and Python 3.10+:
 
 ```text
 python tools/audit_repository.py
@@ -37,29 +69,33 @@ cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure
 ```
 
-GitHub Actions runs these CPU-only checks on Windows and Linux. UWP builds, hardware decoding, live Game Bar behavior and monitor measurements require the separate Windows validation procedures.
+CI runs these CPU-only checks on Windows and Linux. UWP compilation, GPU/decoder tests and live compositor checks use the separate [Windows procedures](docs/BUILD-LATER.md).
+
+Keep work scoped to the intended branch: main contains usable-area fitting; a separate testing branch investigates host coverage. Follow modern C++ ownership practices, preserve bounded queues and record verification before claiming a fix. See [contributing](CONTRIBUTING.md) for checkpoint review, staging and publication checks.
+
+## Project structure
+
+| Path | Purpose |
+| --- | --- |
+| `native/widget` | Game Bar package, C++/WinRT shell and XAML settings |
+| `native/core` | Portable configuration, frame contracts and mailbox |
+| `native/windows` / `native/shaders` | Hardware decoding and GPU rendering |
+| `native/streaming` | Sunshine control and stream orchestration |
+| `tests` | Source HUD and core/GPU/decoder/control fixtures |
+| `tools` / `docs` | Build, deployment, measurement and documentation |
 
 ## Documentation
 
 | Topic | Guide |
 | --- | --- |
-| Design and rendering boundaries | [Architecture](docs/ARCHITECTURE.md) |
-| Setup, tests and explicit deployment | [Build guide](docs/BUILD-LATER.md) |
-| Black removal and natural colors | [Black cleanup](docs/BLACK-CLEANUP.md) |
-| Feed fitting and placement | [Video fit](docs/VIDEO-FIT.md) |
-| Text quality and receiver timing | [HUD quality/latency](docs/HUD-QUALITY-LATENCY.md), [receiver performance](docs/RECEIVER-PERFORMANCE.md) |
-| Evidence and future work | [Validation](docs/VALIDATION.md), [roadmap](docs/ROADMAP.md) |
-| Repository maintenance | [Contributing](CONTRIBUTING.md), [recommended skills](docs/REPOSITORY-SKILLS.md) |
-| Release notes and older checkpoints | [Changelog](CHANGELOG.md), [development history](docs/DEVELOPMENT-HISTORY.md) |
-| Upstream references and notices | [References](docs/REFERENCES.md), [third-party notices](THIRD-PARTY-NOTICES.md) |
+| Installation and controls | [Build guide](docs/BUILD-LATER.md), [widget menu](docs/WIDGET-MENU.md) |
+| Image quality and placement | [Black removal](docs/BLACK-CLEANUP.md), [video fit](docs/VIDEO-FIT.md), [HUD quality/latency](docs/HUD-QUALITY-LATENCY.md) |
+| Connection and performance | [Desktop selection](docs/DESKTOP-LAUNCH.md), [receiver performance](docs/RECEIVER-PERFORMANCE.md) |
+| Status and history | [Validation](docs/VALIDATION.md), [roadmap](docs/ROADMAP.md), [changelog](CHANGELOG.md), [development history](docs/DEVELOPMENT-HISTORY.md) |
+| Repository maintenance | [Contributing](CONTRIBUTING.md), [skills](docs/REPOSITORY-SKILLS.md), [upstream references](docs/REFERENCES.md) |
 
-## Repository layout
+## Privacy and licensing
 
-- `native/widget`: C++/WinRT, XAML and Game Bar package.
-- `native/core`: portable settings, frame contracts and latest-frame mailbox.
-- `native/windows` / `native/shaders`: D3D11 rendering and hardware decoding.
-- `native/streaming`: Sunshine control and stream orchestration.
-- `tests`: owned source HUD, core, GPU, decoder and control fixtures.
-- `tools` / `docs`: build, deployment, measurement and documentation.
+Private host addresses, credentials, captures, certificates, runtime logs and generated packages stay out of Git. Pairing credentials use protected app-local storage. The repository audit checks common accidental publication patterns; review the diff before pushing.
 
-See [contributing](CONTRIBUTING.md) for checkpoint checks. Packages, logs, private machine/network records, certificates and pairing credentials stay out of Git. Protected pairing remains in app-local storage. The repository audit checks common accidental publication patterns; review the diff before pushing. Dependency license notices are retained in `third_party/licenses`.
+No root distribution license has been selected for project code. Dependency copyright and license notices are retained in `third_party/licenses` and [third-party notices](THIRD-PARTY-NOTICES.md).

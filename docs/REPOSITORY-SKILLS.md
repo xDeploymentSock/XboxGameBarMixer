@@ -1,6 +1,6 @@
 # Repository maintenance skills
 
-Researched on 2026-10-06 through skills.sh, the skills CLI and current upstream skill files. These are recommendations; this cleanup does not install additional skills.
+Researched on 2026-10-06 through skills.sh, the skills CLI and current upstream skill files. The README and changelog skills are now installed locally and recorded in the project skill lock. GitHub Actions templates remains an optional recommendation.
 
 | Skill | Fit for this project | skills.sh installs |
 | --- | --- | --- |
@@ -10,9 +10,9 @@ Researched on 2026-10-06 through skills.sh, the skills CLI and current upstream 
 
 The README skill's source is [github/awesome-copilot](https://github.com/github/awesome-copilot/blob/main/skills/readme-blueprint-generator/SKILL.md), a repository maintained by GitHub with about 40K stars. The two community skills are maintained in [wshobson/agents](https://github.com/wshobson/agents), also with about 40K stars; their current [changelog](https://github.com/wshobson/agents/blob/main/plugins/documentation-generation/skills/changelog-automation/SKILL.md) and [Actions](https://github.com/wshobson/agents/blob/main/plugins/cicd-automation/skills/github-actions-templates/SKILL.md) source files were verified. Counts change over time.
 
-## Optional installation
+## Installation commands
 
-Run these only when choosing to add the skills to your agent environment:
+The first two skills are already installed in this worktree. These commands can reproduce the installation in another agent environment; the third skill is optional:
 
 ```text
 npx skills add github/awesome-copilot --skill readme-blueprint-generator

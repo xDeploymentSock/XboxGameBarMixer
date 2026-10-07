@@ -1,49 +1,157 @@
 # Changelog
 
-Development checkpoints use the Windows package's four-part version. These notes describe implemented changes; [validation](docs/VALIDATION.md) records which builds and live checks were completed. Older experiments are preserved in [development history](docs/DEVELOPMENT-HISTORY.md).
+Notable changes to Software Fuser, grouped using [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versions are four-part Windows development-package checkpoints. Release dates are omitted because the imported Git history does not establish them. Version links compare implementation commits; they do not identify signed distribution releases.
 
-## Unreleased
+Build results, live acceptance and measurement limits belong in [validation](docs/VALIDATION.md). Earlier 0.2.0/0.2.0.1 work predates the first tracked 0.2.0.2 manifest and is preserved in [development history](docs/DEVELOPMENT-HISTORY.md).
 
-- Reorganized the README, build guidance and backlog around the accepted 0.2.1.6 checkpoint.
-- Added repository publication/link checks, contributor guidance and CPU-only Windows/Linux core CI.
+## [Unreleased]
 
-## 0.2.1.6
+### Added
 
-- Added **Remove black only** and **Remove near-black noise** presets that retain surviving decoded colors with opaque alpha.
-- Restored full HUD opacity for black presets and made following Game Bar video opacity an explicit option.
-- Migrated older black profiles once while retaining pairing, stream settings and placement.
-- Live color appearance was accepted by the user after installation.
+- Repository publication/link audits, contributor guidance, formatting rules and CPU-only Windows/Linux core CI.
+- README and changelog skills recorded in the project skill lock.
 
-## 0.2.1.5
+### Changed
+
+- Reorganized setup, architecture, current limits and documentation navigation in the README.
+- Grouped package changes by version and change type, linked their implementation ranges and archived older development notes.
+
+## [0.2.1.6]
+
+### Added
+
+- **Remove black only** and **Remove near-black noise** presets with a hard cutoff and opaque retained colors.
+
+### Changed
+
+- Black presets restore 100% HUD opacity and disable edge blending and following Game Bar opacity for video.
+- Older black profiles migrate once to exact black removal while retaining pairing, stream settings and placement.
+
+### Fixed
+
+- Opaque colored HUD pixels fading under the earlier brightness-based cleanup preset.
+- Pinned Game Bar opacity fading the whole video visual unless explicitly enabled.
+
+## [0.2.1.5]
+
+### Added
+
+- Latency and Present-gap percentile bounds, GPU-pressure diagnostics and retained-frame replacement counts.
+
+### Changed
 
 - Reused NV12 shader views and completed GPU queries to reduce receiver CPU draw cost.
-- Added bounded latency/submission-gap diagnostics and accurate retained-frame replacement counts.
 
-## 0.2.1.4
+## [0.2.1.4]
 
-- Corrected fitting relative to the client origin and added selectable Crisp HUD scaling.
-- Added a 1440p/HEVC/100 Mbps HUD preset and reduced receiver presentation queuing.
+### Added
 
-## 0.2.1.3
+- Smooth/Crisp HUD scaling and a 1440p/HEVC/240-requested-FPS/100 Mbps HUD preset.
 
-- Validated the selected Sunshine application before launch/resume and verified the active application afterward.
-- Retained the chosen application through refresh and reported conflicts instead of resuming another app as Desktop.
+### Changed
 
-## 0.2.1.2
+- Reduced receiver presentation queuing to one frame.
 
-- Reorganized settings into Connect, HUD, Layout and Details, with persistent connection/status controls and collapsible fine tuning.
+### Fixed
 
-## 0.2.1.1
+- Video-fit calculations using the wrong origin when the widget client is offset.
 
-- Added black-background cleanup presets and immediate key-setting application. The older brightness-based edge treatment was replaced by the opaque black presets in 0.2.1.6.
+## [0.2.1.3]
 
-## 0.2.1.0
+### Fixed
 
-- Added **Apply video fit** to scale the entire feed into the usable area above an adjustable taskbar reservation, allowing vertical compression.
-- Kept negotiated stream dimensions separate from the widget's visible destination.
+- Application refresh replacing the selected Desktop entry with an active Steam application.
+- Launch/resume proceeding with a stale application ID or a different active application. Connect now validates the selected ID/name before startup and the active ID afterward.
 
-## 0.2.0 through 0.2.0.9
+## [0.2.1.2]
 
-- Established Sunshine pairing, protected credentials, hardware decode, transparent video, click-through and measured live throughput above 200 FPS.
-- Added explicit monitor-fit/reset requests, typed physical widget dimensions, geometry diagnostics and a full-screen compatibility check.
-- Host rejection and the unresolved top/taskbar coverage tradeoff are retained in the validation record.
+### Changed
+
+- Organized settings into Connect, HUD, Layout and Details, with persistent connection controls, collapsible options and navigation for narrow windows.
+
+## [0.2.1.1]
+
+### Added
+
+- Black-noise cleanup, brightness-based edge recovery and immediate application of fine key settings. These older black presets were replaced in 0.2.1.6.
+
+## [0.2.1.0]
+
+### Added
+
+- **Apply video fit** and an adjustable taskbar reservation to scale the complete feed into the usable area, allowing vertical compression.
+
+### Changed
+
+- Kept negotiated stream dimensions separate from the widget's video destination.
+
+## [0.2.0.9]
+
+### Added
+
+- Typed physical overlay dimensions, four measured edge gaps and an explicit full-screen compatibility check.
+
+## [0.2.0.8]
+
+### Changed
+
+- **Fit my monitor** requests the full monitor size immediately; only explicit actions resize the widget, and only Reset centers it.
+
+### Fixed
+
+- App-driven shrink/recenter requests when reopening or pinning Game Bar.
+
+## [0.2.0.7]
+
+### Changed
+
+- Clarified the pinned monitor-coverage control's label.
+
+## [0.2.0.6]
+
+### Added
+
+- **Reset widget position**, restoring a smaller centered window and accessible move/resize controls without clearing pairing or profiles.
+
+## [0.2.0.5]
+
+### Added
+
+- Widget/client/visible geometry, pin/visibility and layout-request diagnostics. This checkpoint was prepared before inclusion in 0.2.0.6.
+
+## [0.2.0.4]
+
+### Changed
+
+- Tested fixed monitor-size constraints while investigating incomplete host coverage. Later versions replaced this fitting behavior.
+
+## [0.2.0.3]
+
+### Added
+
+- Saved black-background key settings, exact-black defaults and optional near-black tolerance.
+
+## [0.2.0.2]
+
+### Added
+
+- Initial tracked streaming baseline: Sunshine pairing, protected credentials, view-only Moonlight transport, hardware H.264/HEVC decoding and transparent Game Bar presentation.
+- Packet, queue, host-processing, display and shutdown diagnostics.
+
+[Unreleased]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/a76f1bdcb26d580d9f6be93ccfea9cc4c684d064...HEAD
+[0.2.1.6]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/e80fbbcc0fe33c3c435d58ddd9d8e4d7fb96641f...a9b929971a455030da4852ea5d3e818711bcff6b
+[0.2.1.5]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/09ce9475434f0f4a97060d350892a1c0686a5e93...e80fbbcc0fe33c3c435d58ddd9d8e4d7fb96641f
+[0.2.1.4]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/5db3a059f72435dbad26a6566cdd1f6bdee99a24...09ce9475434f0f4a97060d350892a1c0686a5e93
+[0.2.1.3]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/fe282b41120974e4f0e093f2944aeb7a808cf958...5db3a059f72435dbad26a6566cdd1f6bdee99a24
+[0.2.1.2]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/2c31b322a9aa3ff51b5d2813de4cfcf2a63099fc...fe282b41120974e4f0e093f2944aeb7a808cf958
+[0.2.1.1]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/880f5fd71e54c5f10698549a8c52b38e65499071...2c31b322a9aa3ff51b5d2813de4cfcf2a63099fc
+[0.2.1.0]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/b957ff0cf893d4ee4e9386fcf21b4aae84372e07...880f5fd71e54c5f10698549a8c52b38e65499071
+[0.2.0.9]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/e10e4e006bff18d3ea1f400f493648567066e011...b957ff0cf893d4ee4e9386fcf21b4aae84372e07
+[0.2.0.8]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/2362feda66f4f2d9fd2aa2abc3e108a38dca94ca...e10e4e006bff18d3ea1f400f493648567066e011
+[0.2.0.7]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/4c4d53177039dff0cb643fa1c9afe1e6783c7de1...2362feda66f4f2d9fd2aa2abc3e108a38dca94ca
+[0.2.0.6]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/cd54ca3ad603f0ea2385c1ab8c71bc204b6faaa6...4c4d53177039dff0cb643fa1c9afe1e6783c7de1
+[0.2.0.5]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/e71a187d3562a27ebe9578a872ae7b13e4fdbb54...cd54ca3ad603f0ea2385c1ab8c71bc204b6faaa6
+[0.2.0.4]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/f5a848f5857540c363dcfb8bcf8a667152d0ecdb...e71a187d3562a27ebe9578a872ae7b13e4fdbb54
+[0.2.0.3]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/bb428367a625bb6037391372dfabe09da1bb16b9...f5a848f5857540c363dcfb8bcf8a667152d0ecdb
+[0.2.0.2]: https://github.com/xDeploymentSock/XboxGameBarMixer/commit/bb428367a625bb6037391372dfabe09da1bb16b9
