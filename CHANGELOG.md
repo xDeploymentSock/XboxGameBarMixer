@@ -13,7 +13,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ## [0.2.1.8]
 
-Prepared development candidate; not installed. Allocation reductions are measured, while controlled live performance remains pending.
+Release development package installed and verified locally. Allocation reductions are measured, while controlled live performance remains pending.
 
 ### Added
 

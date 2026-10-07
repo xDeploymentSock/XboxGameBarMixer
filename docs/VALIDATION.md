@@ -4,6 +4,10 @@ The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox G
 
 ## Completed checks
 
+Entries record the state at each checkpoint; newer installation checks supersede earlier package status.
+
+- Release 0.2.1.8 is installed locally after explicit user authorization. Deployment returned successfully; a separate Windows package query confirms version 0.2.1.8 with status OK, and the installed executable SHA-256 matches the verified Release candidate. The separate Moonlight control process remains running. Package, source manifest and embedded-executable hashes were rechecked before deployment. The controlled 0.2.1.7 live baseline was not collected before this update; isolated 0.2.1.8 display pacing, latency, visual acceptance and local-game impact remain pending.
+
 - Follow-up passive display-only and Present-only traces, including a check against the existing Moonlight window, lost ETW events and produced no CSV. Their zero exit codes do not establish usable display data. The [collection limitation](RECEIVER-PERFORMANCE.md#live-trace-collection-limitation) records the attempted modes and next verification gate. No package, placement, privilege settings or running session was changed; installed 0.2.1.7 remains active and the 0.2.1.8 candidate remains uninstalled.
 
 - The prepared 0.2.1.8 candidate includes decoder wrapper reuse/reference transfer and the signed-bitrate boundary fix. Clean UWP streaming builds and Debug/Release widget builds complete; widget logs report zero warnings/errors, while pinned ENet/FFmpeg dependencies emit upstream warnings. Both MSIX archives pass CRC, identity/version/x64 checks and contain executables matching their build outputs. The 19-check native results are recorded below. No installation, isolated live comparison or local-game impact result is claimed; the existing widget and source-control session were left running.

@@ -146,12 +146,12 @@ The executing account was not elevated, was a Performance Log Users member, and 
 
 ### Controlled live comparison
 
-The candidate package is prepared; installation and this comparison require an idle test window. Record the installed 0.2.1.7 baseline before updating it. Keep source content, dimensions, codec, bitrate, key/scaling settings and widget placement identical across the two versions.
+Release 0.2.1.8 is installed and independently verified. A controlled 0.2.1.7 live baseline was not collected before the authorized update, so the next isolated run establishes the installed version's behavior without proving a before/after improvement. Any later comparison requires a verified baseline package and the same source content, dimensions, codec, bitrate, key/scaling settings and widget placement. This protocol requires an idle test window.
 
 1. Put the [owned HUD fixture](BUILD-LATER.md#source-animation-fixture) fullscreen on the source's captured display, select its black background and leave motion running. Confirm the canvas is 2560x1440 and the source animation counter is near the display refresh rate. Its browser counter is not received or displayed FPS.
 2. Disconnect the separate Moonlight control stream after the HUD is ready. Connect only Software Fuser using the 1440p HUD preset: HEVC, 240 requested FPS and 100,000 kbps. Use Remove black only and Crisp HUD. Pin it, enable click-through and close Game Bar.
 3. Observe for at least 60 seconds after startup. Save begin/end receiver statistics and record changing frame IDs, receive/decode/Present rates, display replacements, decode errors, source processing, assembly/queue timing, callback-to-Present percentiles and pacing gaps. Discard a trace with lost events. Accepted Present calls alone do not establish distinct displayed frames or capture-to-screen latency.
-4. After the baseline, install the prepared Release candidate in the idle window and repeat the same run. Then repeat under representative local-game load, recording game FPS/frame-time impact and HUD color/edge appearance. Run comparisons sequentially; other streaming sessions confound source and receiver load.
+4. Repeat the installed-version run under representative local-game load, recording game FPS/frame-time impact and HUD color/edge appearance. If a verified baseline becomes available, compare versions sequentially under the same conditions. Other streaming sessions confound source and receiver load.
 5. Verify Disconnect, reconnect and application selection, then restore the source-control session. Keep logs and captures local; publish only reviewed aggregate results.
 
 ### Remaining performance verification
