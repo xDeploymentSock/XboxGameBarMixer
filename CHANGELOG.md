@@ -9,13 +9,22 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ### Added
 
-- Separate private-log decoder, presentation-wait, draw and Present CPU timings, coherent worker activity snapshots and a first-overflow activity report. Live validation remains pending; this candidate is uninstalled.
 - Recorded restarted HEVC gameplay monitoring and rejected active-target DXGI captures, including a file-backed missing-event control.
 - Added an optional bounded passive DXGI API event collector with an owned ETW transport test, explicit incomplete-capture rejection and private CSV output.
 - Recorded same-adapter GPU-engine utilization and late transport queue overflow after the saved gameplay window; their causes remain unverified.
 - Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.
 - Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
 - Documented current gameplay monitoring with about 237 received/decoded units per second while presentation throughput decreased, with user visual acceptance and unresolved display/game-impact measurements.
+
+## [0.2.1.9]
+
+Prepared unsigned diagnostic candidate, uninstalled. Package integrity and builds are checked; live timing overhead, GPU/runtime checks and performance improvement remain pending.
+
+### Added
+
+- Separate private-log decoder, presentation-wait, draw and Present CPU distributions.
+- Coherent decoder/render worker activity snapshots, an independent transport-overflow count and a first-overflow activity report without state/context/decoder mutex waits.
+- Portable contracts for concurrent stage/time snapshots, exception restoration and reconnect reset.
 
 ## [0.2.1.8]
 
@@ -174,6 +183,7 @@ Release development package installed and verified locally. Allocation reduction
 - Packet, queue, host-processing, display and shutdown diagnostics.
 
 [Unreleased]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/da43d2a00d152ba258a111e86ec8c25f59cb5f6c...HEAD
+[0.2.1.9]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/da43d2a00d152ba258a111e86ec8c25f59cb5f6c...7742f2fa0bc9c328dad085ec3a7c035aaa268896
 [0.2.1.8]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/5ae44b1d6a4a000e2d6c957b6de045aa8b6f7cc7...da43d2a00d152ba258a111e86ec8c25f59cb5f6c
 [0.2.1.7]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/a9b929971a455030da4852ea5d3e818711bcff6b...5ae44b1d6a4a000e2d6c957b6de045aa8b6f7cc7
 [0.2.1.6]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/e80fbbcc0fe33c3c435d58ddd9d8e4d7fb96641f...a9b929971a455030da4852ea5d3e818711bcff6b
