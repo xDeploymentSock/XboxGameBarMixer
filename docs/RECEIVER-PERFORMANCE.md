@@ -39,10 +39,10 @@ After installing the update, with the widget closed and only the source-control 
 
 | Metric | HEVC / 100 Mbps | H.264 / 100 Mbps |
 | --- | ---: | ---: |
-| Host nonzero processing average | 5.96–6.00 ms | 3.45–3.49 ms |
-| Receiver callback-to-accepted-Present average | 0.247–0.258 ms | 0.247–0.256 ms |
+| Host nonzero processing average | 5.96â€“6.00 ms | 3.45â€“3.49 ms |
+| Receiver callback-to-accepted-Present average | 0.247â€“0.258 ms | 0.247â€“0.256 ms |
 | Receiver latency p99 upper bound | 0.50 ms | 0.50 ms |
-| Accepted-Present interval p99 upper bound | 5.00–5.75 ms | 7.50–7.75 ms |
+| Accepted-Present interval p99 upper bound | 5.00â€“5.75 ms | 7.50â€“7.75 ms |
 | Decoder errors | 0 | 0 |
 | GPU-slot retries / Present retries / wait timeouts | 0 / 0 / 0 | 0 / 0 / 0 |
 
@@ -232,6 +232,14 @@ Received units equal accepted-Present samples plus display replacements within t
 The ending cumulative histograms report callback-to-Present p95/p99 upper bounds of 4.25/5.00 ms and accepted-Present gap bounds of 15.00/18.00 ms. Maximum accepted-Present gap was 193.860 ms and peak pending decode queue was 14, both cumulative across the session rather than isolated to this interval. Private memory ranged from about 135 to 141 MiB during the six observations; that short range is not a leak test. Driver-reported desktop modes differed from the original target, but do not establish game scanout timing.
 
 The current-use presentation rate is materially below the idle H.264 run's 239.161 submissions/s, while receive rate and source processing remain close. The user's visual acceptance is recorded without treating accepted submissions as actual displayed FPS. No game FPS/frame-time baseline, valid display trace or optical latency measurement was collected, and source/display conditions were not held identical. Maximum performance and absence of game impact remain unproven. No renderer, timer, priority, package, game or display setting was changed during monitoring. Raw process/resource details and logs remain private.
+
+### Follow-up resource and end-of-session observations
+
+Two passive GPU-engine samples one second apart attributed the game and widget to the same adapter. The game's busiest reported graphics engine averaged 95.5% utilization (96.3% maximum); the widget's reported 3D and video-decode engines averaged 30.2% and 14.2%. Engine percentages are separate utilization readings and must not be added together. This is consistent with GPU contention, but two samples cannot establish the cause of the presentation waits or the game's FPS cost.
+
+The widget and game subsequently exited. The retained tail log contains 197 transport decode-queue overflow messages across approximately 20.8 seconds before app suspension; its last rate snapshot reported zero receive/decode/Present activity. These transport failures occurred after the saved gameplay window and are distinct from its zero added decoder errors. No timing trace identifies the initiating stall or lifecycle transition. Do not treat the earlier healthy decoder counters as proof that the entire session stayed healthy. Reproduce and trace this end-of-session behavior before changing shutdown or decoder synchronization.
+
+A [narrow passive API collector](PASSIVE-TRACE.md) is now available to investigate Present timing without a rendering probe or broad GPU/display providers. Its owned ETW transport test passes in Debug and Release with 100 complete ordered event pairs and zero loss. An existing-process sample produced no DXGI events and was explicitly rejected as incomplete. Actual widget/game DXGI capture and displayed-frame validation remain pending. No installed widget, running app, timer, priority or display setting was changed by this follow-up.
 
 ### Remaining performance verification
 

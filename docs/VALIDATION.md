@@ -2,6 +2,12 @@
 
 The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox Game Bar widget. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; existing live measurements exceed that threshold. Current gameplay monitoring records about 122 accepted-Present samples/s, so the idle milestone does not establish presentation performance under load. Fine FPS tuning is deferred. Black transparency and click-through were confirmed, but the user clarified that taskbar coverage required manual dragging and that automatic fitting remained buggy. Automatic coverage, actual 240 distinct displayed source frames per second, and representative local-game impact remain unverified.
 
+## Passive trace diagnostic checkpoint
+
+The optional Windows DXGI API collector builds with warnings treated as errors in Debug and Release. Its owned ETW transport test passes in each configuration: 100 start/stop pairs, zero lost events/buffers and no callback/capacity failure. Separate inspection verifies complete ordered pairs and raw QPC timestamps. An invalid-duration check rejects the request before starting ETW or creating output, and no owned trace session remained afterward. No hardware-renderer or installed-package change is included in this checkpoint.
+
+The existing-process DXGI check returned no events and exit code 3; it supplies no FPS result. Actual widget/game capture remains pending because both processes exited during passive monitoring. The retained late log shows transport queue overflow before suspension, separately from the earlier saved gameplay window's zero decoder errors. See [collector use and limits](PASSIVE-TRACE.md) and [follow-up observations](RECEIVER-PERFORMANCE.md#follow-up-resource-and-end-of-session-observations).
+
 ## Completed checks
 
 Entries record the state at each checkpoint; newer installation checks supersede earlier package status.
@@ -70,8 +76,8 @@ DXGI Present and hardware decoding share the renderer's recursive immediate-cont
 | --- | --- | --- |
 | Moving compressed HEVC HUD, 14,400 decode inputs | 239.950 decoded and Present calls/s; zero mailbox replacements and unavailable GPU slots | Approximately 60 s, receiver only, offscreen |
 | Moving compressed H.264 HUD, 14,400 decode inputs | 239.945 decoded/s and 239.928 Present calls/s; zero mailbox replacements, one unavailable GPU slot | Approximately 60 s, receiver only, offscreen |
-| Installed live HEVC widget | Approximately 224–229 received units/s, zero decoder errors | Uncontrolled source workload |
-| 0.2.0.2 live Game Bar HEVC, 2560x1440 at 240 requested FPS | 231.0–234.6 received/decoded/Present calls per second; sample mean 233.271; zero decoder errors | Seven current-process samples spanning 30.237 s; uncontrolled source workload |
+| Installed live HEVC widget | Approximately 224â€“229 received units/s, zero decoder errors | Uncontrolled source workload |
+| 0.2.0.2 live Game Bar HEVC, 2560x1440 at 240 requested FPS | 231.0â€“234.6 received/decoded/Present calls per second; sample mean 233.271; zero decoder errors | Seven current-process samples spanning 30.237 s; uncontrolled source workload |
 | 0.2.0.2 normal Disconnect | 267 ms from logged stop start to Disconnected | Joined shutdown and subsequent responsive widget; no visible UI confirmation supplied |
 | 60 s PresentMon trace | 225.606 ETW display updates/s; p95 time inside Present 0.0622 ms | Captured widget swap chain, Composed: Flip |
 | Passive 30-minute recording | 118 fresh observations, mean receive rate 225.719/s, zero decoder errors, seven additional mailbox replacements | Last three observations followed a disconnect and were excluded |
@@ -88,7 +94,7 @@ A separate three-minute passive observer finished successfully with 37 observati
 
 ## Remaining acceptance
 
-The previous 0.2.0.4 candidate fixed minimum and maximum content dimensions to the monitor size in every display mode. After a fresh activation, the runtime reported 2560x1440 content and bounds x=0, y=-44. In the user's supplied 2559x1439 foreground screenshot, the horizontal white center line was at rows 676–677 and the bottom border at rows 1394–1396. The cyan test rectangle is deliberately inset to normalized coordinates 0.2–0.8; its horizontal edges appeared at rows 242–247 and 1106–1111. These measurements are consistent with a 1440-pixel surface shifted upward about 44 pixels. The user confirmed that taskbar auto-hide did not fix placement and reported an immovable widget. Subsequent logs remained unpinned and showed further negative origins after monitor changes. The user's built-in Audio widget comparison shows overlap with the taskbar; it does not establish full-monitor behavior for this custom widget.
+The previous 0.2.0.4 candidate fixed minimum and maximum content dimensions to the monitor size in every display mode. After a fresh activation, the runtime reported 2560x1440 content and bounds x=0, y=-44. In the user's supplied 2559x1439 foreground screenshot, the horizontal white center line was at rows 676â€“677 and the bottom border at rows 1394â€“1396. The cyan test rectangle is deliberately inset to normalized coordinates 0.2â€“0.8; its horizontal edges appeared at rows 242â€“247 and 1106â€“1111. These measurements are consistent with a 1440-pixel surface shifted upward about 44 pixels. The user confirmed that taskbar auto-hide did not fix placement and reported an immovable widget. Subsequent logs remained unpinned and showed further negative origins after monitor changes. The user's built-in Audio widget comparison shows overlap with the taskbar; it does not establish full-monitor behavior for this custom widget.
 
 Versions 0.2.0.6/0.2.0.7 requested a compact settings window whenever Game Bar returned to foreground and applied exact full-size limits in pinned mode. The user clarified that taskbar coverage only worked after manual dragging and requested an immediate Fit button with manual correction allowed. The retained log shows repeated accepted 480x700 foreground requests followed by rejected 2560x1440 pinned requests. The previously reported automatic-coverage acceptance is withdrawn; black transparency, click-through, and Reset confirmations remain.
 
