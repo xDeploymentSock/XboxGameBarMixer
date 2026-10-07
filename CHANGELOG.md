@@ -9,7 +9,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ### Added
 
-- Documented passive trace-collection failures and the requirement to validate display measurements before drawing optimization conclusions.
+- Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.
 
 ## [0.2.1.8]
 

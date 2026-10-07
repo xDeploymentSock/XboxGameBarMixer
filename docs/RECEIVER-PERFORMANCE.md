@@ -144,6 +144,14 @@ The executing account was not elevated, was a Performance Log Users member, and 
 
 [PresentMon's versioned console documentation](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/README-ConsoleApplication.md) defines the tracking switches and CSV metrics. Disabling display tracking removes display-duration/latency measurements, so a successful Present-only capture would still be insufficient to establish displayed source FPS or capture-to-screen latency. Missing CSV data from these failed captures is not evidence that the widget did not present frames; its own receive/decode/Present counters remained active.
 
+### Owned collector control
+
+A subsequent 10-second Present-only capture targeted an active owned HEVC fixture benchmark. Its 12-second run decoded all 2,880 frames and accepted 2,877 Present calls (239.820/s), with three mailbox replacements, zero occupied-GPU-slot retries and passing post-shutdown alpha checks. Feed-to-Present return p95/p99 were 0.2348/0.2819 ms. The collector still lost 5,446 ETW events and produced no CSV, although both native processes exited successfully.
+
+An elevated control run produced comparable benchmark output: 2,880 decoded frames, 2,877 Present calls (239.816/s), zero occupied-GPU-slot retries and feed-to-Present p95/p99 of 0.2298/0.2780 ms. The collector reported 5,451 lost events and no CSV. That run's PowerShell helper failed to retain its child exit codes, so it is not a verified clean-exit capture. A separate bounded Windows PowerShell check confirmed that opening the native process handle before waiting preserves the exit code; the private helper was corrected for future collection. Elevation did not resolve the observed missing-data/lost-event result.
+
+These offscreen controls establish an active producer for the collection check, not on-screen source content or Game Bar scanout. They do not measure capture-to-screen latency or establish a version-to-version improvement. The separate Moonlight control process remained running. A valid on-screen collection check and the isolated widget/source setup are still required before reporting display pacing.
+
 ### Controlled live comparison
 
 Release 0.2.1.8 is installed and independently verified. A controlled 0.2.1.7 live baseline was not collected before the authorized update, so the next isolated run establishes the installed version's behavior without proving a before/after improvement. Any later comparison requires a verified baseline package and the same source content, dimensions, codec, bitrate, key/scaling settings and widget placement. This protocol requires an idle test window.

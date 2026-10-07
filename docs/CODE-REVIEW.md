@@ -1,6 +1,6 @@
 # Main code review
 
-This review follows the installed 0.2.1.7 color checkpoint. It covers stream startup/shutdown, decoded-frame ownership, renderer resources, settings validation, and local verification tools. The installed widget and source-control session were left running. The production fixes below are included in the prepared 0.2.1.8 candidate; it has not been installed.
+This review follows the installed 0.2.1.7 color checkpoint. It covers stream startup/shutdown, decoded-frame ownership, renderer resources, settings validation, and local verification tools. The installed widget and source-control session were left running. The production fixes below are included in the subsequently installed 0.2.1.8 package; independent installation evidence is in [validation](VALIDATION.md).
 
 ## Correctness fixes
 
