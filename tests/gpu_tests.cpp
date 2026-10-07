@@ -217,9 +217,96 @@ void check_natural_black_colors() {
     }
 }
 
+// A source texel must reconstruct to the same RGB after Crisp HUD resizing.
+// Matching nearest luma with destination-position chroma otherwise varies the
+// color even when repeated destination pixels select the same decoded texel.
+void check_crisp_color_stability() {
+    fuser::windows::d3d11_renderer renderer;
+    renderer.initialize(side, side);
+    for (const auto matrix : {fuser::color_matrix::bt601, fuser::color_matrix::bt709}) {
+        const double kr = matrix == fuser::color_matrix::bt601 ? 0.299 : 0.2126;
+        const double kb = matrix == fuser::color_matrix::bt601 ? 0.114 : 0.0722;
+        for (const auto range : {fuser::color_range::full, fuser::color_range::limited}) {
+            const bool limited = range == fuser::color_range::limited;
+            const auto byte = [](double value) {
+                return static_cast<std::uint8_t>(std::clamp(std::lround(value), 0L, 255L));
+            };
+            std::vector<std::uint8_t> data(side * side * 3 / 2);
+            const std::array<pixel, 4> colors{{
+                {0, 0, 255, 255}, {0, 0, 0, 255}, {255, 0, 0, 255}, {0, 0, 0, 255}}};
+            for (std::uint32_t row = 0; row < side; ++row) {
+                for (std::uint32_t column = 0; column < side; ++column) {
+                    const auto color = colors[(row / 4 + column / 4) % colors.size()];
+                    const double y = kr * color[2] + (1.0 - kr - kb) * color[1] + kb * color[0];
+                    data[row * side + column] = byte(limited ? 16.0 + y * 219.0 / 255.0 : y);
+                    if (((row | column) & 1U) == 0) {
+                        const double u = (color[0] - y) / (2.0 * (1.0 - kb));
+                        const double v = (color[2] - y) / (2.0 * (1.0 - kr));
+                        const auto offset = side * side + row / 2 * side + column;
+                        data[offset] = byte(128.0 + u * (limited ? 224.0 / 255.0 : 1.0));
+                        data[offset + 1] = byte(128.0 + v * (limited ? 224.0 / 255.0 : 1.0));
+                    }
+                }
+            }
+            D3D11_TEXTURE2D_DESC description{};
+            description.Width = description.Height = side;
+            description.MipLevels = description.ArraySize = description.SampleDesc.Count = 1;
+            description.Format = DXGI_FORMAT_NV12;
+            description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+            const D3D11_SUBRESOURCE_DATA initial{data.data(), side, 0};
+            ComPtr<ID3D11Texture2D> texture;
+            winrt::check_hresult(renderer.device()->CreateTexture2D(&description, &initial, texture.GetAddressOf()));
+            fuser::decoded_frame frame;
+            frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+            frame.width = frame.height = side;
+            frame.matrix = matrix;
+            frame.range = range;
+            auto key = fuser::black_key_settings({}, fuser::black_key_preset::exact);
+            key.crisp_scaling = true;
+            renderer.resize(side, side);
+            require(renderer.draw_frame(frame, key).succeeded(), "Crisp color reference must render.");
+            std::array<pixel, 16> reference{};
+            for (std::uint32_t row = 0; row < reference.size(); ++row) {
+                reference[row] = read_pixel(renderer, 2, row);
+            }
+            // Upscaling repeats decoded texels at different fractional phases;
+            // vertical compression also reproduces the taskbar fitting path.
+            // Use phases away from exact texel-selection boundaries, where
+            // CPU double and GPU raster interpolation can choose either neighbor.
+            unsigned int changed_pixels{}, largest_channel_change{};
+            for (const auto destination : std::array{std::array{128U, 99U}, std::array{64U, 58U}}) {
+                renderer.resize(destination[0], destination[1]);
+                require(renderer.draw_frame(frame, key).succeeded(), "Scaled colored HUD must render.");
+                const auto x = destination[0] == 128 ? 4U : 2U;
+                for (std::uint32_t row = 0; row < destination[1]; ++row) {
+                    const auto source_row = static_cast<std::uint32_t>(
+                        (static_cast<double>(row) + 0.5) * side / destination[1]);
+                    if (source_row >= reference.size()) { break; }
+                    const auto actual = read_pixel(renderer, x, row);
+                    const auto expected = reference[source_row];
+                    if (actual != expected) {
+                        ++changed_pixels;
+                        std::cerr << "Mismatch destination " << destination[0] << 'x' << destination[1]
+                                  << " row " << row << " source row " << source_row << '\n';
+                    }
+                    for (std::size_t channel = 0; channel < actual.size(); ++channel) {
+                        largest_channel_change = std::max(largest_channel_change,
+                            static_cast<unsigned int>(std::abs(static_cast<int>(actual[channel]) - static_cast<int>(expected[channel]))));
+                    }
+                }
+            }
+            std::cout << "Crisp color phase mismatch pixels " << changed_pixels
+                      << " | largest BGRA change " << largest_channel_change << '\n';
+            require(changed_pixels == 0,
+                    "Crisp HUD must preserve reconstructed source RGB across destination sampling phases.");
+        }
+    }
+}
+
 int main() {
     try {
         check_natural_black_colors();
+        check_crisp_color_stability();
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
         fuser::windows::d3d11_renderer renderer;
         renderer.initialize(side, side);

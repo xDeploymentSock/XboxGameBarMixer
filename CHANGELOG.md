@@ -17,6 +17,16 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - Reorganized setup, architecture, current limits and documentation navigation in the README.
 - Grouped package changes by version and change type, linked their implementation ranges and archived older development notes.
 
+## [0.2.1.7]
+
+### Added
+
+- Hardware regression coverage for red/blue edges at unequal scaling, across Rec. 601/709 and full/limited NV12. Live shade stability remains pending.
+
+### Fixed
+
+- Crisp HUD mixing a selected source brightness sample with color sampled at a different position. Thin colored text now retains the same reconstructed source RGB across resize sampling phases.
+
 ## [0.2.1.6]
 
 ### Added
@@ -155,3 +165,5 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 [0.2.0.4]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/f5a848f5857540c363dcfb8bcf8a667152d0ecdb...e71a187d3562a27ebe9578a872ae7b13e4fdbb54
 [0.2.0.3]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/bb428367a625bb6037391372dfabe09da1bb16b9...f5a848f5857540c363dcfb8bcf8a667152d0ecdb
 [0.2.0.2]: https://github.com/xDeploymentSock/XboxGameBarMixer/commit/bb428367a625bb6037391372dfabe09da1bb16b9
+
+[0.2.1.7]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/a9b929971a455030da4852ea5d3e818711bcff6b...HEAD

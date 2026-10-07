@@ -4,7 +4,7 @@
 
 Overlay a remote PC's HUD on your local display with a transparent, pinned Xbox Game Bar widget. Sunshine supplies the video; Software Fuser decodes it on the GPU and removes a reserved background color. Mouse and keyboard input stay on the local PC.
 
-**Current development checkpoint: 0.2.1.6.** The installed color fix was accepted in live use. See the [changelog](CHANGELOG.md) for version changes and [validation](docs/VALIDATION.md) for measured results.
+**Current development checkpoint: 0.2.1.7.** Crisp HUD now keeps brightness and color sampling aligned while fitting the feed. The earlier 0.2.1.6 opacity fix was accepted in live use; this scaling correction still needs live confirmation. See the [changelog](CHANGELOG.md) for version changes and [validation](docs/VALIDATION.md) for measured results.
 
 ## Features
 

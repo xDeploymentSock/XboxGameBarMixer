@@ -48,13 +48,18 @@ float4 main(float4 position : SV_POSITION, float2 uv : TEXCOORD0) : SV_TARGET
         // blends hardware padding into the edge of the HUD.
         float2 luma_uv = clamp(source_uv, source_rectangle.xy + 0.5 * texel,
                               source_rectangle.xy + source_rectangle.zw - 0.5 * texel);
-        float2 chroma_uv = clamp(source_uv, source_rectangle.xy + texel,
+        // Crisp selects a reconstructed source RGB pixel, not just its luma.
+        // Sampling chroma at the unsnapped destination position mixes different
+        // colours into the same selected luma texel as text moves or is resized.
+        int2 luma_pixel = int2(luma_uv * float2(texture_width, texture_height));
+        float2 color_uv = key_options.y > 0.5
+            ? (float2(luma_pixel) + 0.5) * texel : source_uv;
+        float2 chroma_uv = clamp(color_uv, source_rectangle.xy + texel,
                                 source_rectangle.xy + source_rectangle.zw - texel);
-        // Source text already has antialiasing. Optional nearest luma avoids
-        // blurring it a second time when fitting the feed above the taskbar.
-        // Keep bilinear chroma to avoid colour stair-stepping in NV12 (4:2:0).
+        // Keep the source pixel's bilinear NV12 chroma reconstruction. Smooth
+        // continues to filter both planes at the original destination position.
         float luma = key_options.y > 0.5
-            ? luminance_plane.Load(int4(int2(luma_uv * float2(texture_width, texture_height)), 0, 0))
+            ? luminance_plane.Load(int4(luma_pixel, 0, 0))
             : luminance_plane.Sample(video_sampler, float3(luma_uv, 0.0));
         float3 yuv = float3(luma,
                            chrominance_plane.Sample(video_sampler, float3(chroma_uv, 0.0)));

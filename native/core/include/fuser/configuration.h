@@ -34,7 +34,7 @@ struct chroma_key_settings {
     // This also fades solid colors whose brightest channel is below full scale.
     // Leave disabled to preserve natural opaque HUD colors.
     bool recover_black_edges{false};
-    // Nearest luma preserves thin HUD strokes while chroma stays filtered.
+    // Select reconstructed source pixels: nearest luma with chroma at its center.
     bool crisp_scaling{false};
 };
 
