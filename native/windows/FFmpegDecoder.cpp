@@ -23,6 +23,13 @@ using packet_owner = std::unique_ptr<AVPacket, packet_deleter>;
 using frame_owner = std::unique_ptr<AVFrame, frame_deleter>;
 using buffer_owner = std::unique_ptr<AVBufferRef, buffer_deleter>;
 
+// Reuse the wrapper, but release each packet's payload and timing references
+// on every exit path. FFmpeg keeps its own references if decoding is delayed.
+struct packet_reset {
+    AVPacket* packet;
+    ~packet_reset() { av_packet_unref(packet); }
+};
+
 operation_result failure(int error, const char* stage) {
     char detail[AV_ERROR_MAX_STRING_SIZE]{};
     av_strerror(error, detail, sizeof(detail));
@@ -83,13 +90,15 @@ struct ffmpeg_decoder::implementation {
     std::shared_ptr<std::recursive_mutex> context_lock;
     std::mutex submissions;
     codec_owner codec;
+    packet_owner packet;
+    frame_owner receive_frame;
     video_codec selected_codec{};
     std::function<void(decoded_frame)> on_frame;
     bool flushed{};
+    decoder_resource_counts resources_created;
 
     operation_result drain() {
-        frame_owner frame{av_frame_alloc()};
-        if (!frame) { return failure(AVERROR(ENOMEM), "Allocate decoded frame"); }
+        const auto& frame = receive_frame;
         for (;;) {
             const auto result = avcodec_receive_frame(codec.get(), frame.get());
             if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) { return {}; }
@@ -111,12 +120,8 @@ struct ffmpeg_decoder::implementation {
             if (slice > std::numeric_limits<std::uint32_t>::max()) {
                 return {operation_code::unsupported_format, "Decoded texture slice is invalid."};
             }
-            frame_owner retained{av_frame_clone(frame.get())};
-            if (!retained) { return failure(AVERROR(ENOMEM), "Retain decoder frame"); }
-            const auto lease = std::make_shared<ffmpeg_frame_lease>(std::move(retained));
             Microsoft::WRL::ComPtr<ID3D11Texture2D> texture{reinterpret_cast<ID3D11Texture2D*>(frame->data[0])};
             decoded_frame output;
-            output.surface = std::make_shared<d3d11_surface>(texture, static_cast<std::uint32_t>(slice), lease);
             output.width = width - static_cast<std::uint32_t>(frame->crop_left + frame->crop_right);
             output.height = height - static_cast<std::uint32_t>(frame->crop_top + frame->crop_bottom);
             output.source_x = static_cast<std::uint32_t>(frame->crop_left);
@@ -141,8 +146,15 @@ struct ffmpeg_decoder::implementation {
                 return {operation_code::unsupported_format, "Decoded color matrix is unsupported."};
             }
             output.range = frame->color_range == AVCOL_RANGE_JPEG ? color_range::full : color_range::limited;
+            // Transfer the returned frame's references to its display lease.
+            // The receive wrapper becomes empty without cloning every AVBufferRef.
+            frame_owner retained{av_frame_alloc()};
+            if (!retained) { return failure(AVERROR(ENOMEM), "Retain decoder frame"); }
+            ++resources_created.retained_frame_wrappers;
+            av_frame_move_ref(retained.get(), frame.get());
+            const auto lease = std::make_shared<ffmpeg_frame_lease>(std::move(retained));
+            output.surface = std::make_shared<d3d11_surface>(texture, static_cast<std::uint32_t>(slice), lease);
             on_frame(std::move(output));
-            av_frame_unref(frame.get());
         }
     }
 };
@@ -203,6 +215,12 @@ operation_result ffmpeg_decoder::initialize(const stream_profile& profile,
     codec->apply_cropping = 0; // Preserve GPU crop metadata instead of adjusting opaque plane pointers.
     const auto opened = avcodec_open2(codec.get(), decoder, nullptr);
     if (opened < 0) { return failure(opened, "Open hardware decoder"); }
+    packet_owner packet{av_packet_alloc()};
+    frame_owner receive_frame{av_frame_alloc()};
+    if (!packet || !receive_frame) { return failure(AVERROR(ENOMEM), "Allocate decoder wrappers"); }
+    state_->packet = std::move(packet);
+    state_->receive_frame = std::move(receive_frame);
+    state_->resources_created = {1, 1, 0};
     state_->selected_codec = profile.codec;
     state_->on_frame = std::move(on_frame);
     state_->flushed = false;
@@ -217,8 +235,8 @@ operation_result ffmpeg_decoder::submit(encoded_frame frame) {
         return {operation_code::invalid_configuration, "Compressed frame codec or size is invalid."};
     }
     try {
-        packet_owner packet{av_packet_alloc()};
-        if (!packet) { return failure(AVERROR(ENOMEM), "Allocate input packet"); }
+        const auto& packet = state_->packet;
+        const packet_reset reset{packet.get()};
         const auto allocated = av_new_packet(packet.get(), static_cast<int>(frame.bytes.size()));
         if (allocated < 0) { return failure(allocated, "Allocate packet data"); }
         std::memcpy(packet->data, frame.bytes.data(), frame.bytes.size());
@@ -254,9 +272,16 @@ operation_result ffmpeg_decoder::flush() {
     }
 }
 
+decoder_resource_counts ffmpeg_decoder::resources_created() const {
+    const std::lock_guard guard{state_->submissions};
+    return state_->resources_created;
+}
+
 void ffmpeg_decoder::stop() noexcept {
     const std::lock_guard guard{state_->submissions};
     state_->on_frame = {};
+    state_->receive_frame.reset();
+    state_->packet.reset();
     state_->codec.reset();
     state_->flushed = false;
 }

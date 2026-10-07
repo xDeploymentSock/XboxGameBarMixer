@@ -11,10 +11,12 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 - Repository publication/link audits, contributor guidance, formatting rules and CPU-only Windows/Linux core CI.
 - README and changelog skills recorded in the project skill lock.
+- Decode-only fixture benchmarking, decoder wrapper counters and callback-failure/restart coverage.
 - A bounded benchmark failure regression using owned unsupported-matrix input, plus a [scoped code review](docs/CODE-REVIEW.md).
 
 ### Changed
 
+- Reuse decoder packet/receive wrappers per session and transfer hardware frame references into output leases instead of cloning them. Measurements and remaining gates are in [receiver performance](docs/RECEIVER-PERFORMANCE.md).
 - Reorganized setup, architecture, current limits and documentation navigation in the README.
 - Grouped package changes by version and change type, linked their implementation ranges and archived older development notes.
 

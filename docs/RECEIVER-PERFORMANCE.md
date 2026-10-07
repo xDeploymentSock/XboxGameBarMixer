@@ -58,10 +58,53 @@ All four cycles completed and joined normally, including reuse of the renderer a
 
 Keep Sunshine NVENC P1 initially. Higher presets increase encoding latency in exchange for compression efficiency. Quarter-resolution two-pass is the documented default; one-pass is an optional controlled experiment because bitrate overshoot can cause packet loss. These source settings are not modified by this release. See [Sunshine's NVENC configuration](https://docs.lizardbyte.dev/projects/sunshine/latest/md_docs_2configuration.html#nvenc_preset).
 
+## Current optimization pass (unreleased)
+
+The decoder now allocates one input-packet wrapper and one receive-frame wrapper per session. Every displayed output still owns a distinct AVFrame lease. Moving references from the receive wrapper into that lease avoids cloning its hardware-buffer and timing references; a scope guard releases each input packet's data even after a callback or decode error. The shared D3D11 context lock, compressed-byte copy, ordered decoder input, color conversion, and GPU completion leases are preserved.
+
+The benchmark's optional `decode-only` mode removes concurrent drawing and presentation from the timed input loop. It reports wrapper counts and submit-call percentiles after the first 20 inputs, alongside full-run timings. Submit elapsed time includes driver blocking and is not CPU processor time.
+
+Three unpaced Release runs per codec and implementation decoded the same 6,000 owned inter-coded 1440p inputs. All six baseline runs and all six updated runs completed with transparent-green, opaque-white and post-stop lease checks. The table reports the median of each run-level metric:
+
+| Metric | H.264 before | H.264 after | HEVC before | HEVC after |
+| --- | ---: | ---: | ---: | ---: |
+| Packet / receive wrapper allocations | 6,000 / 6,001 | 1 / 1 | 6,000 / 6,001 | 1 / 1 |
+| Retained output wrappers | 6,000 | 6,000 | 6,000 | 6,000 |
+| Steady submit elapsed p50 | 0.0388 ms | 0.0364 ms | 0.0588 ms | 0.0579 ms |
+| Steady submit elapsed p95 | 0.1710 ms | 0.1452 ms | 0.1981 ms | 0.2020 ms |
+| Steady mean submit elapsed | 0.6170 ms | 0.6164 ms | 0.6865 ms | 0.6873 ms |
+| Decoded inputs/s | 1,613.8 | 1,615.4 | 1,450.3 | 1,448.9 |
+
+The allocator reduction is established; throughput is essentially unchanged and the elapsed-time changes do not prove a user-visible latency improvement. Unpaced p99 remains approximately 15 ms under decoder saturation. Its cause needs profiling before changing timers or synchronization. These runs used the same local fixtures and preserved the other running applications; they were not a controlled gaming-load test.
+
+One additional concurrent-present comparison per codec used 1,200 inputs paced at 240 FPS. Before/after accepted Present rates were 239.765/239.566 per second for H.264 and 239.772/239.759 for HEVC. Feed-to-accepted-Present p95 was 0.2556/0.2443 ms and 0.2564/0.2476 ms respectively, with zero GPU-slot retries. These small sequential differences do not establish a latency gain. Full-run maximum submit times near 20 ms include hardware startup; the tool separately reports post-startup samples.
+
+Decoder regressions require session-level wrapper reuse, output-specific leases, correct sequence/timestamp propagation, failure cleanup, and successful stop/reinitialize after a throwing callback. Existing sequential and concurrent H.264/HEVC tests exercise the unchanged color/alpha path and output that survives decoder shutdown.
+
+Reproduce a decode-only run after building the native decoder tests and preparing their runtime PATH:
+
+```text
+fuser_fixture_benchmark build/fixtures/inter-pattern.hevc hevc 0 6000 decode-only
+```
+
+Omit `decode-only` for the concurrent-present path. Use 240 instead of 0 for paced input. These tools never connect to Sunshine. FFmpeg documents refcounted input ownership and receiving into reusable frame wrappers in its [send/receive API](https://ffmpeg.org/doxygen/trunk/group__lavc__encdec.html); [av_frame_move_ref](https://ffmpeg.org/doxygen/trunk/group__lavu__frame.html) transfers references and resets the source.
+
+### Remaining performance verification
+
+Maximum performance remains unproven. Continue the review against these gates instead of treating reduced allocation counts as completion:
+
+| Area | Required evidence |
+| --- | --- |
+| Compressed input handling | Measure payload-copy/preparation cost on representative owned HUD access units before changing buffer ownership. |
+| Shader and GPU reads | GPU timestamp measurements at the actual fitted dimensions, with the current natural-color black-removal settings; preserve color/alpha/crop regressions. |
+| Presentation pacing | Controlled Game Bar trace with changing source frame IDs; distinguish accepted Present calls from display updates and source content. |
+| Source and transport | Isolated stream with a moving HUD, encoder processing/queue/assembly counters and otherwise identical codec settings. |
+| Gaming impact and stability | Representative local-game load, reconnect and shutdown measurements; compare the verified package against the previous checkpoint. |
+
 ## Timer and lock review
 
 The normal render path wakes on decoded-frame notifications and the DXGI waitable presentation object. It does not sleep for a fixed 4 ms. The 1 ms condition timeout remains only when all GPU read slots are occupied; Windows scheduling can make that timeout longer. A global timer-resolution change cannot correct source encoding or display composition delays, and none is added here.
 
-The live comparison recorded no GPU-slot retries, so the 1 ms fallback was not on that measured path. Additional decoder allocations and the encoded-byte copy remain candidates for later profiling, but measured receiver averages near 0.25 ms give little evidence that rewriting their ownership or removing the shared context lock would materially improve this workload.
+The live comparison recorded no GPU-slot retries, so the 1 ms fallback was not on that measured path. Remaining output-lease allocations and the encoded-byte copy remain candidates for later profiling, but measured receiver averages near 0.25 ms give little evidence that rewriting their ownership or removing the shared context lock would materially improve this workload.
 
 `auto` is compile-time type deduction. Local scalar declarations do not inherently allocate memory or slow a loop. The condition-variable mutex is released while waiting; publication under that same mutex prevents lost wakeups. D3D11's shared immediate context still requires serialization with FFmpeg's hardware callbacks. A stop check after waking remains necessary because shutdown can arrive during the wait. Relevant primary references are [C++ type deduction](https://learn.microsoft.com/en-us/cpp/cpp/auto-cpp), [Windows timer resolution](https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod), [D3D11 multithreading](https://learn.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-render-multi-thread-intro), and [DXGI waitable swap chains](https://learn.microsoft.com/en-us/windows/uwp/gaming/reduce-latency-with-dxgi-1-3-swap-chains).

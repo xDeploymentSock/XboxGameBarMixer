@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <d3d11.h>
@@ -7,6 +8,10 @@
 #include <fuser/stream_interfaces.h>
 
 namespace fuser::windows {
+
+struct decoder_resource_counts {
+    std::uint64_t packet_wrappers{}, receive_frame_wrappers{}, retained_frame_wrappers{};
+};
 
 // Hardware-only SDR decoding. Call stop after the transport has joined.
 // Output surfaces retain FFmpeg frame-pool leases independently of this owner.
@@ -21,6 +26,7 @@ public:
     [[nodiscard]] operation_result submit(encoded_frame frame) override;
     [[nodiscard]] operation_result flush(); // Explicit end-of-input; never called by stop.
     void stop() noexcept override;
+    [[nodiscard]] decoder_resource_counts resources_created() const;
 
 private:
     struct implementation;

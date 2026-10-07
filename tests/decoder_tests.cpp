@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
         require(parser && parser_context, "Cannot create fixture parser.");
         std::size_t offset{};
         std::uint64_t sequence{};
+        fuser::encoded_frame first_unit;
         const auto submit = [&](const std::uint8_t* data, int size) {
             fuser::encoded_frame frame;
             frame.codec = selected;
@@ -137,6 +138,7 @@ int main(int argc, char** argv) {
             frame.received_at = std::chrono::steady_clock::now();
             frame.bytes.resize(static_cast<std::size_t>(size));
             std::memcpy(frame.bytes.data(), data, static_cast<std::size_t>(size));
+            if (sequence == 1) { first_unit = frame; }
             require(decoder.submit(std::move(frame)));
         };
         while (offset < bytes.size()) {
@@ -162,6 +164,11 @@ int main(int argc, char** argv) {
         }
         const auto expected = concurrent ? 120U : 12U;
         require(decoded == expected && sequence == expected, "All fixture access units must decode.");
+        const auto allocations = decoder.resources_created();
+        require(allocations.packet_wrappers == 1 && allocations.receive_frame_wrappers == 1,
+                "Packet and receive wrappers must be allocated once per decoder session.");
+        require(allocations.retained_frame_wrappers == decoded,
+                "Each output must retain its own decoder frame lease.");
         decoder.stop();
         decoder.stop();
         auto retained_draw = renderer.draw_frame(retained, {});
@@ -177,6 +184,27 @@ int main(int argc, char** argv) {
         require(pixel(renderer, 100, 100)[3] == 255, "A retained frame lease must survive decoder shutdown.");
         require(decoder.submit({}).code == fuser::operation_code::unavailable,
                 "Stopped decoder must reject new input.");
+        // A callback failure must release transferred leases and packet data;
+        // stop/reinitialize must recreate wrappers without invalidating old output.
+        require(decoder.initialize(profile, [](fuser::decoded_frame) {
+            throw std::runtime_error{"Owned callback failure"};
+        }));
+        require(decoder.submit(first_unit).code == fuser::operation_code::decoder_error,
+                "Callback failure must return a decoder error without escaping.");
+        decoder.stop();
+        std::uint64_t restarted{};
+        require(decoder.initialize(profile, [&](fuser::decoded_frame frame) {
+            require(frame.sequence == first_unit.sequence && frame.received_at == first_unit.received_at,
+                    "Restart must preserve this packet's own timing metadata.");
+            ++restarted;
+        }));
+        require(decoder.submit(first_unit));
+        require(decoder.flush());
+        require(restarted == 1, "The decoder must restart after callback failure.");
+        require(decoder.resources_created().packet_wrappers == 1 &&
+                decoder.resources_created().receive_frame_wrappers == 1,
+                "A new session must reset wrapper counts.");
+        decoder.stop();
         std::cout << argv[2] << ": " << decoded << " hardware-decoded 1440p frames; alpha, metadata and shutdown leases passed.\n"
                   << "Concurrent present calls: " << presented << ".\n"
                   << "This is a fixture test, not a streaming or displayed-FPS measurement.\n";

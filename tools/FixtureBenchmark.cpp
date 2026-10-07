@@ -113,7 +113,9 @@ std::array<std::uint8_t, 4> pixel(fuser::windows::d3d11_renderer& renderer, UINT
 
 int main(int argc, char** argv) {
     try {
-        require(argc == 5, "Usage: fuser_fixture_benchmark <owned fixture> h264|hevc <paced fps; 0=unpaced> <frame count>");
+        require(argc == 5 || argc == 6, "Usage: fuser_fixture_benchmark <owned fixture> h264|hevc <paced fps; 0=unpaced> <frame count> [decode-only]");
+        const bool decode_only = argc == 6;
+        require(!decode_only || std::string_view{argv[5]} == "decode-only", "Unknown benchmark mode.");
         const std::string_view codec{argv[2]};
         require(codec == "h264" || codec == "hevc", "Select h264 or hevc.");
         const auto rate = integer(argv[3], 0, 500);
@@ -133,6 +135,9 @@ int main(int argc, char** argv) {
         draw_times.reserve(static_cast<std::size_t>(count));
         present_intervals.reserve(static_cast<std::size_t>(count));
         clock_type::time_point previous_present{};
+        double steady_submit_total{};
+        std::vector<double> steady_submit_times;
+        steady_submit_times.reserve(static_cast<std::size_t>(count));
         std::mutex wake_mutex;
         std::condition_variable_any wake;
         std::atomic<bool> render_failed{};
@@ -142,7 +147,7 @@ int main(int argc, char** argv) {
         require(decoder.initialize(profile, [&](fuser::decoded_frame frame) {
             require(frame.width == 2560 && frame.height == 1440 && frame.sequence > 0, "Unexpected fixture metadata.");
             retained = frame;
-            { const std::lock_guard lock{wake_mutex};
+            if (!decode_only) { const std::lock_guard lock{wake_mutex};
               require(mailbox.publish(std::move(frame)), "Fixture mailbox is closed."); }
             ++decoded;
             wake.notify_one();
@@ -150,7 +155,8 @@ int main(int argc, char** argv) {
         std::unique_ptr<void, handle_deleter> timer{CreateWaitableTimerExW(nullptr, nullptr,
             CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS)};
         winrt::check_bool(static_cast<bool>(timer));
-        std::jthread worker{[&](std::stop_token stop) {
+        std::jthread worker;
+        if (!decode_only) { worker = std::jthread{[&](std::stop_token stop) {
             try {
                 std::optional<fuser::decoded_frame> pending;
                 for (;;) {
@@ -191,7 +197,7 @@ int main(int argc, char** argv) {
                     }
                 }
             } catch (...) { render_error = std::current_exception(); render_failed = true; }
-        }};
+        }}; }
         const auto start = clock_type::now();
         for (int index = 0; index < count && !render_failed; ++index) {
             if (rate) {
@@ -209,15 +215,19 @@ int main(int argc, char** argv) {
             std::memcpy(frame.bytes.data(), packet.data(), packet.size());
             const auto submitted = clock_type::now();
             require(decoder.submit(std::move(frame)));
-            submit_times.push_back(milliseconds(clock_type::now() - submitted));
+            const auto submit_ms = milliseconds(clock_type::now() - submitted);
+            submit_times.push_back(submit_ms);
+            // Exclude initial hardware-pool setup, but report full totals too.
+            if (index >= 20) { steady_submit_times.push_back(submit_ms); steady_submit_total += submit_ms; }
         }
         require(decoder.flush());
         { const std::lock_guard lock{wake_mutex}; worker.request_stop(); }
         wake.notify_one();
-        worker.join();
+        if (worker.joinable()) { worker.join(); }
         const auto seconds = std::chrono::duration<double>{clock_type::now() - start}.count();
         if (render_error) { std::rethrow_exception(render_error); }
-        require(decoded == static_cast<std::uint64_t>(count) && presented > 0, "Fixture did not complete.");
+        require(decoded == static_cast<std::uint64_t>(count) && (decode_only || presented > 0), "Fixture did not complete.");
+        const auto decoder_resources = decoder.resources_created();
         decoder.stop();
         const auto resources = renderer.resources_created();
         auto final_draw = renderer.draw_frame(retained, {});
@@ -228,12 +238,12 @@ int main(int argc, char** argv) {
         require(final_draw);
         require(pixel(renderer, 10, 10) == std::array<std::uint8_t, 4>{0, 0, 0, 0}, "Green alpha check failed.");
         require(pixel(renderer, 100, 100)[3] == 255, "White HUD alpha check failed.");
-        std::cout << codec << " 2560x1440 fixture | requested pacing " << rate << " | seconds " << seconds
+        std::cout << codec << " 2560x1440 fixture | mode " << (decode_only ? "decode-only" : "concurrent-present") << " | requested pacing " << rate << " | seconds " << seconds
             << " | decoded " << decoded << " | present calls " << presented << '\n'
             << "Decoded/s " << static_cast<double>(decoded) / seconds << " | Present calls/s " << static_cast<double>(presented) / seconds
             << " | mailbox replacements " << mailbox.replaced_frames() << " | GPU slots unavailable " << unavailable
             << " | feed deadlines late by >1 frame " << late_feeds << '\n'
-            << "CPU decode submission p95 ms " << percentile(submit_times, 0.95) << " | max ms " << percentile(submit_times, 1.0)
+            << "Decode submit elapsed p95 ms " << percentile(submit_times, 0.95) << " | max ms " << percentile(submit_times, 1.0)
             << " | feed-to-Present return p95 ms " << percentile(feed_to_present_times, 0.95) << '\n'
             << "Draw CPU/lock p50/p95/p99 ms " << percentile(draw_times, 0.50) << '/' << percentile(draw_times, 0.95)
             << '/' << percentile(draw_times, 0.99) << " | created plane views " << resources.plane_views
@@ -241,7 +251,12 @@ int main(int argc, char** argv) {
             << "Accepted-Present interval p50/p95/p99 ms " << percentile(present_intervals, 0.50) << '/'
             << percentile(present_intervals, 0.95) << '/' << percentile(present_intervals, 0.99)
             << " | feed-to-Present p99 ms " << percentile(feed_to_present_times, 0.99) << '\n'
-            << "Green/white alpha checks passed after joined shutdown. Offscreen calls do not measure Game Bar or monitor scanout.\n";
+            << "Steady decode submit elapsed p50/p95/p99 ms " << percentile(steady_submit_times, 0.50) << '/'
+            << percentile(steady_submit_times, 0.95) << '/' << percentile(steady_submit_times, 0.99)
+            << " | mean ms " << (steady_submit_times.empty() ? 0 : steady_submit_total / static_cast<double>(steady_submit_times.size())) << '\n'
+            << "Decoder wrapper allocations packet/receive/retained " << decoder_resources.packet_wrappers << '/'
+            << decoder_resources.receive_frame_wrappers << '/' << decoder_resources.retained_frame_wrappers << '\n'
+            << "Green/white alpha checks passed after joined shutdown. Submit timings include driver waits. Offscreen calls do not measure Game Bar or monitor scanout.\n";
         return 0;
     } catch (const winrt::hresult_error& error) { std::cerr << winrt::to_string(error.message()) << '\n'; }
       catch (const std::exception& error) { std::cerr << error.what() << '\n'; }
