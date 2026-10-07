@@ -4,7 +4,7 @@
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
          IgnorableNamespaces="uap uap3 mp">
-  <Identity Name="SoftwareFuser.Widget" Publisher="CN=SoftwareFuser.Development, OID.2.25.311729368913984317654407730594956997722=1" Version="0.2.1.7" />
+  <Identity Name="SoftwareFuser.Widget" Publisher="CN=SoftwareFuser.Development, OID.2.25.311729368913984317654407730594956997722=1" Version="0.2.1.8" />
   <mp:PhoneIdentity PhoneProductId="f25aa2f0-9c02-42d0-a0a9-87b4ff9d1a55" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Software Fuser</DisplayName>

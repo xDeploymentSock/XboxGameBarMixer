@@ -1,6 +1,6 @@
 # Main code review
 
-This review follows the installed 0.2.1.7 color checkpoint. It covers stream startup/shutdown, decoded-frame ownership, renderer resources, settings validation, and local verification tools. The installed widget and source-control session were left running. Changes below are unreleased.
+This review follows the installed 0.2.1.7 color checkpoint. It covers stream startup/shutdown, decoded-frame ownership, renderer resources, settings validation, and local verification tools. The installed widget and source-control session were left running. The production fixes below are included in the prepared 0.2.1.8 candidate; it has not been installed.
 
 ## Correctness fixes
 
@@ -15,7 +15,7 @@ The unsupported-matrix fixture changes only VUI metadata on generated test conte
 
 Two short Release baselines each submitted 1,200 owned 1440p frames at 240 requested inputs per second. CPU decoder-submission p95 was 0.2323 ms for H.264 and 0.2164 ms for HEVC. Draw CPU time including lock wait had p95 of 0.0208 and 0.0187 ms respectively. These runs had variable presentation pacing and were not controlled live latency tests or before/after optimization comparisons.
 
-The subsequent [performance pass](RECEIVER-PERFORMANCE.md#current-optimization-pass-unreleased) measures and implements packet/receive-wrapper reuse and frame-reference transfer. At the time of this initial review, that work remained a profiling candidate. This review does not establish that changing it would materially reduce latency, so the decoder's validated frame leases and shared D3D11 context lock are retained. The existing renderer already caches plane views and completion queries, keeps only the latest decoded display frame, and wakes on frame notifications and presentation readiness.
+The subsequent [performance pass](RECEIVER-PERFORMANCE.md#current-optimization-pass-0218-candidate) measures and implements packet/receive-wrapper reuse and frame-reference transfer. At the time of this initial review, that work remained a profiling candidate. This review does not establish that changing it would materially reduce latency, so the decoder's validated frame leases and shared D3D11 context lock are retained. The existing renderer already caches plane views and completion queries, keeps only the latest decoded display frame, and wakes on frame notifications and presentation readiness.
 
 The production render loop has no fixed four-millisecond polling wait. Its one-millisecond fallback is used only when GPU read slots are occupied. No global timer-resolution change is added. Local scalar declarations and compile-time type deduction do not themselves cause heap allocation.
 

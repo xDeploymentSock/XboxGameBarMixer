@@ -58,7 +58,7 @@ All four cycles completed and joined normally, including reuse of the renderer a
 
 Keep Sunshine NVENC P1 initially. Higher presets increase encoding latency in exchange for compression efficiency. Quarter-resolution two-pass is the documented default; one-pass is an optional controlled experiment because bitrate overshoot can cause packet loss. These source settings are not modified by this release. See [Sunshine's NVENC configuration](https://docs.lizardbyte.dev/projects/sunshine/latest/md_docs_2configuration.html#nvenc_preset).
 
-## Current optimization pass (unreleased)
+## Current optimization pass (0.2.1.8 candidate)
 
 The decoder now allocates one input-packet wrapper and one receive-frame wrapper per session. Every displayed output still owns a distinct AVFrame lease. Moving references from the receive wrapper into that lease avoids cloning its hardware-buffer and timing references; a scope guard releases each input packet's data even after a callback or decode error. The shared D3D11 context lock, compressed-byte copy, ordered decoder input, color conversion, and GPU completion leases are preserved.
 
@@ -135,6 +135,16 @@ $env:PATH = (Join-Path (Get-Location) 'build/test-runtime/Release') + ';' + $env
 ```
 
 Supply `-FfmpegPath` when FFmpeg is not on PATH. Replace 0 with 240 and omit `decode-only` for the concurrent path. Keep comparisons sequential and record other active streams.
+
+### Controlled live comparison
+
+The candidate package is prepared; installation and this comparison require an idle test window. Record the installed 0.2.1.7 baseline before updating it. Keep source content, dimensions, codec, bitrate, key/scaling settings and widget placement identical across the two versions.
+
+1. Put the [owned HUD fixture](BUILD-LATER.md#source-animation-fixture) fullscreen on the source's captured display, select its black background and leave motion running. Confirm the canvas is 2560x1440 and the source animation counter is near the display refresh rate. Its browser counter is not received or displayed FPS.
+2. Disconnect the separate Moonlight control stream after the HUD is ready. Connect only Software Fuser using the 1440p HUD preset: HEVC, 240 requested FPS and 100,000 kbps. Use Remove black only and Crisp HUD. Pin it, enable click-through and close Game Bar.
+3. Observe for at least 60 seconds after startup. Save begin/end receiver statistics and record changing frame IDs, receive/decode/Present rates, display replacements, decode errors, source processing, assembly/queue timing, callback-to-Present percentiles and pacing gaps. Discard a trace with lost events. Accepted Present calls alone do not establish distinct displayed frames or capture-to-screen latency.
+4. After the baseline, install the prepared Release candidate in the idle window and repeat the same run. Then repeat under representative local-game load, recording game FPS/frame-time impact and HUD color/edge appearance. Run comparisons sequentially; other streaming sessions confound source and receiver load.
+5. Verify Disconnect, reconnect and application selection, then restore the source-control session. Keep logs and captures local; publish only reviewed aggregate results.
 
 ### Remaining performance verification
 

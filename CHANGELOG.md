@@ -7,6 +7,10 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ## [Unreleased]
 
+## [0.2.1.8]
+
+Prepared development candidate; not installed. Allocation reductions are measured, while controlled live performance remains pending.
+
 ### Added
 
 - Repository publication/link audits, contributor guidance, formatting rules and CPU-only Windows/Linux core CI.
@@ -159,7 +163,8 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - Initial tracked streaming baseline: Sunshine pairing, protected credentials, view-only Moonlight transport, hardware H.264/HEVC decoding and transparent Game Bar presentation.
 - Packet, queue, host-processing, display and shutdown diagnostics.
 
-[Unreleased]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/5ae44b1d6a4a000e2d6c957b6de045aa8b6f7cc7...HEAD
+[Unreleased]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/da43d2a00d152ba258a111e86ec8c25f59cb5f6c...HEAD
+[0.2.1.8]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/5ae44b1d6a4a000e2d6c957b6de045aa8b6f7cc7...da43d2a00d152ba258a111e86ec8c25f59cb5f6c
 [0.2.1.7]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/a9b929971a455030da4852ea5d3e818711bcff6b...5ae44b1d6a4a000e2d6c957b6de045aa8b6f7cc7
 [0.2.1.6]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/e80fbbcc0fe33c3c435d58ddd9d8e4d7fb96641f...a9b929971a455030da4852ea5d3e818711bcff6b
 [0.2.1.5]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/09ce9475434f0f4a97060d350892a1c0686a5e93...e80fbbcc0fe33c3c435d58ddd9d8e4d7fb96641f
