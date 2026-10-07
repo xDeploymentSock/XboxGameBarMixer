@@ -18,7 +18,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ## [0.2.1.9]
 
-Prepared unsigned diagnostic candidate, uninstalled. Package integrity and builds are checked; live timing overhead, GPU/runtime checks and performance improvement remain pending.
+Unsigned Release diagnostic checkpoint installed and verified locally. Package integrity, builds and installed executable identity are checked; live timing overhead, GPU/runtime checks and performance improvement remain pending.
 
 ### Added
 
