@@ -177,4 +177,10 @@ if(FUSER_BUILD_DECODER_TESTS)
     set_tests_properties(fuser_${CODEC}_concurrent_present PROPERTIES TIMEOUT 30
       ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/build/test-runtime/$<CONFIG>")
   endforeach()
+  find_program(FUSER_TEST_PYTHON python REQUIRED)
+  add_test(NAME fuser_benchmark_error_shutdown COMMAND "${FUSER_TEST_PYTHON}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/benchmark_tests.py" "$<TARGET_FILE:fuser_fixture_benchmark>"
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/fixtures/unsupported-matrix.h264")
+  set_tests_properties(fuser_benchmark_error_shutdown PROPERTIES TIMEOUT 15
+    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/build/test-runtime/$<CONFIG>")
 endif()

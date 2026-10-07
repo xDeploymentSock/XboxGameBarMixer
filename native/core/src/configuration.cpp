@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace fuser {
@@ -28,8 +29,11 @@ std::vector<validation_issue> validate(const overlay_configuration& configuratio
         configuration.stream.frames_per_second > 1000) {
         add("stream.frames_per_second", "Requested FPS must be between 1 and 1000.");
     }
-    if (configuration.stream.bitrate_kbps == 0) {
-        add("stream.bitrate_kbps", "Bitrate must be positive, in kilobits per second.");
+    // Moonlight's STREAM_CONFIGURATION stores kilobits per second in an int.
+    // Reject unsigned values that would wrap before starting host control.
+    if (configuration.stream.bitrate_kbps == 0 ||
+        configuration.stream.bitrate_kbps > static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
+        add("stream.bitrate_kbps", "Bitrate must be between 1 and 2147483647 kilobits per second.");
     }
     const auto unit_interval = [](float value) {
         return std::isfinite(value) && value >= 0.0F && value <= 1.0F;

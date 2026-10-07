@@ -11,11 +11,17 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 - Repository publication/link audits, contributor guidance, formatting rules and CPU-only Windows/Linux core CI.
 - README and changelog skills recorded in the project skill lock.
+- A bounded benchmark failure regression using owned unsupported-matrix input, plus a [scoped code review](docs/CODE-REVIEW.md).
 
 ### Changed
 
 - Reorganized setup, architecture, current limits and documentation navigation in the README.
 - Grouped package changes by version and change type, linked their implementation ranges and archived older development notes.
+
+### Fixed
+
+- Oversized unsigned bitrates passing validation before conversion to Moonlight's signed transport field.
+- Developer fixture benchmark hanging while joining a sleeping render worker after decoder failure.
 
 ## [0.2.1.7]
 

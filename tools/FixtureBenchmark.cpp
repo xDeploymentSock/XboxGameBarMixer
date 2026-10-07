@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
         present_intervals.reserve(static_cast<std::size_t>(count));
         clock_type::time_point previous_present{};
         std::mutex wake_mutex;
-        std::condition_variable wake;
+        std::condition_variable_any wake;
         std::atomic<bool> render_failed{};
         std::exception_ptr render_error;
         fuser::stream_profile profile;
@@ -156,8 +156,10 @@ int main(int argc, char** argv) {
                 for (;;) {
                     // Match production's predicate wake, wait-before-selection,
                     // latest-frame policy and nonblocking composition present.
-                    { std::unique_lock lock{wake_mutex}; wake.wait(lock, [&] {
-                        return stop.stop_requested() || pending || mailbox.has_frame();
+                    // jthread destruction requests stop even on decoder errors.
+                    // A stop-aware wait must wake without the normal-path notify.
+                    { std::unique_lock lock{wake_mutex}; wake.wait(lock, stop, [&] {
+                        return pending || mailbox.has_frame();
                     }); }
                     if (!pending && !mailbox.has_frame() && stop.stop_requested()) { break; }
                     if (!renderer.wait_to_present(8)) {
@@ -172,7 +174,7 @@ int main(int argc, char** argv) {
                         if (result.code == fuser::operation_code::unavailable) {
                             ++unavailable;
                             std::unique_lock lock{wake_mutex};
-                            wake.wait_for(lock, std::chrono::milliseconds{1}, [&] { return mailbox.has_frame(); });
+                            wake.wait_for(lock, stop, std::chrono::milliseconds{1}, [&] { return mailbox.has_frame(); });
                             continue;
                         }
                         require(result);

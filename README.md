@@ -90,7 +90,7 @@ Keep work scoped to the intended branch: main contains usable-area fitting; a se
 | --- | --- |
 | Installation and controls | [Build guide](docs/BUILD-LATER.md), [widget menu](docs/WIDGET-MENU.md) |
 | Image quality and placement | [Black removal](docs/BLACK-CLEANUP.md), [video fit](docs/VIDEO-FIT.md), [HUD quality/latency](docs/HUD-QUALITY-LATENCY.md) |
-| Connection and performance | [Desktop selection](docs/DESKTOP-LAUNCH.md), [receiver performance](docs/RECEIVER-PERFORMANCE.md) |
+| Connection and performance | [Desktop selection](docs/DESKTOP-LAUNCH.md), [receiver performance](docs/RECEIVER-PERFORMANCE.md), [code review](docs/CODE-REVIEW.md) |
 | Status and history | [Validation](docs/VALIDATION.md), [roadmap](docs/ROADMAP.md), [changelog](CHANGELOG.md), [development history](docs/DEVELOPMENT-HISTORY.md) |
 | Repository maintenance | [Contributing](CONTRIBUTING.md), [skills](docs/REPOSITORY-SKILLS.md), [upstream references](docs/REFERENCES.md) |
 

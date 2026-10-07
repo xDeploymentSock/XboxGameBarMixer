@@ -6,6 +6,7 @@ These steps have been run on the receiving PC after the user authorized executio
 
 - Visual Studio 2022 with v143 C++, `Microsoft.VisualStudio.ComponentGroup.UWP.VC`, and Windows SDK 10.0.26100.0.
 - Windows 11 x64, Xbox Game Bar, CMake, and Git.
+- Python 3.10+ for repository and benchmark failure checks; the Control target also needs Python cryptography.
 
 The installed VS 2022 Community instance is 17.14.37301.10. Game Bar is 7.326.8061.0. NuGet pins remain `Microsoft.Gaming.XboxGameBar` 7.2.240903001 and `Microsoft.Windows.CppWinRT` 2.0.200203.5, matching the inspected Microsoft sample. MSBuild restores `packages.config`; a separate NuGet CLI is not needed.
 
@@ -23,7 +24,7 @@ From the workspace root:
 
 `Build.ps1` also accepts `All` and either configuration. Core/GPU targets run CTest. The GPU target requires a hardware D3D11 device and tests shader output using test-only CPU readback. Production rendering does not read pixels back to the CPU. The Control target uses an existing Python runtime with `cryptography` to run loopback HTTP/TLS pairing fixtures and Windows protected-storage round-trips; it never pairs or launches on a real source PC.
 
-The explicit Decoder target builds pinned UWP dependencies, extracts the SDK runtime into the test directory, generates twelve intra-frame, 120 inter-coded-frame, and 120 moving-square-frame H.264/HEVC fixtures with the existing FFmpeg CLI/NVENC, and runs six tests. If ffmpeg is not on PATH, run GenerateDecoderFixtures.ps1 with -FfmpegPath pointing to the existing executable before the direct CMake build/test commands. Widget builds also invoke BuildStreamingLibraries for Sunshine control, Moonlight, FFmpeg, and session libraries. The view-only build removes Moonlight's source-mouse wake-up from an isolated copy of pinned source. Dependency builds use a task-specific temporary build tree and an FFmpeg response-file overlay to support spaces in the workspace path.
+The explicit Decoder target builds pinned UWP dependencies, extracts the SDK runtime into the test directory, generates twelve intra-frame, 120 inter-coded-frame, and 120 moving-square-frame H.264/HEVC fixtures with the existing FFmpeg CLI/NVENC, and runs seven tests. It also rewrites H.264 matrix metadata into an owned BT.2020 rejection fixture. The Python regression verifies that a decoder error reports the expected message and joins the benchmark worker within five seconds. If ffmpeg is not on PATH, run GenerateDecoderFixtures.ps1 with -FfmpegPath pointing to the existing executable before the direct CMake build/test commands. Widget builds also invoke BuildStreamingLibraries for Sunshine control, Moonlight, FFmpeg, and session libraries. The view-only build removes Moonlight's source-mouse wake-up from an isolated copy of pinned source. Dependency builds use a task-specific temporary build tree and an FFmpeg response-file overlay to support spaces in the workspace path.
 
 Widget builds generate C++/WinRT/XAML, compile HLSL, generate placeholder package logos, and produce an unsigned MSIX. Logs are in `build/widget-{Configuration}.log`; binaries are in `out/`; packages are in `AppPackages/`. No build target installs or starts the app.
 

@@ -80,6 +80,15 @@ int main() {
         configuration.stream.frames_per_second = 0;
         require(!fuser::validate(configuration).empty(), "zero FPS is invalid");
         configuration.stream.frames_per_second = 240;
+        configuration.stream.bitrate_kbps = 0;
+        require(!fuser::validate(configuration).empty(), "zero bitrate is invalid");
+        configuration.stream.bitrate_kbps = static_cast<std::uint32_t>(std::numeric_limits<int>::max());
+        require(fuser::validate(configuration).empty(), "the transport's maximum signed bitrate is representable");
+        ++configuration.stream.bitrate_kbps;
+        require(!fuser::validate(configuration).empty(), "bitrate must not wrap when copied into the signed transport field");
+        configuration.stream.bitrate_kbps = std::numeric_limits<std::uint32_t>::max();
+        require(!fuser::validate(configuration).empty(), "maximum unsigned bitrate must not reach the transport");
+        configuration.stream.bitrate_kbps = 80000;
         configuration.key.opacity = std::numeric_limits<float>::quiet_NaN();
         require(!fuser::validate(configuration).empty(), "NaN cannot reach a shader");
 

@@ -39,3 +39,12 @@ foreach ($taskCodec in @('h264', 'hevc')) {
     if ($LASTEXITCODE -ne 0) { throw "Moving HUD fixture encoding failed for $taskCodec with code $LASTEXITCODE." }
     Get-FileHash -LiteralPath $taskMovingOutput -Algorithm SHA256 | Select-Object Path,Hash
 }
+
+# Rewrite only VUI metadata on our owned H.264 fixture. The decoder must reject
+# BT.2020, and the benchmark must still cancel and join its waiting render worker.
+$taskUnsupported = Join-Path $taskFixtures 'unsupported-matrix.h264'
+$taskMetadataArguments = @('-hide_banner', '-loglevel', 'error', '-y', '-i',
+    (Join-Path $taskFixtures 'key-pattern.h264'), '-c:v', 'copy',
+    '-bsf:v', 'h264_metadata=matrix_coefficients=9', '-f', 'h264', $taskUnsupported)
+& $FfmpegPath @taskMetadataArguments
+if ($LASTEXITCODE -ne 0) { throw "Unsupported-matrix fixture creation failed with code $LASTEXITCODE." }
