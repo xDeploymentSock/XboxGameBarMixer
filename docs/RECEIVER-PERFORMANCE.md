@@ -207,6 +207,32 @@ On this source/receiver setup, H.264 is the preferred next profile for load test
 
 No valid display trace or optical measurement was collected. Actual displayed source-frame timing, gaming impact and broader reconnect behavior remain outstanding. Logs and private calculations remain ignored; only these reviewed aggregates are published.
 
+### Current gameplay monitoring (0.2.1.8)
+
+The user reported that the game was running and everything looked good, then requested monitoring of current use. The moving owned source fixture and source-control disconnection were not reconfirmed for this later run. The widget had restarted since the idle comparison; its executable hash still matched the installed 0.2.1.8 checkpoint. The active stream remained H.264, 2560x1440 and 240 requested FPS. This is a current-use observation, not a controlled same-workload measurement of the game's cost or a repeat of the idle fixture.
+
+Six passive observations across 75 seconds stayed fresh and connected. Beginning/ending cumulative counters cover a 176.871-second interval:
+
+| Metric | Current gameplay observation |
+| --- | ---: |
+| Received units / accepted-Present samples | 41,958 / 21,613 |
+| Received units / accepted-Present samples per second | 237.224 / 122.196 |
+| Host-reported nonzero processing average | 3.495 ms |
+| Decoder submit average | 0.139 ms |
+| Callback-to-accepted-Present average | 2.029 ms |
+| Assembly / enqueue-to-submission average | 0.0321 / 0.0128 ms |
+| Added decode errors / skipped frame indexes | 0 / 0 |
+| Added display replacements | 20,345 |
+| Added GPU-slot / Present retries | 0 / 0 |
+| Added bounded presentation wait timeouts | 1,534 |
+| Added absent/repeated host timing samples | 13 |
+
+Received units equal accepted-Present samples plus display replacements within this interval. The renderer waits for DXGI presentation capacity before taking the newest mailbox frame; an eight-millisecond bounded wait can time out while older decoded display frames are replaced. Encoded decoder inputs remain ordered. These counters locate pressure at presentation readiness; they do not establish whether composition, display mode, GPU scheduling or another factor caused it.
+
+The ending cumulative histograms report callback-to-Present p95/p99 upper bounds of 4.25/5.00 ms and accepted-Present gap bounds of 15.00/18.00 ms. Maximum accepted-Present gap was 193.860 ms and peak pending decode queue was 14, both cumulative across the session rather than isolated to this interval. Private memory ranged from about 135 to 141 MiB during the six observations; that short range is not a leak test. Driver-reported desktop modes differed from the original target, but do not establish game scanout timing.
+
+The current-use presentation rate is materially below the idle H.264 run's 239.161 submissions/s, while receive rate and source processing remain close. The user's visual acceptance is recorded without treating accepted submissions as actual displayed FPS. No game FPS/frame-time baseline, valid display trace or optical latency measurement was collected, and source/display conditions were not held identical. Maximum performance and absence of game impact remain unproven. No renderer, timer, priority, package, game or display setting was changed during monitoring. Raw process/resource details and logs remain private.
+
 ### Remaining performance verification
 
 Maximum performance remains unproven. Continue the review against these gates instead of treating reduced allocation counts as completion:
@@ -217,7 +243,7 @@ Maximum performance remains unproven. Continue the review against these gates in
 | Shader and GPU reads | Isolated fitted-size timestamp/alpha checks are recorded above. Still compare representative HUD textures and gaming GPU load while preserving color/alpha/crop regressions. |
 | Presentation pacing | Controlled Game Bar trace with changing source frame IDs; distinguish accepted Present calls from display updates and source content. |
 | Source and transport | Idle moving-HUD HEVC/H.264 processing, queue and assembly results are recorded above. Still measure actual access-unit sizes and behavior under representative load before proposing transport ownership changes. |
-| Gaming impact and stability | Representative local-game load, reconnect and shutdown measurements; compare the verified package against the previous checkpoint. |
+| Gaming impact and stability | Current gameplay monitoring above exposes lower presentation throughput without decoder errors. Still collect a controlled game FPS/frame-time comparison, display trace, reconnect and shutdown results. |
 
 ## Timer and lock review
 

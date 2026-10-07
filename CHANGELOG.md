@@ -11,6 +11,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 - Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.
 - Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
+- Documented current gameplay monitoring with about 237 received/decoded units per second while presentation throughput decreased, with user visual acceptance and unresolved display/game-impact measurements.
 
 ## [0.2.1.8]
 
