@@ -25,6 +25,7 @@ Prepared unsigned diagnostic candidate, uninstalled. Package integrity and build
 - Separate private-log decoder, presentation-wait, draw and Present CPU distributions.
 - Coherent decoder/render worker activity snapshots, an independent transport-overflow count and a first-overflow activity report without state/context/decoder mutex waits.
 - Portable contracts for concurrent stage/time snapshots, exception restoration and reconnect reset.
+- Monotonic session timing and a private checkpoint summary that rejects reconnects, changed profiles, incomplete samples and counter resets. Its CPU-only contracts cover interval totals, Windows UTF-8 logs and exclusion of unrelated log text.
 
 ## [0.2.1.8]
 

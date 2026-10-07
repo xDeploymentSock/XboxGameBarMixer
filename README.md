@@ -6,7 +6,7 @@ Overlay a remote PC's HUD on your local display with a transparent, pinned Xbox 
 
 **Installed baseline: 0.2.1.8.** It reuses decoder packet/receive wrappers and transfers frame references while preserving color rendering and output leases. Native checks and both widget builds pass; local Release installation is verified with Windows package status OK and an executable matching the tested build. Reduced allocations are measured, but a live latency or displayed-FPS gain is not established. See the [changelog](CHANGELOG.md) for version changes and [validation](docs/VALIDATION.md) for measured results.
 
-**Prepared diagnostic candidate: 0.2.1.9.** It separates decoder, presentation-wait, draw and Present CPU timings and records worker activity at the first transport queue overflow. Debug/Release packages are built and checked locally; the candidate is uninstalled and its live behavior/performance remains unverified. See [candidate validation](docs/VALIDATION.md#in-process-timing-candidate).
+**Prepared diagnostic candidate: 0.2.1.9.** It separates decoder, presentation-wait, draw and Present CPU timings, records worker activity at the first transport queue overflow and provides a summary tool for matching private timing checkpoints. Debug/Release packages are built and checked locally; the candidate is uninstalled and its live behavior/performance remains unverified. See [candidate validation](docs/VALIDATION.md#in-process-timing-candidate).
 
 ## Features
 
@@ -66,6 +66,7 @@ Portable checks need CMake 3.24+, a C++20 compiler, Git and Python 3.10+:
 
 ```text
 python tools/audit_repository.py
+python -m unittest discover -s tests -p timing_summary_tests.py
 cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure

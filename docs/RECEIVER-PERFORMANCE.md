@@ -261,6 +261,12 @@ Received units equal accepted samples plus display replacements. No transport de
 
 This reinforces the presentation-readiness concern under current game load, without establishing its cause, actual displayed FPS, game cost or a codec gain. Source/load conditions were uncontrolled and short passive trace probes ran during monitoring. No installation, display, timer, priority or application-setting change was made.
 
+### Further passive gameplay window
+
+A later 202.147-second window of the unchanged installed 0.2.1.8 process retained HEVC/2560x1440/240 in all 41 sampled rate blocks. It recorded 46,947 received units and 24,306 accepted-Present samples, averaging 232.242 and 120.239 per second. The remaining 22,641 units were replaced before display submission, with 1,323 added presentation wait timeouts and zero added decoder errors, GPU-slot retries or Present retries. The widget was responsive at the end.
+
+Unlike the earlier saved window, this interval includes one allowlisted transport decode-unit queue overflow and 18 skipped frame indexes. The interval duration comes from log wall-clock timestamps; the installed baseline does not have the candidate's monotonic session fields. Process identity/start time, package version and stream profile were checked for continuity. Source activity and the separate control-stream connection state were unknown. This is passive current-use evidence, not a display-FPS or game-impact measurement. Offline compilation ran during the observation, so it is not an isolated gaming benchmark. Logs and numeric summaries remain private under ignored `build/` storage. No runtime, display, timer or application settings were changed.
+
 ### In-process timing candidate
 
 The prepared 0.2.1.9 candidate adds private-log CPU timing for completed decoder submissions, successful and timed-out presentation-capacity waits, draw calls and Present API calls. Each distribution retains sample count, total, maximum and p95/p99 upper bounds. The existing 250-microsecond bounded histogram is reused; there is no allocation or mutex per histogram sample. Successful waits include immediately ready returns; timed-out waits are a separate population. Draw timing includes context-lock/scheduling delays and command submission. Present timing includes successful calls and retry returns. These are CPU wall times, not GPU execution, hardware-decoder completion or display timestamps.
@@ -270,6 +276,18 @@ A worker reports its stage and time since entry using one lock-free atomic value
 The first transport decode-queue overflow per connection also writes those worker stages and ages directly from the receiver callback, without acquiring state, immediate-context or decoder mutexes. Subsequent messages increment a separate transport-overflow counter without repeating the extra activity report. This preserves evidence if UI statistics stop updating and distinguishes transport overflow from decoder errors. Logging remains best effort; neither an age nor a timeout selects a root cause automatically.
 
 Portable core contracts pass in Debug and Release, including concurrent stage/timestamp snapshots, clock-order clamping, nested callback exceptions and reconnect reset after joining the writer. UWP session libraries, desktop diagnostic integration and Debug/Release widget builds compile successfully; widget builds report zero warnings/errors. A CPU-only synthetic exercise of phase transitions and four histogram updates completed without hot-path allocations. The production timing path has not yet been measured live. No GPU workload test or deployment was performed while the user was gaming. Unsigned Debug/Release 0.2.1.9 archives are prepared and pass integrity, manifest and executable checks, with unchanged packaged dependency DLLs. The installed widget remains 0.2.1.8; this candidate is uninstalled and is not a verified performance improvement.
+
+### Summarizing private timing checkpoints
+
+For the 0.2.1.9 format, save two copies of the private runtime log at least 60 seconds apart during one uninterrupted widget process and stream. Keep the source content and load consistent. Each rate block records a steady-clock session-start token and elapsed microseconds. The elapsed difference supplies the interval duration without relying on the log's wall-clock timestamp; the token guards against reconnects with the same profile. It is a local session marker, not an identity for comparisons across machines or reboots.
+
+```text
+python tools/summarize_widget_timing.py build/begin.log build/end.log --output build/timing-summary.json
+```
+
+The tool reads the newest rate block from each file and exports known numeric counters and worker-stage names only. It rejects different connections, changed profiles, resets, lifecycle changes after a rate block, inactive intervals and incomplete newest blocks; capture fresh copies when rejection indicates a partial write. Inputs are bounded to 64 MiB. Existing 0.2.1.8 logs are rejected because they lack the required session timing fields.
+
+The JSON reports interval receive/accepted-Present rates, display replacements, wait timeouts, overflow counts and averages for completed CPU calls. Maxima and percentile upper bounds are explicitly the ending cumulative distributions; subtracting percentile values would not produce interval percentiles. Snapshots can straddle in-flight work, so a balance residual is reported without forcing equality. These results exclude GPU execution, display timing and optical latency. Keep checkpoint logs and summaries under ignored `build/` storage.
 
 ### Remaining performance verification
 

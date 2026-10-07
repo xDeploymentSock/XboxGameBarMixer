@@ -548,6 +548,8 @@ void MainPage::update_statistics() {
                      << " | maximum us " << value.max_microseconds << " | p95 bound us " << value.p95_microseconds
                      << " | p99 bound us " << value.p99_microseconds;
             };
+            text << "\nSession timing: started tick us " << state.connection_started_microseconds
+                 << " | elapsed us " << static_cast<std::uint64_t>(state.seconds * 1000000.0);
             timing("Decode call", state.decode_call_timing);
             timing("Presentation ready wait", state.ready_wait_timing);
             timing("Presentation timeout wait", state.timeout_wait_timing);

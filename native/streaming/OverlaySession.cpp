@@ -384,6 +384,8 @@ session_snapshot overlay_session::snapshot() const {
     const std::lock_guard guard{state_mutex_};
     result.negotiated = negotiated_;
     result.status = status_;
+    const auto started_tick = std::chrono::duration_cast<std::chrono::microseconds>(started_at_.time_since_epoch()).count();
+    result.connection_started_microseconds = started_tick > 0 ? static_cast<std::uint64_t>(started_tick) : 0;
     result.seconds = started_at_ == monotonic_time{} ? 0.0 :
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started_at_).count();
     return result;

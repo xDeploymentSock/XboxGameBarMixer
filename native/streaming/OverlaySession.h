@@ -32,6 +32,8 @@ struct session_snapshot {
     std::uint64_t host_latency_samples{}, host_latency_tenths_ms{}, zero_host_latency_frames{};
     std::uint16_t max_host_latency_tenths_ms{};
     stream_profile negotiated;
+    // Monotonic start token distinguishes reconnects with the same profile.
+    std::uint64_t connection_started_microseconds{};
     double seconds{};
     bool active{};
     bool finished{};

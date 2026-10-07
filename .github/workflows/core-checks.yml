@@ -30,6 +30,8 @@ jobs:
           persist-credentials: false
       - name: Check repository publication hygiene
         run: python tools/audit_repository.py
+      - name: Check timing summary contracts
+        run: python -m unittest discover -s tests -p timing_summary_tests.py
       - name: Configure portable tests
         run: cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DFUSER_BUILD_GPU_TESTS=OFF -DFUSER_BUILD_DECODER_TESTS=OFF -DFUSER_BUILD_CONTROL_TESTS=OFF -DFUSER_BUILD_DISPLAY_PROBE=OFF -DCMAKE_BUILD_TYPE=Release
       - name: Build portable tests
