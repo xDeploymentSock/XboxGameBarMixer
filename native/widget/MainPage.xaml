@@ -105,11 +105,11 @@
                                 <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="2" HorizontalAlignment="Stretch" SelectionChanged="key_color_changed">
                                     <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" /><ComboBoxItem Content="Black" />
                                 </ComboBox>
-                                <Button x:Name="CleanBlackButton" Content="Clean black background" Click="clean_black_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Apply the black-noise cutoff and recover bright text edges immediately." />
-                                <Button x:Name="ExactBlackButton" Content="Exact black" Click="exact_black_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Apply zero tolerance and softness, preserving every nonblack source pixel." />
-                                <TextBlock Text="Presets apply immediately. Use the controls below for fine adjustments." Style="{StaticResource Caption}" />
+                                <Button x:Name="ExactBlackButton" Content="Remove black only" Click="exact_black_click" Style="{StaticResource MenuButton}"
+                                        ToolTipService.ToolTip="Remove exact decoded black. Keep every other decoded color fully opaque, without edge recovery or Game Bar fading." />
+                                <Button x:Name="CleanBlackButton" Content="Remove near-black noise" Click="clean_black_click" Style="{StaticResource MenuButton}"
+                                        ToolTipService.ToolTip="Use a hard noise cutoff. Retained colors stay opaque; very dark artwork may be removed." />
+                                <TextBlock Text="Both buttons apply immediately at 100% HUD opacity. Remove black only preserves all other decoded colors; noise cleanup also removes near-black pixels." Style="{StaticResource Caption}" />
                                 <Slider x:Name="KeyOpacity" Header="HUD opacity" Minimum="0" Maximum="1" Value="1" StepFrequency="0.005"
                                         SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
                                 <ToggleButton x:Name="KeyOptionsToggle" Content="Fine tuning" Style="{StaticResource MenuTab}"
@@ -121,11 +121,15 @@
                                   <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0" StepFrequency="0.005"
                                         SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
                                   <TextBlock x:Name="KeyValuesText" Style="{StaticResource Caption}" />
+                                  <CheckBox x:Name="RecoverBlackEdges" IsChecked="False">
+                                      <TextBlock Text="Blend bright edges (may fade colors)" TextWrapping="Wrap" FontSize="13" />
+                                  </CheckBox>
+                                  <TextBlock Text="Edge blending guesses transparency from brightness. Leave it off to preserve solid colors. Edge softness can also make pixels translucent." Style="{StaticResource Caption}" />
+                                  <CheckBox x:Name="FollowGameBarOpacity" IsChecked="False">
+                                      <TextBlock Text="Follow Game Bar opacity for video" TextWrapping="Wrap" FontSize="13" />
+                                  </CheckBox>
+                                  <TextBlock Text="Leave this off for natural color when pinned. HUD opacity above controls video fading separately." Style="{StaticResource Caption}" />
                                 </StackPanel>
-                                <CheckBox x:Name="RecoverBlackEdges" IsChecked="False">
-                                    <TextBlock Text="Recover bright HUD edges (Black)" TextWrapping="Wrap" FontSize="13" />
-                                </CheckBox>
-                                <TextBlock Text="Recovery softens bright text edges and makes dark grey artwork translucent. Turn it off to keep solid dark panels." Style="{StaticResource Caption}" />
                                 <Button x:Name="ApplyKeyButton" Content="Apply key settings" Click="apply_key_click" Style="{StaticResource MenuButton}" />
                             </StackPanel>
                             <StackPanel x:Name="LayoutSection" Spacing="10" Visibility="Collapsed">
@@ -155,7 +159,7 @@
                                 <TextBlock Text="Receiver statistics" Style="{StaticResource SectionTitle}" />
                                 <TextBlock x:Name="StatsText" Text="Connect to view receiver rates." TextWrapping="Wrap" FontSize="13" />
                                 <TextBlock Text="The latest sample counts receive, decode, and Present activity. Present calls do not measure monitor scanout." Style="{StaticResource Caption}" />
-                                <TextBlock Text="For strongest text contrast, use 100% HUD opacity and set this widget's pinned opacity to 100% in Game Bar." Style="{StaticResource Caption}" />
+                                <TextBlock Text="For natural colors, use Remove black only on HUD. Video ignores Game Bar fading unless Follow Game Bar opacity for video is enabled." Style="{StaticResource Caption}" />
                                 <TextBlock Text="Game Bar and placement" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
                                 <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" FontSize="13" />
                                 <TextBlock x:Name="CoverageText" Style="{StaticResource Caption}" />

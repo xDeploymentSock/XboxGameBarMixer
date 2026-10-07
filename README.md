@@ -6,6 +6,8 @@ Version 0.2.1.4 adds [client-origin fitting, Crisp HUD scaling and reduced recei
 
 Version 0.2.1.5 adds [GPU resource reuse and more accurate performance diagnostics](docs/RECEIVER-PERFORMANCE.md). Reuse reduces measured CPU draw cost; overall latency and displayed FPS require further live comparison. Details now shows latency percentiles and submission-gap bounds, and display replacements include retained render retries.
 
+Version 0.2.1.6 adds [black removal that preserves opaque decoded colors](docs/BLACK-CLEANUP.md). **Remove black only** disables brightness-based edge fading, restores 100% HUD opacity and keeps video independent of Game Bar's pinned opacity. Optional near-black noise removal uses a hard cutoff.
+
 Target: **2560 x 1440 at 240 requested FPS**, Windows 11 x64, wired LAN, black, green, or magenta source background, local mouse/keyboard input. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; finer FPS tuning is deferred. Black transparency and click-through were confirmed. The user clarified that covering the taskbar requires manual dragging; automatic four-edge coverage has not passed.
 
 ## Current state

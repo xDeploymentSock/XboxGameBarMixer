@@ -1,5 +1,7 @@
 // Hardware readback is used only by this test, never by the stream display path.
 #include "D3D11Renderer.h"
+#include <fuser/black_key.h>
+#include <cmath>
 #include <winrt/base.h>
 #include <algorithm>
 #include <array>
@@ -154,8 +156,70 @@ ComPtr<ID3D11Texture2D> make_nv12(fuser::windows::d3d11_renderer& renderer,
 }
 }
 
+// Use decoded RGB with keying disabled as the reference: this isolates
+// alpha/keying errors from the unavoidable YUV conversion quantization.
+void check_natural_black_colors() {
+    fuser::windows::d3d11_renderer renderer;
+    renderer.initialize(side, side);
+    const std::array<pixel, 6> colors{{
+        {15, 18, 200, 255}, {45, 175, 215, 255}, {160, 110, 25, 255},
+        {150, 35, 175, 255}, {100, 100, 100, 255}, {1, 1, 1, 255}}};
+    for (const auto matrix : {fuser::color_matrix::bt601, fuser::color_matrix::bt709}) {
+        const double kr = matrix == fuser::color_matrix::bt601 ? 0.299 : 0.2126;
+        const double kb = matrix == fuser::color_matrix::bt601 ? 0.114 : 0.0722;
+        for (const auto range : {fuser::color_range::full, fuser::color_range::limited}) {
+            const bool limited = range == fuser::color_range::limited;
+            const auto byte = [](double value) {
+                return static_cast<std::uint8_t>(std::clamp(std::lround(value), 0L, 255L));
+            };
+            for (const auto color : colors) {
+                const double y = kr * color[2] + (1.0 - kr - kb) * color[1] + kb * color[0];
+                const double u = (color[0] - y) / (2.0 * (1.0 - kb));
+                const double v = (color[2] - y) / (2.0 * (1.0 - kr));
+                const auto texture = make_nv12(renderer, byte(limited ? 16.0 + y * 219.0 / 255.0 : y),
+                    byte(128.0 + u * (limited ? 224.0 / 255.0 : 1.0)),
+                    byte(128.0 + v * (limited ? 224.0 / 255.0 : 1.0)));
+                fuser::decoded_frame frame;
+                frame.surface = std::make_shared<fuser::windows::d3d11_surface>(texture, 0);
+                frame.width = frame.height = side;
+                frame.matrix = matrix;
+                frame.range = range;
+                fuser::chroma_key_settings reference;
+                reference.enabled = false;
+                require(renderer.draw_frame(frame, reference).succeeded(), "Unkeyed color reference must render.");
+                const auto original = read_pixel(renderer, 6, 22);
+                require(original[3] == 255, "Unkeyed reference must be opaque.");
+                for (const auto preset : {fuser::black_key_preset::exact, fuser::black_key_preset::noise_cutoff}) {
+                    const auto key = fuser::black_key_settings({}, preset);
+                    require(renderer.draw_frame(frame, key).succeeded(), "Natural-color black preset must render.");
+                    const auto actual = read_pixel(renderer, 6, 22);
+                    // Near-black is preserved by exact removal and removed only
+                    // when the separate noise preset is explicitly selected.
+                    if (preset == fuser::black_key_preset::noise_cutoff && color[2] == 1) {
+                        require(actual == pixel{0, 0, 0, 0}, "Noise preset must remove near-black rather than partially fade it.");
+                        continue;
+                    }
+                    if (actual != original) {
+                        std::cerr << "Natural-color BGRA reference " << unsigned(original[0]) << ',' << unsigned(original[1])
+                                  << ',' << unsigned(original[2]) << ',' << unsigned(original[3]) << " keyed "
+                                  << unsigned(actual[0]) << ',' << unsigned(actual[1]) << ',' << unsigned(actual[2])
+                                  << ',' << unsigned(actual[3]) << '\n';
+                    }
+                    require(actual == original, "Black presets must preserve every retained decoded RGB channel and opaque alpha.");
+                    // At alpha 255, compositing over any background cannot tint the source.
+                    for (const int background : {0, 110, 255}) {
+                        require(actual[2] + background * (255 - actual[3]) / 255 == original[2],
+                                "A solid HUD color must not absorb the receiving background.");
+                    }
+                }
+            }
+        }
+    }
+}
+
 int main() {
     try {
+        check_natural_black_colors();
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
         fuser::windows::d3d11_renderer renderer;
         renderer.initialize(side, side);

@@ -1,4 +1,5 @@
 #include <fuser/configuration.h>
+#include <fuser/black_key.h>
 #include <fuser/application_selection.h>
 #include <fuser/latest_frame_mailbox.h>
 #include <fuser/timing_histogram.h>
@@ -33,6 +34,25 @@ fuser::decoded_frame frame(std::uint64_t sequence) {
 
 int main() {
     try {
+        require(fuser::video_visual_opacity(0.85F, false) == 1.0F,
+                "video must stay opaque when pinned unless Game Bar fading is explicitly selected");
+        require(fuser::video_visual_opacity(0.85F, true) == 0.85F,
+                "the optional Game Bar opacity preference must still be respected");
+        require(fuser::video_visual_opacity(-1.0F, true) == 0.0F &&
+                fuser::video_visual_opacity(2.0F, true) == 1.0F &&
+                fuser::video_visual_opacity(std::numeric_limits<float>::quiet_NaN(), true) == 1.0F,
+                "host opacity must remain a valid Composition opacity");
+        fuser::chroma_key_settings faded;
+        faded.opacity = 0.35F;
+        faded.softness = 0.4F;
+        faded.recover_black_edges = true;
+        faded.crisp_scaling = true;
+        for (const auto preset : {fuser::black_key_preset::exact, fuser::black_key_preset::noise_cutoff}) {
+            const auto opaque = fuser::black_key_settings(faded, preset);
+            require(opaque.opacity == 1.0F && opaque.softness == 0.0F && !opaque.recover_black_edges,
+                    "black presets must reset all brightness-to-alpha and HUD fading options");
+            require(opaque.crisp_scaling, "black presets must retain the selected scaling mode");
+        }
         const std::vector<fuser::host_application> source_apps{{"123", "Steam Big Picture"}, {"456", "Desktop"}};
         require(fuser::choose_source_application(source_apps, {}) == 1,
                 "a first refresh selects Desktop even when Steam is listed first");

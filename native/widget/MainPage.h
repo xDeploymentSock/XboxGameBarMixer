@@ -4,6 +4,7 @@
 #include "../windows/D3D11Renderer.h"
 #include "../streaming/OverlaySession.h"
 #include <fuser/widget_layout_requests.h>
+#include <fuser/black_key.h>
 #include <winrt/Windows.UI.ViewManagement.h>
 #include <memory>
 
@@ -42,6 +43,7 @@ private:
     [[nodiscard]] fuser::overlay_configuration read_profile(bool require_host);
     [[nodiscard]] fuser::chroma_key_settings read_key_settings();
     void save_key_settings();
+    void set_black_key_preset(fuser::black_key_preset preset);
     void update_key_values();
     void select_settings_section(std::int32_t index);
     void update_settings_layout();
@@ -75,6 +77,7 @@ private:
     bool busy_{}, streaming_{};
     bool loading_profile_{true}, fitting_monitor_{}, reset_pending_{};
     bool video_fit_enabled_{true};
+    bool follow_game_bar_opacity_{};
     std::int32_t selected_settings_section_{};
     std::uint32_t reserved_bottom_pixels_{48};
     fuser::widget_layout_requests layout_requests_;

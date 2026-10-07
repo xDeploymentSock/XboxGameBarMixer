@@ -258,6 +258,17 @@ void MainPage::load_profile() {
     RecoverBlackEdges().IsChecked(black && values.HasKey(L"RecoverBlackEdges") &&
         unbox_value_or<bool>(values.Lookup(L"RecoverBlackEdges"), false));
     RecoverBlackEdges().IsEnabled(black);
+    follow_game_bar_opacity_ = values.HasKey(L"FollowGameBarOpacity") &&
+        unbox_value_or<bool>(values.Lookup(L"FollowGameBarOpacity"), false);
+    FollowGameBarOpacity().IsChecked(follow_game_bar_opacity_);
+    // Older black cleanup inferred transparency from brightness. Migrate once
+    // to the requested black-only behavior, without touching pairing or layout.
+    if (black && !values.HasKey(L"OpaqueBlackPresetsVersion")) {
+        set_black_key_preset(fuser::black_key_preset::exact);
+        configuration_.key = read_key_settings();
+        save_key_settings();
+        fuser::widget::log(L"Black profile upgraded: exact removal, opaque colors, independent video opacity.");
+    }
 }
 
 void MainPage::save_key_settings() {
@@ -268,12 +279,16 @@ void MainPage::save_key_settings() {
     values.Insert(L"KeyOpacity", box_value(KeyOpacity().Value()));
     values.Insert(L"VideoScaling", box_value(VideoScaling().SelectedIndex()));
     values.Insert(L"RecoverBlackEdges", box_value(configuration_.key.recover_black_edges));
+    follow_game_bar_opacity_ = FollowGameBarOpacity().IsChecked().Value();
+    values.Insert(L"FollowGameBarOpacity", box_value(follow_game_bar_opacity_));
+    values.Insert(L"OpaqueBlackPresetsVersion", box_value(std::uint32_t{1}));
     fuser::widget::log(L"Key settings: mode=" + to_hstring(KeyColor().SelectedIndex())
         + L" tolerance=" + to_hstring(configuration_.key.tolerance)
         + L" softness=" + to_hstring(configuration_.key.softness)
         + L" opacity=" + to_hstring(configuration_.key.opacity)
         + L" recover-black-edges=" + to_hstring(configuration_.key.recover_black_edges)
-        + L" crisp-scaling=" + to_hstring(configuration_.key.crisp_scaling));
+        + L" crisp-scaling=" + to_hstring(configuration_.key.crisp_scaling)
+        + L" follow-game-bar-opacity=" + to_hstring(follow_game_bar_opacity_));
 }
 
 void MainPage::hud_quality_click(IInspectable const&, RoutedEventArgs const&) {
@@ -299,6 +314,7 @@ void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
         values.Insert(L"VideoBitrate", box_value(VideoBitrate().Text()));
         values.Insert(L"VideoCodec", box_value(VideoCodec().SelectedIndex()));
         save_key_settings();
+        update_widget_state();
         if (streaming_ && !busy_) {
             session_->set_key(configuration_.key);
             report(L"Profile saved. Chroma key settings applied; video settings take effect on the next connection.");
@@ -852,22 +868,25 @@ void MainPage::key_settings_changed(IInspectable const&, Controls::Primitives::R
     if (!loading_profile_ && !shutting_down_) { update_key_values(); }
 }
 
+void MainPage::set_black_key_preset(fuser::black_key_preset preset) {
+    const auto key = fuser::black_key_settings(read_key_settings(), preset);
+    KeyColor().SelectedIndex(2);
+    KeyTolerance().Value(key.tolerance);
+    KeySoftness().Value(key.softness);
+    KeyOpacity().Value(key.opacity);
+    RecoverBlackEdges().IsChecked(key.recover_black_edges);
+    FollowGameBarOpacity().IsChecked(false);
+}
+
 void MainPage::clean_black_click(IInspectable const&, RoutedEventArgs const&) {
     if (busy_ || shutting_down_) { return; }
-    const fuser::chroma_key_settings defaults;
-    KeyColor().SelectedIndex(2);
-    KeyTolerance().Value(defaults.tolerance);
-    KeySoftness().Value(defaults.softness);
-    RecoverBlackEdges().IsChecked(true);
+    set_black_key_preset(fuser::black_key_preset::noise_cutoff);
     apply_key_click(nullptr, nullptr);
 }
 
 void MainPage::exact_black_click(IInspectable const&, RoutedEventArgs const&) {
     if (busy_ || shutting_down_) { return; }
-    KeyColor().SelectedIndex(2);
-    KeyTolerance().Value(0.0);
-    KeySoftness().Value(0.0);
-    RecoverBlackEdges().IsChecked(false);
+    set_black_key_preset(fuser::black_key_preset::exact);
     apply_key_click(nullptr, nullptr);
 }
 
@@ -877,6 +896,7 @@ void MainPage::apply_key_click(IInspectable const&, RoutedEventArgs const&) {
         configuration_.key = read_key_settings();
         save_key_settings();
         update_key_values();
+        update_widget_state();
         if (streaming_) {
             session_->set_key(configuration_.key);
             report(L"Key settings saved and applied to the live video.");
@@ -1082,21 +1102,25 @@ fire_and_forget MainPage::fit_monitor_async() {
 void MainPage::update_widget_state() {
     const bool pinned_only = widget_ && widget_.GameBarDisplayMode() == XboxGameBarDisplayMode::PinnedOnly;
     SettingsCard().Visibility(pinned_only ? Visibility::Collapsed : Visibility::Visible);
-    // This SDK/runtime reports 1.0 in foreground and 0.85 when pinned. Match
-    // Microsoft's transparency sample and XAML's normalized opacity contract.
+    // Keep the settings card aligned with Game Bar's opacity preference.
+    // Video follows it only when explicitly requested, to preserve HUD colors.
     const auto opacity = widget_ ? static_cast<float>(widget_.RequestedOpacity()) : 1.0F;
-    if (visual_) {
-        visual_.Opacity(std::clamp(opacity, 0.0F, 1.0F));
-    }
+    const auto card_opacity = fuser::video_visual_opacity(opacity, true);
+    const auto video_opacity = fuser::video_visual_opacity(opacity, follow_game_bar_opacity_);
+    SettingsCard().Opacity(card_opacity);
+    if (visual_) { visual_.Opacity(video_opacity); }
     WidgetStateText().Text(widget_
         ? (widget_.ClickThroughEnabled() ? L"Game Bar click-through enabled." : L"Game Bar click-through disabled.")
         : L"Standalone settings view. Open through Game Bar for pinning and click-through.");
+    WidgetStateText().Text(WidgetStateText().Text() + L" Video surface opacity: "
+        + to_hstring(std::round(video_opacity * 100.0F)) + L"%. HUD opacity is set separately on HUD.");
     if (widget_) {
         fuser::widget::log(L"Widget state: pinned=" + to_hstring(widget_.Pinned())
             + L" visible=" + to_hstring(widget_.Visible())
             + L" mode=" + to_hstring(static_cast<int>(widget_.GameBarDisplayMode()))
             + L" requestedOpacity=" + to_hstring(widget_.RequestedOpacity())
-            + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled()));
+            + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled())
+            + L" videoOpacity=" + to_hstring(video_opacity));
         layout_requests_.visibility_changed(widget_.Visible());
         start_layout_request();
     }

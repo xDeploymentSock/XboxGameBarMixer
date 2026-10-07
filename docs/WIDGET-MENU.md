@@ -5,13 +5,15 @@ Version 0.2.1.2 replaces the long settings column with four views. Version 0.2.1
 | View | Controls |
 | --- | --- |
 | Connect | Sunshine PC, pairing, application refresh and selection; stream resolution, requested FPS, codec and bitrate under **Stream options** |
-| HUD | Background, immediate black-cleanup/exact-black presets, opacity and edge recovery; noise cutoff, softness and numeric values under **Fine tuning** |
+| HUD | Background, immediate black-only/noise-removal presets and HUD opacity; cutoff, softness, optional edge blending and following Game Bar opacity under **Fine tuning** |
 | Layout | Whole-feed fit above the taskbar, taskbar reservation, monitor fit, Reset, typed overlay dimensions and the optional full-screen attempt |
 | Details | Latest receiver statistics, click-through state, actual coverage and local preview/clear |
 
 Version 0.2.1.4 adds **1440p HUD preset** on Connect, **Video scaling: Smooth / Crisp HUD** on HUD, and a local callback-to-Present timing sample on Details. The preset saves stream changes for reconnect and applies crisp scaling immediately during a stream. See [HUD quality and latency](HUD-QUALITY-LATENCY.md) for comparison steps and measurement limits.
 
 Version 0.2.1.5 extends Details with local latency p95/p99 bounds, accepted-Present gap p95/p99 bounds and GPU-pressure retries. These cumulative receiver measurements are reset on reconnect and do not measure monitor scanout. See [Receiver performance](RECEIVER-PERFORMANCE.md).
+
+Version 0.2.1.6 makes **Remove black only** the natural-color preset, retains a separate hard noise cutoff and moves optional color-fading controls into Fine tuning. Both presets restore full opacity; video follows Game Bar opacity only when selected explicitly. Older black profiles migrate once. See [Black removal and natural HUD colors](BLACK-CLEANUP.md).
 
 The footer remains available while scrolling a view. During a pending action, Disconnect becomes Cancel and profile/preset application is disabled. The idle Disconnect button is disabled. A compact header shows the same receive, decode and Present rates that the detailed sample records; these remain counts of pipeline activity, not proof of monitor scanout.
 

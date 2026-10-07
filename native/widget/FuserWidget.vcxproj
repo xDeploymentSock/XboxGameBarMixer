@@ -80,6 +80,7 @@
     <ClInclude Include="..\streaming\OverlaySession.h" />
     <ClInclude Include="..\streaming\SunshineControl.h" />
     <ClInclude Include="..\core\include\fuser\configuration.h" />
+    <ClInclude Include="..\core\include\fuser\black_key.h" />
     <ClInclude Include="..\core\include\fuser\application_selection.h" />
     <ClInclude Include="..\core\include\fuser\monitor_layout.h" />
     <ClInclude Include="..\core\include\fuser\video_layout.h" />

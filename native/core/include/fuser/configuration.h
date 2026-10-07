@@ -31,7 +31,8 @@ struct chroma_key_settings {
     float opacity{1.0F};
     bool enabled{true};
     // For bright artwork drawn over black: infer edge coverage from brightness.
-    // Leave disabled when dark greys are intentional opaque HUD content.
+    // This also fades solid colors whose brightest channel is below full scale.
+    // Leave disabled to preserve natural opaque HUD colors.
     bool recover_black_edges{false};
     // Nearest luma preserves thin HUD strokes while chroma stays filtered.
     bool crisp_scaling{false};
