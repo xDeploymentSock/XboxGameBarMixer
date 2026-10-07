@@ -9,6 +9,8 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ### Added
 
+- Separate private-log decoder, presentation-wait, draw and Present CPU timings, coherent worker activity snapshots and a first-overflow activity report. Live validation remains pending; this candidate is uninstalled.
+- Recorded restarted HEVC gameplay monitoring and rejected active-target DXGI captures, including a file-backed missing-event control.
 - Added an optional bounded passive DXGI API event collector with an owned ETW transport test, explicit incomplete-capture rejection and private CSV output.
 - Recorded same-adapter GPU-engine utilization and late transport queue overflow after the saved gameplay window; their causes remain unverified.
 - Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.

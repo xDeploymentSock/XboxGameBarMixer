@@ -3,6 +3,7 @@
 #include <fuser/application_selection.h>
 #include <fuser/latest_frame_mailbox.h>
 #include <fuser/timing_histogram.h>
+#include <fuser/worker_activity.h>
 #include <fuser/monitor_layout.h>
 #include <fuser/widget_layout_requests.h>
 #include <fuser/video_layout.h>
@@ -14,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
 
 namespace {
 class test_surface final : public fuser::gpu_surface {};
@@ -280,6 +282,56 @@ int main() {
         timings.reset();
         require(timings.snapshot().samples == 0 && timings.snapshot().total_microseconds == 0,
                 "reconnect resets timing distributions");
+        fuser::worker_activity activity;
+        const auto tick = [](std::int64_t us) {
+            return fuser::worker_activity::clock::time_point{std::chrono::microseconds{us}};
+        };
+        require(!activity.snapshot(tick(1000)).observed,
+                "a worker with no activity must not invent a phase or stall age");
+        activity.enter(fuser::worker_stage::waiting_present, tick(100));
+        const auto waiting = activity.snapshot(tick(130));
+        require(waiting.observed && waiting.stage == fuser::worker_stage::waiting_present && waiting.age_microseconds == 30,
+                "phase age starts at the last worker transition");
+        require(activity.snapshot(tick(99)).age_microseconds == 0,
+                "a concurrently captured clock before a later transition must not underflow age");
+        activity.enter(fuser::worker_stage::drawing, tick(125));
+        require(activity.snapshot(tick(130)).age_microseconds == 5,
+                "the next phase starts an independent age rather than accumulating earlier waits");
+        {
+            const fuser::worker_activity_scope outer{activity, fuser::worker_stage::submitting_decode, fuser::worker_stage::idle};
+            try {
+                const fuser::worker_activity_scope inner{activity, fuser::worker_stage::publishing_frame, fuser::worker_stage::submitting_decode};
+                throw std::runtime_error{"owned callback failure"};
+            } catch (const std::runtime_error&) {}
+            require(activity.snapshot().stage == fuser::worker_stage::submitting_decode,
+                    "callback exceptions restore the outer decoder phase");
+        }
+        require(activity.snapshot().stage == fuser::worker_stage::idle,
+                "scope completion clears the active decoder phase");
+
+        std::atomic<bool> started{}, done{};
+        {
+            std::jthread writer{[&] {
+                activity.enter(fuser::worker_stage::preparing_decode, tick(100));
+                started.store(true, std::memory_order_release);
+                for (int iteration = 0; iteration < 100000; ++iteration) {
+                    activity.enter(fuser::worker_stage::preparing_decode, tick(100));
+                    activity.enter(fuser::worker_stage::drawing, tick(200));
+                }
+                done.store(true, std::memory_order_release);
+            }};
+            while (!started.load(std::memory_order_acquire)) { std::this_thread::yield(); }
+            do {
+                const auto observed = activity.snapshot(tick(300));
+                require(observed.observed &&
+                        ((observed.stage == fuser::worker_stage::preparing_decode && observed.age_microseconds == 200) ||
+                         (observed.stage == fuser::worker_stage::drawing && observed.age_microseconds == 100)),
+                        "concurrent snapshots must never combine one phase with another phase's timestamp");
+            } while (!done.load(std::memory_order_acquire));
+        }
+        activity.reset();
+        require(!activity.snapshot().observed && activity.snapshot().age_microseconds == 0,
+                "reconnect clears prior worker activity after joining its writer");
         std::cout << "Core contract checks passed.\n";
         return 0;
     } catch (const std::exception& error) {

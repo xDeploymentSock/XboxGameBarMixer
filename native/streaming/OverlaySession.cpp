@@ -51,6 +51,14 @@ operation_result overlay_session::begin(const overlay_configuration& config, con
     render_latency_samples_ = render_microseconds_ = max_render_microseconds_ = 0;
     render_timing_.reset();
     present_intervals_.reset();
+    decode_call_timing_.reset();
+    ready_wait_timing_.reset();
+    timeout_wait_timing_.reset();
+    draw_call_timing_.reset();
+    present_call_timing_.reset();
+    decoder_activity_.reset();
+    render_activity_.reset();
+    transport_queue_overflows_ = 0;
     gpu_slot_retries_ = present_retries_ = presentation_wait_timeouts_ = 0;
     receive_timing_samples_ = assembly_microseconds_ = queue_microseconds_ = max_queue_microseconds_ = 0;
     host_latency_samples_ = host_latency_tenths_ms_ = zero_host_latency_frames_ = max_host_latency_tenths_ms_ = 0;
@@ -148,6 +156,7 @@ void overlay_session::stop() noexcept {
     changed_.notify_all();
     if (render_thread_.joinable()) { render_thread_.join(); }
     if (decoder_) { decoder_->stop(); }
+    decoder_activity_.enter(worker_stage::stopped);
     mailbox_.close();
     decoder_.reset();
     renderer_.reset();
@@ -173,6 +182,7 @@ int overlay_session::setup(int format, int width, int height, int fps, void* con
             const std::lock_guard guard{self.state_mutex_}; self.negotiated_ = actual;
         }
         const auto result = self.decoder_->initialize(actual, [&self](decoded_frame frame) {
+            const worker_activity_scope publishing{self.decoder_activity_, worker_stage::publishing_frame, worker_stage::submitting_decode};
             const auto number = ++self.decoded_;
             self.trace("Decoded; publishing", number);
             {
@@ -192,6 +202,7 @@ int overlay_session::submit(void* value) noexcept {
     auto* self = core_owner.load();
     const auto* unit = static_cast<PDECODE_UNIT>(value);
     if (!self || self->cancelled_ || self->finished_) { return DR_OK; }
+    const worker_activity_scope submission{self->decoder_activity_, worker_stage::preparing_decode, worker_stage::idle};
     try {
         if (!unit || unit->fullLength <= 0 || unit->fullLength > 32 * 1024 * 1024) { return DR_NEED_IDR; }
         encoded_frame frame;
@@ -243,9 +254,11 @@ int overlay_session::submit(void* value) noexcept {
         const auto number = ++self->received_;
         self->trace("Decode enter", number);
         const auto decode_start = std::chrono::steady_clock::now();
+        self->decoder_activity_.enter(worker_stage::submitting_decode, decode_start);
         const auto result = self->decoder_->submit(std::move(frame));
         const auto elapsed = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now() - decode_start).count());
+        self->decode_call_timing_.record(elapsed);
         self->decode_microseconds_ += elapsed;
         auto maximum = self->max_decode_microseconds_.load();
         while (maximum < elapsed && !self->max_decode_microseconds_.compare_exchange_weak(maximum, elapsed)) {}
@@ -278,7 +291,7 @@ void overlay_session::terminated(int error) noexcept {
 }
 void overlay_session::log_message(const char* format, ...) noexcept {
     auto* self = core_owner.load();
-    if (!self || !self->logger_ || !format) { return; }
+    if (!self || !format) { return; }
     // Exact pinned-core formats: only fixed text and numeric arguments. Never
     // log general protocol text, URLs, certificates, keys, or pairing payloads.
     constexpr std::string_view allowed[]{
@@ -295,13 +308,34 @@ void overlay_session::log_message(const char* format, ...) noexcept {
         "Stopping control stream...", "Cleaning up input stream...", "Cleaning up video stream...",
         "Cleaning up control stream...", "Cleaning up audio stream...", "Cleaning up platform...", "done\n"};
     if (std::find(std::begin(allowed), std::end(allowed), format) == std::end(allowed)) { return; }
+    const bool first_overflow = std::string_view{format} == "Video decode unit queue overflow\n" &&
+        self->transport_queue_overflows_.fetch_add(1, std::memory_order_relaxed) == 0;
+    if (!self->logger_) { return; }
     char message[256]{};
     va_list arguments;
     va_start(arguments, format);
     const auto written = std::vsnprintf(message, sizeof(message), format, arguments);
     va_end(arguments);
     if (written <= 0 || static_cast<std::size_t>(written) >= sizeof(message)) { return; }
-    try { self->logger_(std::string{message, static_cast<std::size_t>(written)}); } catch (...) {}
+    try {
+        self->logger_(std::string{message, static_cast<std::size_t>(written)});
+        if (first_overflow) {
+            // The receiver can still report worker stages if the UI or decoder
+            // is stuck. No state/context/decoder mutex is acquired here.
+            const auto now = std::chrono::steady_clock::now();
+            const auto decode = self->decoder_activity_.snapshot(now);
+            const auto render = self->render_activity_.snapshot(now);
+            char activity[384]{};
+            const auto length = std::snprintf(activity, sizeof(activity),
+                "First queue overflow activity: decode %s | age us %llu | render %s | age us %llu | accepted Presents %llu\n",
+                (decode.observed ? worker_stage_name(decode.stage) : "not-observed"), static_cast<unsigned long long>(decode.age_microseconds),
+                (render.observed ? worker_stage_name(render.stage) : "not-observed"), static_cast<unsigned long long>(render.age_microseconds),
+                static_cast<unsigned long long>(self->presented_.load()));
+            if (length > 0 && static_cast<std::size_t>(length) < sizeof(activity)) {
+                self->logger_(std::string{activity, static_cast<std::size_t>(length)});
+            }
+        }
+    } catch (...) {}
 }
 void overlay_session::resize(std::uint32_t width, std::uint32_t height) {
     { const std::lock_guard guard{state_mutex_}; requested_size_ = {width, height}; }
@@ -324,6 +358,15 @@ session_snapshot overlay_session::snapshot() const {
     result.max_render_microseconds = max_render_microseconds_;
     result.render_timing = render_timing_.snapshot();
     result.present_intervals = present_intervals_.snapshot();
+    result.decode_call_timing = decode_call_timing_.snapshot();
+    result.ready_wait_timing = ready_wait_timing_.snapshot();
+    result.timeout_wait_timing = timeout_wait_timing_.snapshot();
+    result.draw_call_timing = draw_call_timing_.snapshot();
+    result.present_call_timing = present_call_timing_.snapshot();
+    const auto now = std::chrono::steady_clock::now();
+    result.decoder_activity = decoder_activity_.snapshot(now);
+    result.render_activity = render_activity_.snapshot(now);
+    result.transport_queue_overflows = transport_queue_overflows_;
     result.replaced_pending_frames = mailbox_.replaced_pending_frames();
     result.gpu_slot_retries = gpu_slot_retries_;
     result.present_retries = present_retries_;
@@ -346,12 +389,14 @@ session_snapshot overlay_session::snapshot() const {
     return result;
 }
 void overlay_session::render() noexcept {
+    const worker_activity_scope worker{render_activity_, worker_stage::waiting_frame, worker_stage::stopped};
     try {
         std::optional<decoded_frame> pending;
         monotonic_time previous_present{};
         while (!render_stop_) {
             std::optional<std::pair<std::uint32_t, std::uint32_t>> size;
             chroma_key_settings key;
+            render_activity_.enter(worker_stage::waiting_frame);
             {
                 std::unique_lock lock{state_mutex_};
                 changed_.wait(lock, [this, &pending] {
@@ -361,22 +406,47 @@ void overlay_session::render() noexcept {
                 key = configuration_.key;
             }
             if (render_stop_) { break; }
-            if (size) { renderer_->resize(size->first, size->second); }
+            if (size) {
+                render_activity_.enter(worker_stage::resizing);
+                renderer_->resize(size->first, size->second);
+            }
             if (!pending && !mailbox_.has_frame()) { continue; }
             // Bounded wait permits prompt Disconnect even when the host hides
             // the visual. Select the freshest frame only after DXGI is ready.
-            if (!renderer_->wait_to_present(8)) { ++presentation_wait_timeouts_; continue; }
+            const auto wait_start = std::chrono::steady_clock::now();
+            render_activity_.enter(worker_stage::waiting_present, wait_start);
+            const bool ready = renderer_->wait_to_present(8);
+            const auto wait_end = std::chrono::steady_clock::now();
+            const auto wait_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                wait_end - wait_start).count());
+            if (!ready) {
+                timeout_wait_timing_.record(wait_us);
+                ++presentation_wait_timeouts_;
+                continue;
+            }
+            ready_wait_timing_.record(wait_us);
+            render_activity_.enter(worker_stage::acquiring_frame, wait_end);
             (void)mailbox_.take_latest_into(pending);
             if (pending) {
                 const auto number = presented_.load() + 1;
                 trace("Draw enter", number);
+                const auto draw_start = std::chrono::steady_clock::now();
+                render_activity_.enter(worker_stage::drawing, draw_start);
                 const auto result = renderer_->draw_frame(*pending, key);
+                const auto draw_end = std::chrono::steady_clock::now();
+                draw_call_timing_.record(static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                    draw_end - draw_start).count()));
                 trace("Draw returned", number);
                 if (result.succeeded()) {
                     trace("Present enter", number);
-                    if (renderer_->try_present()) {
+                    const auto present_start = std::chrono::steady_clock::now();
+                    render_activity_.enter(worker_stage::presenting, present_start);
+                    const bool accepted_present = renderer_->try_present();
+                    const auto accepted = std::chrono::steady_clock::now();
+                    present_call_timing_.record(static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                        accepted - present_start).count()));
+                    if (accepted_present) {
                         ++presented_;
-                        const auto accepted = std::chrono::steady_clock::now();
                         if (previous_present != monotonic_time{}) {
                             present_intervals_.record(static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
                                 accepted - previous_present).count()));
@@ -391,6 +461,7 @@ void overlay_session::render() noexcept {
                             auto maximum = max_render_microseconds_.load();
                             while (maximum < elapsed && !max_render_microseconds_.compare_exchange_weak(maximum, elapsed)) {}
                         }
+                        render_activity_.enter(worker_stage::releasing_frame);
                         pending.reset();
                     } else { ++present_retries_; }
                     trace("Present returned", number);
@@ -399,6 +470,7 @@ void overlay_session::render() noexcept {
                     ++gpu_slot_retries_;
                     // Retain a frame if the GPU still owns its read leases.
                     // Back off only on actual GPU pressure; arrivals wake us.
+                    render_activity_.enter(worker_stage::gpu_backoff);
                     std::unique_lock lock{state_mutex_};
                     changed_.wait_for(lock, std::chrono::milliseconds{1}, [this] {
                         return render_stop_ || requested_size_ || mailbox_.has_frame();

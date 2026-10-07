@@ -543,6 +543,21 @@ void MainPage::update_statistics() {
                  << " | total tenths ms " << state.host_latency_tenths_ms
                  << " | maximum tenths ms " << state.max_host_latency_tenths_ms
                  << " | absent/repeated " << state.zero_host_latency_frames;
+            const auto timing = [&text](const char* label, const fuser::timing_distribution& value) {
+                text << '\n' << label << ": samples " << value.samples << " | total us " << value.total_microseconds
+                     << " | maximum us " << value.max_microseconds << " | p95 bound us " << value.p95_microseconds
+                     << " | p99 bound us " << value.p99_microseconds;
+            };
+            timing("Decode call", state.decode_call_timing);
+            timing("Presentation ready wait", state.ready_wait_timing);
+            timing("Presentation timeout wait", state.timeout_wait_timing);
+            timing("Draw call", state.draw_call_timing);
+            timing("Present API call", state.present_call_timing);
+            text << "\nWorker activity: decode " << (state.decoder_activity.observed ? fuser::worker_stage_name(state.decoder_activity.stage) : "not-observed")
+                 << " | age us " << state.decoder_activity.age_microseconds
+                 << " | render " << (state.render_activity.observed ? fuser::worker_stage_name(state.render_activity.stage) : "not-observed")
+                 << " | age us " << state.render_activity.age_microseconds
+                 << " | transport queue overflows " << state.transport_queue_overflows;
             fuser::widget::log(to_hstring(text.str()));
         }
         previous_counters_ = state.counters;

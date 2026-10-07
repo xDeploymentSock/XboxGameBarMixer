@@ -239,7 +239,37 @@ Two passive GPU-engine samples one second apart attributed the game and widget t
 
 The widget and game subsequently exited. The retained tail log contains 197 transport decode-queue overflow messages across approximately 20.8 seconds before app suspension; its last rate snapshot reported zero receive/decode/Present activity. These transport failures occurred after the saved gameplay window and are distinct from its zero added decoder errors. No timing trace identifies the initiating stall or lifecycle transition. Do not treat the earlier healthy decoder counters as proof that the entire session stayed healthy. Reproduce and trace this end-of-session behavior before changing shutdown or decoder synchronization.
 
-A [narrow passive API collector](PASSIVE-TRACE.md) is now available to investigate Present timing without a rendering probe or broad GPU/display providers. Its owned ETW transport test passes in Debug and Release with 100 complete ordered event pairs and zero loss. An existing-process sample produced no DXGI events and was explicitly rejected as incomplete. Actual widget/game DXGI capture and displayed-frame validation remain pending. No installed widget, running app, timer, priority or display setting was changed by this follow-up.
+A [narrow passive API collector](PASSIVE-TRACE.md) is now available to investigate Present timing without a rendering probe or broad GPU/display providers. Its owned ETW transport test passes in Debug and Release with 100 complete ordered event pairs and zero loss. An existing-process sample produced no DXGI events and was explicitly rejected as incomplete. Later captures against the restarted active game and widget also returned no usable DXGI events; the file-backed control below rules out treating this solely as a real-time consumer failure. Displayed-frame validation remains pending. No installed widget, running app, timer, priority or display setting was changed by this follow-up.
+
+### Restarted HEVC gameplay observation
+
+The game and installed 0.2.1.8 widget restarted. The active profile was HEVC, 2560x1440 at 240 requested FPS. Neither source fixture conditions nor the separate control stream's connection state were established. Sixty-one rate blocks retain that profile across a 303.010-second cumulative-counter interval:
+
+| Metric | Restarted current-use observation |
+| --- | ---: |
+| Received units / accepted-Present samples | 70,594 / 42,626 |
+| Received units / accepted-Present samples per second | 232.976 / 140.675 |
+| Host-reported nonzero processing average | 6.166 ms |
+| Decoder submit / callback-to-accepted-Present average | 0.151 / 1.902 ms |
+| Assembly / enqueue-to-submission average | 0.0041 / 0.0139 ms |
+| Added decode errors / skipped frame indexes | 0 / 0 |
+| Added display replacements / presentation wait timeouts | 27,968 / 1,606 |
+| Added GPU-slot / Present retries | 0 / 0 |
+| Added absent/repeated host samples | 10 |
+
+Received units equal accepted samples plus display replacements. No transport decode-queue overflow was recorded in this saved interval. The ending cumulative callback p95/p99 bounds were 4.25/4.75 ms; accepted-Present gap bounds were 13.00/19.00 ms, with a cumulative maximum gap of 260.025 ms and peak decode queue of seven. Six fresh, connected process observations across 75 seconds reported zero decoder errors and private memory of 137.9-143.4 MiB. These resource observations are shorter than the counter interval and do not establish absence of leaks.
+
+This reinforces the presentation-readiness concern under current game load, without establishing its cause, actual displayed FPS, game cost or a codec gain. Source/load conditions were uncontrolled and short passive trace probes ran during monitoring. No installation, display, timer, priority or application-setting change was made.
+
+### In-process timing candidate
+
+Unreleased main adds private-log CPU timing for completed decoder submissions, successful and timed-out presentation-capacity waits, draw calls and Present API calls. Each distribution retains sample count, total, maximum and p95/p99 upper bounds. The existing 250-microsecond bounded histogram is reused; there is no allocation or mutex per histogram sample. Successful waits include immediately ready returns; timed-out waits are a separate population. Draw timing includes context-lock/scheduling delays and command submission. Present timing includes successful calls and retry returns. These are CPU wall times, not GPU execution, hardware-decoder completion or display timestamps.
+
+A worker reports its stage and time since entry using one lock-free atomic value containing both fields. Readers cannot combine one stage with another stage's timestamp and do not spin or acquire that worker's mutex. Decoder stages distinguish input preparation, submission and output publication; render stages distinguish frame waiting, resizing, presentation readiness, frame acquisition, drawing, Present, backoff and frame release. A long stage age includes legitimate waiting and scheduling delays; it does not itself prove a deadlock. An unobserved worker is explicitly labeled. Scope cleanup restores decoder stages on exceptions and marks the render worker stopped when it returns.
+
+The first transport decode-queue overflow per connection also writes those worker stages and ages directly from the receiver callback, without acquiring state, immediate-context or decoder mutexes. Subsequent messages increment a separate transport-overflow counter without repeating the extra activity report. This preserves evidence if UI statistics stop updating and distinguishes transport overflow from decoder errors. Logging remains best effort; neither an age nor a timeout selects a root cause automatically.
+
+Portable core contracts pass in Debug and Release, including concurrent stage/timestamp snapshots, clock-order clamping, nested callback exceptions and reconnect reset after joining the writer. UWP session libraries, desktop diagnostic integration and Debug/Release widget builds compile successfully; widget builds report zero warnings/errors. A CPU-only synthetic exercise of phase transitions and four histogram updates completed without hot-path allocations. The production timing path has not yet been measured live. No GPU workload test or deployment was performed while the user was gaming. The installed widget and package version remain 0.2.1.8; this source candidate is not a packaged update or a verified performance improvement.
 
 ### Remaining performance verification
 

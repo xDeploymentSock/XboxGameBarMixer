@@ -4,6 +4,7 @@
 #include "../windows/FFmpegDecoder.h"
 #include <fuser/latest_frame_mailbox.h>
 #include <fuser/timing_histogram.h>
+#include <fuser/worker_activity.h>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -21,6 +22,11 @@ struct session_snapshot {
     // network arrival/assembly and Game Bar/monitor scanout.
     std::uint64_t render_latency_samples{}, render_microseconds{}, max_render_microseconds{};
     timing_distribution render_timing, present_intervals;
+    // CPU wall time: includes scheduling/context-lock waits, not GPU execution
+    // or display timing. Ready and timed-out capacity waits stay separate.
+    timing_distribution decode_call_timing, ready_wait_timing, timeout_wait_timing, draw_call_timing, present_call_timing;
+    worker_activity_snapshot decoder_activity, render_activity;
+    std::uint64_t transport_queue_overflows{};
     std::uint64_t replaced_pending_frames{}, gpu_slot_retries{}, present_retries{}, presentation_wait_timeouts{};
     std::uint64_t receive_timing_samples{}, assembly_microseconds{}, queue_microseconds{}, max_queue_microseconds{};
     std::uint64_t host_latency_samples{}, host_latency_tenths_ms{}, zero_host_latency_frames{};
@@ -70,6 +76,9 @@ private:
     std::atomic<std::uint64_t> missing_frame_numbers_{}, decode_microseconds_{}, max_decode_microseconds_{};
     std::atomic<std::uint64_t> render_latency_samples_{}, render_microseconds_{}, max_render_microseconds_{};
     timing_histogram render_timing_, present_intervals_;
+    timing_histogram decode_call_timing_, ready_wait_timing_, timeout_wait_timing_, draw_call_timing_, present_call_timing_;
+    worker_activity decoder_activity_, render_activity_;
+    std::atomic<std::uint64_t> transport_queue_overflows_{};
     std::atomic<std::uint64_t> gpu_slot_retries_{}, present_retries_{}, presentation_wait_timeouts_{};
     std::atomic<std::uint64_t> receive_timing_samples_{}, assembly_microseconds_{}, queue_microseconds_{}, max_queue_microseconds_{};
     std::atomic<std::uint64_t> host_latency_samples_{}, host_latency_tenths_ms_{}, zero_host_latency_frames_{};
