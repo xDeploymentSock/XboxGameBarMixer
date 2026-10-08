@@ -2,7 +2,7 @@ name: Core and repository checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/noscreen-testing]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -30,6 +30,12 @@ jobs:
           persist-credentials: false
       - name: Check repository publication hygiene
         run: python tools/audit_repository.py
+      - name: Check publication audit contracts
+        run: python -m unittest discover -s tests -p repository_audit_tests.py
+      - name: Check local checkpoint contracts
+        run: python -m unittest discover -s tests -p checkpoint_tests.py
+      - name: Check package manifest validation (no installation)
+        run: python -m unittest discover -s tests -p deployment_tests.py
       - name: Check timing summary contracts
         run: python -m unittest discover -s tests -p timing_summary_tests.py
       - name: Configure portable tests
@@ -38,3 +44,22 @@ jobs:
         run: cmake --build build/core --config Release --parallel 2
       - name: Run portable tests
         run: ctest --test-dir build/core -C Release --output-on-failure
+
+  sanitizers:
+    name: Portable core (ASan and UBSan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Configure portable sanitizers
+        run: cmake -S . -B build/sanitizers -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build portable sanitizers
+        run: cmake --build build/sanitizers --parallel 2
+      - name: Run portable sanitizers
+        run: ctest --test-dir build/sanitizers --output-on-failure
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1

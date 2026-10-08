@@ -28,7 +28,7 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 LOCAL_LINK = re.compile(r"\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)")
 PRIVATE_DIRS = {".aws", ".ssh", ".codex", ".agents", ".vs"}
 OUTPUT_DIRS = {"build", "out", "packages", "apppackages", "cmakefiles", "__pycache__"}
-PRIVATE_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".cer", ".crt", ".der", ".jks", ".credentials", ".log", ".etl"}
+PRIVATE_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".cer", ".crt", ".der", ".jks", ".credentials", ".protected", ".pending", ".dat", ".dmp", ".mdmp", ".log", ".etl"}
 OUTPUT_SUFFIXES = {".exe", ".dll", ".lib", ".obj", ".pdb", ".msix", ".appx", ".msixbundle", ".appxbundle", ".zip", ".7z"}
 
 

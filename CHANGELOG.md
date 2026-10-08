@@ -9,12 +9,32 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ### Added
 
+- NoScreen source assessment and separate standards/specification review on `codex/noscreen-testing`, with public-release acceptance gates.
+- Regression tests for startup resize and allocation failure in session callbacks, publication audits, private checkpoint selection and package manifest validation.
+- Portable Linux ASan/UBSan CI and explicit MSVC exception-unwinding flags for core consumers.
+- `Deploy.ps1 -ValidateOnly` checks package identity, version, x64 architecture and SHA-256 without elevation or installation.
 - Recorded restarted HEVC gameplay monitoring and rejected active-target DXGI captures, including a file-backed missing-event control.
 - Added an optional bounded passive DXGI API event collector with an owned ETW transport test, explicit incomplete-capture rejection and private CSV output.
 - Recorded same-adapter GPU-engine utilization and late transport queue overflow after the saved gameplay window; their causes remain unverified.
 - Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.
 - Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
 - Documented current gameplay monitoring with about 237 received/decoded units per second while presentation throughput decreased, with user visual acceptance and unresolved display/game-impact measurements.
+
+### Changed
+
+- Private recovery archives select tracked source and current package/evidence rather than requiring obsolete version-specific logs. Protected credential files are excluded from archive selection and publication audits.
+- Updated dependency integration, background-removal controls, architecture and build instructions to match current source.
+
+### Fixed
+
+- Stream startup discarding a surface resize queued after renderer ownership transferred to the worker.
+- Allocations escaping `noexcept` connection callbacks; terminal completion now survives a status-storage allocation failure.
+- Unsynchronized initial key configuration, repeated shutdown touching XAML from a later worker-thread destructor, and retained preview size after a resize during Disconnect.
+- Game Bar suspension leaving the retained page permanently shut down. Resume now returns the original widget view to fresh idle settings; live lifecycle acceptance remains pending.
+- HUD preset reporting success after saving settings failed.
+- Deployment accepting a prepared package with a different version/architecture or treating mismatched installed state as success.
+
+These changes prepare unsigned testing candidate **0.2.1.11**; they are not an installed checkpoint or signed public release. Main retains installed UI version 0.2.1.10.
 
 ## [0.2.1.10]
 

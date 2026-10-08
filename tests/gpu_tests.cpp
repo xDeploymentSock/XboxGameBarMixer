@@ -62,7 +62,7 @@ void check_array_resource_reuse() {
     std::array<D3D11_SUBRESOURCE_DATA, 2> initial;
     for (std::size_t slice = 0; slice < planes.size(); ++slice) {
         planes[slice].assign(side * side * 3 / 2, 128);
-        std::fill_n(planes[slice].begin(), side * side, slice == 0 ? 0 : 255);
+        std::fill_n(planes[slice].begin(), side * side, slice == 0 ? std::uint8_t{0} : std::uint8_t{255});
         initial[slice] = {planes[slice].data(), side, side * side * 3 / 2};
     }
     ComPtr<ID3D11Texture2D> texture;

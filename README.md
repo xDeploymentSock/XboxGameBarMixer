@@ -4,11 +4,9 @@
 
 Overlay a remote PC's HUD on your local display with a transparent, pinned Xbox Game Bar widget. Sunshine supplies the video; Software Fuser decodes it on the GPU and removes a reserved background color. Mouse and keyboard input stay on the local PC.
 
-**Measured performance baseline: 0.2.1.8.** It reuses decoder packet/receive wrappers and transfers frame references while preserving color rendering and output leases. Native checks and both widget builds pass; local Release installation is verified with Windows package status OK and an executable matching the tested build. Reduced allocations are measured, but a live latency or displayed-FPS gain is not established. See the [changelog](CHANGELOG.md) for version changes and [validation](docs/VALIDATION.md) for measured results.
+**Installed UI checkpoint: 0.2.1.10.** Connections, Adjustments and Advanced use the saved HUD baseline. Windows package identity and preservation of settings/pairing are verified; native menu acceptance remains pending. See the [menu guide](docs/WIDGET-MENU.md).
 
-**Installed UI checkpoint: 0.2.1.10.** Connections, Adjustments and Advanced simplify the widget around the saved HUD baseline. Both builds pass; Windows package identity and preservation of saved settings/pairing are verified. Native Game Bar appearance and interaction still need the [live menu check](docs/WIDGET-MENU.md#live-verification).
-
-**Diagnostic checkpoint: 0.2.1.9.** It separates decoder, presentation-wait, draw and Present CPU timings, records worker activity at the first transport queue overflow and provides a summary tool for matching private timing checkpoints. Debug/Release packages are built and checked locally. Release installation is independently verified with Windows package status OK and an executable matching the tested build; isolated live behavior and performance remain unverified. See [diagnostic validation](docs/VALIDATION.md#in-process-timing-candidate).
+**Testing candidate: 0.2.1.11**, on `codex/noscreen-testing`. The release review repairs startup resize, callback failure handling, Game Bar resume and save-status reporting. It is built and tested locally, but not installed or merged into main. See the [review and verification](docs/RELEASE-REVIEW.md) and [public release checklist](docs/PUBLIC-RELEASE-CHECKLIST.md). The [NoScreen assessment](docs/NOSCREEN-ASSESSMENT.md) explains why the requested driver integration was not added.
 
 ## Features
 
@@ -68,13 +66,13 @@ Portable checks need CMake 3.24+, a C++20 compiler, Git and Python 3.10+:
 
 ```text
 python tools/audit_repository.py
-python -m unittest discover -s tests -p timing_summary_tests.py
+python -m unittest discover -s tests -p '*_tests.py'
 cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure
 ```
 
-CI runs these CPU-only checks on Windows and Linux. UWP compilation, GPU/decoder tests and live compositor checks use the separate [Windows procedures](docs/BUILD-LATER.md).
+CI runs these CPU-only checks on Windows and Linux and adds ASan/UBSan for the portable core on Linux. Package-validation tests run only on Windows and never install the widget. UWP compilation, GPU/decoder tests and live compositor checks use the separate [Windows procedures](docs/BUILD-LATER.md).
 
 Keep work scoped to the intended branch: main contains usable-area fitting; a separate testing branch investigates host coverage. Follow modern C++ ownership practices, preserve bounded queues and record verification before claiming a fix. See [contributing](CONTRIBUTING.md) for checkpoint review, staging and publication checks.
 
@@ -97,6 +95,7 @@ Keep work scoped to the intended branch: main contains usable-area fitting; a se
 | Image quality and placement | [Black removal](docs/BLACK-CLEANUP.md), [video fit](docs/VIDEO-FIT.md), [HUD quality/latency](docs/HUD-QUALITY-LATENCY.md) |
 | Connection and performance | [Desktop selection](docs/DESKTOP-LAUNCH.md), [receiver performance](docs/RECEIVER-PERFORMANCE.md), [code review](docs/CODE-REVIEW.md) |
 | Status and history | [Validation](docs/VALIDATION.md), [roadmap](docs/ROADMAP.md), [changelog](CHANGELOG.md), [development history](docs/DEVELOPMENT-HISTORY.md) |
+| Release preparation | [Release review](docs/RELEASE-REVIEW.md), [release checklist](docs/PUBLIC-RELEASE-CHECKLIST.md), [NoScreen assessment](docs/NOSCREEN-ASSESSMENT.md) |
 | Repository maintenance | [Contributing](CONTRIBUTING.md), [skills](docs/REPOSITORY-SKILLS.md), [upstream references](docs/REFERENCES.md) |
 
 ## Privacy and licensing

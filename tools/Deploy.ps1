@@ -3,7 +3,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Release', 'Debug')][string]$Configuration = 'Release',
-    [switch]$Elevated
+    [switch]$Elevated,
+    [switch]$ValidateOnly
 )
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -25,10 +26,28 @@ try {
         $taskManifest.Load($taskStream)
     } finally { $taskStream.Dispose() }
     if ($taskManifest.Package.Identity.Name -ne 'SoftwareFuser.Widget' -or
-        $taskManifest.Package.Identity.Publisher -ne $taskUnsignedPublisher) {
-        throw 'Only this project development identity may be installed by this script.'
+        $taskManifest.Package.Identity.Publisher -ne $taskUnsignedPublisher -or
+        $taskManifest.Package.Identity.Version -ne $taskVersion -or
+        $taskManifest.Package.Identity.ProcessorArchitecture -ne 'x64') {
+        throw 'Package identity, version and architecture must match this x64 development checkout.'
     }
 } finally { $taskArchive.Dispose() }
+
+if ($ValidateOnly) {
+    $taskHasher = [Security.Cryptography.SHA256]::Create()
+    $taskPackageStream = [IO.File]::OpenRead($taskPackage)
+    try {
+        $taskPackageHash = [BitConverter]::ToString($taskHasher.ComputeHash($taskPackageStream)).Replace('-', '').ToLowerInvariant()
+    } finally { $taskPackageStream.Dispose(); $taskHasher.Dispose() }
+    [pscustomobject]@{
+        Name = $taskManifest.Package.Identity.Name
+        Version = $taskVersion
+        Architecture = 'x64'
+        PackageSha256 = $taskPackageHash
+        ValidatedOnly = $true
+    } | ConvertTo-Json -Compress
+    return
+}
 
 $taskIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $taskPrincipal = [Security.Principal.WindowsPrincipal]::new($taskIdentity)
@@ -51,5 +70,7 @@ if (-not $taskPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Admini
     }
 }
 $taskInstalled = Get-AppxPackage -Name 'SoftwareFuser.Widget'
-if (-not $taskInstalled) { throw 'Package is not registered for the current user.' }
+if (-not $taskInstalled -or $taskInstalled.Version -ne [version]$taskVersion -or
+    $taskInstalled.Publisher -ne $taskUnsignedPublisher -or $taskInstalled.Architecture -ne 'X64' -or
+    $taskInstalled.Status -ne 'Ok') { throw 'Installed package identity, version, architecture or status did not match the requested development build.' }
 $taskInstalled | Select-Object Name, PackageFamilyName, Version, InstallLocation, Status | ConvertTo-Json -Compress

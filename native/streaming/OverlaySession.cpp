@@ -19,8 +19,9 @@ overlay_session::overlay_session(std::shared_ptr<sunshine_control> control,
     std::function<void(const std::string&)> logger) : control_{std::move(control)}, logger_{std::move(logger)} {}
 overlay_session::~overlay_session() { stop(); }
 void overlay_session::prepare_action() noexcept { cancelled_ = false; control_->prepare_action(); }
-void overlay_session::status(std::string text, bool terminal) noexcept {
-    try { const std::lock_guard guard{state_mutex_}; status_ = std::move(text); }
+void overlay_session::status(std::string_view text, bool terminal) noexcept {
+    // Conversion/storage may allocate: keep it inside the noexcept boundary.
+    try { const std::lock_guard guard{state_mutex_}; status_ = text; }
     catch (...) {}
     if (terminal) { finished_ = true; }
 }
@@ -43,7 +44,7 @@ operation_result overlay_session::begin(const overlay_configuration& config, con
         core_owner = this;
         owns_core_ = true;
     }
-    configuration_ = config;
+    { const std::lock_guard guard{state_mutex_}; configuration_ = config; }
     renderer_ = std::move(renderer);
     received_ = decoded_ = presented_ = decode_errors_ = 0;
     last_frame_number_ = peak_decode_queue_ = 0;
@@ -69,7 +70,8 @@ operation_result overlay_session::begin(const overlay_configuration& config, con
         started_at_ = std::chrono::steady_clock::now();
         negotiated_ = {};
         negotiated_.width = negotiated_.height = negotiated_.frames_per_second = 0;
-        requested_size_.reset();
+        // Preserve any UI resize queued after render ownership transferred.
+        // Startup must not erase a newer size while connecting.
     }
     std::array<unsigned char, 16> input_key{}, input_iv{};
     if (RAND_bytes(input_key.data(), 16) != 1 || RAND_bytes(input_iv.data(), 16) != 1) {
@@ -155,6 +157,7 @@ void overlay_session::stop() noexcept {
     { const std::lock_guard guard{state_mutex_}; render_stop_ = true; }
     changed_.notify_all();
     if (render_thread_.joinable()) { render_thread_.join(); }
+    { const std::lock_guard guard{state_mutex_}; requested_size_.reset(); }
     if (decoder_) { decoder_->stop(); }
     decoder_activity_.enter(worker_stage::stopped);
     mailbox_.close();
@@ -275,7 +278,11 @@ int overlay_session::submit(void* value) noexcept {
 void overlay_session::stage_starting(int stage) noexcept {
     if (auto* self = core_owner.load()) {
         if (self->cancelled_) { LiInterruptConnection(); }
-        else { self->status(std::string{"Connecting: "} + LiGetStageName(stage)); }
+        else {
+            char message[256]{};
+            std::snprintf(message, sizeof(message), "Connecting: %s", LiGetStageName(stage));
+            self->status(message);
+        }
     }
 }
 void overlay_session::stage_failed(int stage, int error) noexcept {
@@ -287,7 +294,11 @@ void overlay_session::stage_failed(int stage, int error) noexcept {
     }
 }
 void overlay_session::terminated(int error) noexcept {
-    if (auto* self = core_owner.load()) { self->status("Host connection ended (" + std::to_string(error) + ").", true); }
+    if (auto* self = core_owner.load()) {
+        char message[80]{};
+        std::snprintf(message, sizeof(message), "Host connection ended (%d).", error);
+        self->status(message, true);
+    }
 }
 void overlay_session::log_message(const char* format, ...) noexcept {
     auto* self = core_owner.load();

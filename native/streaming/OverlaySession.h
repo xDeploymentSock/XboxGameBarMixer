@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <string_view>
 
 namespace fuser::streaming {
 struct session_snapshot {
@@ -63,7 +64,7 @@ private:
     static void terminated(int error) noexcept;
     static void log_message(const char* format, ...) noexcept;
     void render() noexcept;
-    void status(std::string text, bool terminal = false) noexcept;
+    void status(std::string_view text, bool terminal = false) noexcept;
     void trace(const char* phase, std::uint64_t number) noexcept;
     std::shared_ptr<sunshine_control> control_;
     std::function<void(const std::string&)> logger_;

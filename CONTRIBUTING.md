@@ -16,6 +16,7 @@ With CMake 3.24+, a C++20 compiler and Python 3.10+:
 
 ```text
 python tools/audit_repository.py
+python -m unittest discover -s tests -p '*_tests.py'
 cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure

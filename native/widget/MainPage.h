@@ -42,6 +42,7 @@ struct MainPage : MainPageT<MainPage> {
 private:
     [[nodiscard]] fuser::overlay_configuration read_profile(bool require_host);
     [[nodiscard]] fuser::chroma_key_settings read_key_settings();
+    [[nodiscard]] bool save_profile();
     void save_key_settings();
     void set_black_key_preset(fuser::black_key_preset preset);
     void update_key_values();
@@ -50,6 +51,7 @@ private:
     void load_profile();
     void update_saved_profile_summary();
     void attach_renderer();
+    void sync_idle_renderer_size() noexcept;
     void update_widget_state();
     void start_layout_request();
     void update_coverage();

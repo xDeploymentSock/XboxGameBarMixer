@@ -22,7 +22,7 @@ From the workspace root:
 .\tools\Deploy.ps1 -Configuration Release
 ```
 
-`Build.ps1` also accepts `All` and either configuration. Core/GPU targets run CTest. The GPU target requires a hardware D3D11 device and tests shader output using test-only CPU readback. Production rendering does not read pixels back to the CPU. The Control target uses an existing Python runtime with `cryptography` to run loopback HTTP/TLS pairing fixtures and Windows protected-storage round-trips; it never pairs or launches on a real source PC.
+`Build.ps1 -Target All` runs Core, GPU and Widget only; Decoder and Control remain explicit targets. Each target accepts Debug or Release. Core/GPU targets run CTest. The GPU target requires a hardware D3D11 device and tests shader output using test-only CPU readback. Production rendering does not read pixels back to the CPU. The Control target uses an existing Python runtime with `cryptography` to run loopback HTTP/TLS pairing fixtures and Windows protected-storage round-trips; it never pairs or launches on a real source PC.
 
 The explicit Decoder target builds pinned UWP dependencies, extracts the SDK runtime into the test directory, generates twelve intra-frame, 120 inter-coded-frame, and 120 moving-square-frame H.264/HEVC fixtures with the existing FFmpeg CLI/NVENC, and runs eight tests. It also rewrites H.264 matrix metadata into an owned BT.2020 rejection fixture. The Python regression verifies that a decoder error reports the expected message and joins the benchmark worker within five seconds. If ffmpeg is not on PATH, run GenerateDecoderFixtures.ps1 with -FfmpegPath pointing to the existing executable before the direct CMake build/test commands. Widget builds also invoke BuildStreamingLibraries for Sunshine control, Moonlight, FFmpeg, and session libraries. The view-only build removes Moonlight's source-mouse wake-up from an isolated copy of pinned source. Dependency builds use a task-specific temporary build tree and an FFmpeg response-file overlay to support spaces in the workspace path.
 
@@ -34,12 +34,27 @@ These CPU-only checks require CMake 3.24+, a C++20 compiler, Git and Python 3.10
 
 ```text
 python tools/audit_repository.py
+python -m unittest discover -s tests -p '*_tests.py'
 cmake -S . -B build/core -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure
 ```
 
-GPU, decoder, control and display-probe targets are off by default. GitHub Actions runs the portable checks on Windows and Linux. Hardware/widget verification remains separate. See [contributing](../CONTRIBUTING.md) for staged-file auditing and checkpoint publication.
+GPU, decoder, control and display-probe targets are off by default. GitHub Actions runs the portable checks on Windows and Linux and a separate Linux ASan/UBSan core job. Manifest validation uses synthetic packages on Windows, with no installation; those two tests are skipped on Linux. Hardware/widget verification remains separate. See [contributing](../CONTRIBUTING.md) for staged-file auditing and checkpoint publication.
+
+## Combined Windows session checks
+
+After preparing both Decoder and Control targets, configure them together to include startup/callback regressions:
+
+```powershell
+cmake -S . -B build/native-tests -G "Visual Studio 17 2022" -A x64 -DFUSER_BUILD_TESTS=ON -DFUSER_BUILD_GPU_TESTS=ON -DFUSER_BUILD_DECODER_TESTS=ON -DFUSER_BUILD_CONTROL_TESTS=ON
+cmake --build build/native-tests --config Release
+ctest --test-dir build/native-tests -C Release --output-on-failure
+```
+
+Python with `cryptography` must be discoverable; supply `-DFUSER_TEST_PYTHON=PATH_TO_PYTHON` if needed. `FUSER_DEPENDENCIES`, `FUSER_MOONLIGHT_SOURCE` and `FUSER_STREAMING_LIBRARIES` can select already prepared dependency/source/library directories for an isolated worktree. Use pinned sources matching the dependency lock. Prepare the matching test runtime for each configuration.
+
+The combined suite has 22 checks: control/pairing/cancellation, protected storage, portable contracts, GPU/shader contracts, H.264/HEVC hardware decode and concurrent presentation, benchmark failure shutdown, and three session regressions. Session regressions use production session/control code, an owned loopback TLS host and a real D3D11 renderer, with a test-only Moonlight transport shim. They do not measure live networking, Game Bar or displayed FPS. Debug is tested separately with `--config Debug` and `-C Debug`.
 
 ## Receiver-only paced benchmark
 
@@ -79,6 +94,15 @@ Replace RECEIVER_LAN_IP and SOURCE_LAN_IP with your own addresses. Open `http://
 
 0.2.1.10 is installed locally as a Release development package. Debug and Release builds and package integrity/executable checks pass; an independent Windows query confirms the installed version, status and executable hash. Saved settings and protected pairing are unchanged; native UI acceptance remains pending. The [controlled comparison](RECEIVER-PERFORMANCE.md#controlled-live-comparison) remains pending; installation does not establish a live latency or display-pacing gain.
 
+Testing candidate 0.2.1.11 is built on `codex/noscreen-testing` and remains uninstalled. Check its prepared package without UAC or process shutdown:
+
+```powershell
+.\tools\Deploy.ps1 -Configuration Release -ValidateOnly
+.\tools\Deploy.ps1 -Configuration Debug -ValidateOnly
+```
+
+Validation reports the manifest identity/version/architecture and package SHA-256. It does not prove signature, installability, runtime behavior or binary/source correspondence; compare package payload hashes with the tested binaries separately. Actual deployment additionally requires the resulting installed version, publisher, architecture and status to match. See the [release review](RELEASE-REVIEW.md).
+
 The manifest uses Microsoft's Windows 11 unsigned-development publisher OID. `Deploy.ps1` checks the package identity, asks Windows for administrator elevation, and calls `Add-AppxPackage -AllowUnsigned` for this package. It does not enable global Developer Mode or install a signing certificate. This is a local development package, not a signed distribution release. See the [official unsigned-package procedure](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package).
 
 The verified Release registration is `SoftwareFuser.Widget_6g84c2f4w9w1a`, version 0.2.1.10, package status OK (0). A canceled UAC prompt leaves deployment unfinished; it is not success. Debug deployment additionally supplies the SDK's matching VCLibs debug framework when needed. Protected app-local pairing survives updates with this package identity.
@@ -90,12 +114,12 @@ The manifest version determines the package directory under AppPackages/FuserWid
 ## Runtime checks still required
 
 1. Open Software Fuser through Game Bar (Win+G, widget menu). Confirm it remains idle until an explicit action.
-2. Click **Draw test pattern**. Pin the widget and close Game Bar. Verify the key background disappears while white/cyan/red markers remain visible.
+2. In **Advanced**, click **Draw pattern**. Pin the widget and close Game Bar. Verify the key background disappears while white/cyan/red markers remain visible.
 3. Enable Game Bar click-through and confirm local input reaches the app underneath.
 4. Request a monitor-sized widget. Record actual bounds and all four corners at the intended DPI.
 5. Test close/reopen, repeated activation, save/restore, suspension, resize, and opacity.
 
-6. Click Pair with Sunshine and enter the widget's displayed PIN in the source Sunshine PIN page. Select the intended application and Connect. A different active application is preserved.
+6. On **Connections**, click **Pair PC** and enter the widget's displayed PIN in the source Sunshine PIN page. Select the intended application and Connect. A different active application is preserved.
 7. Record actual setup dimensions/codec and receive/decode/present-call rates; inspect LocalState/runtime.log for stage failures and sampled counters. Test Disconnect/Cancel, reconnect, and source restart. Never place PINs or private keys in logs.
 
 Offscreen GPU and controlled pairing tests do not prove these live compositor/lifecycle behaviors or 240 displayed FPS. Audio output is muted; the protocol may still receive audio packets.
@@ -170,7 +194,7 @@ The analyzer reports observed duration, profiles, counter regressions, process r
 
 ## Checkpoints
 
-Save source, packages, and selected local evidence with a freshly verified installed version:
+Save a **private local recovery archive** of tracked source, the current built Release package and explicitly selected evidence. Stage intended new source files first so they are included. This archive can contain private logs and local paths; do not upload it as a public source or release bundle. To record an installed version, query it freshly:
 
 ```powershell
 $checkpointWidget = Get-AppxPackage -Name 'SoftwareFuser.Widget'
@@ -178,4 +202,4 @@ if (-not $checkpointWidget -or $checkpointWidget.Status.ToString() -ne 'Ok') { t
 python .\tools\create_checkpoint.py --installed-widget $checkpointWidget.Version.ToString()
 ```
 
-The archive and verification receipt stay under ignored `build/checkpoints`. If the installed version cannot be verified, omit `--installed-widget`; the archive records it as unknown rather than assuming an old version. The tool verifies every archived file hash and ZIP integrity. At each checkpoint, separately inspect the authored Git changes for private data and keys, commit and push them, and confirm that the remote branch matches the local commit. Keep packages, runtime logs, credentials, and private notes excluded from publication.
+`--evidence WORKSPACE_RELATIVE_PATH` explicitly adds a local evidence file; ignored files are not discovered automatically. Credential/key paths are rejected even when explicitly requested. The archive and verification receipt stay under ignored `build/checkpoints`. If the installed version cannot be verified, omit `--installed-widget`; the archive records it as unknown rather than assuming an old version. The tool verifies every archived file hash and ZIP integrity. At each checkpoint, separately inspect the authored Git changes for private data and keys, commit and push them, and confirm that the remote branch matches the local commit. Keep packages, runtime logs, credentials, and private notes excluded from publication.

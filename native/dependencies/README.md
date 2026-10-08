@@ -2,7 +2,10 @@
 
 vcpkg.json and source-lock.json pin the dependency and source baselines.
 Run tools/BuildDependencies.ps1 explicitly to build x64 UWP libraries.
-The current widget does not link them yet.
+The widget links and packages FFmpeg, curl, OpenSSL and Expat libraries.
+`tools/BuildStreamingLibraries.ps1` also builds the pinned Moonlight core
+and this project's streaming adapters; `tools/Build.ps1 -Target Widget`
+runs that prerequisite automatically.
 
 The FFmpeg overlay is copied from microsoft/vcpkg revision
 9e593bb18ea69cc5095e012465dcd675a822ed0d, port 8.1.2#3.

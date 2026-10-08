@@ -6,9 +6,9 @@ add_library(fuser_core STATIC native/core/src/configuration.cpp)
 target_include_directories(fuser_core PUBLIC native/core/include)
 target_compile_features(fuser_core PUBLIC cxx_std_20)
 if(MSVC)
-  target_compile_options(fuser_core PRIVATE /W4 /permissive-)
+  target_compile_options(fuser_core PUBLIC /W4 /permissive- /EHsc)
 else()
-  target_compile_options(fuser_core PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_options(fuser_core PUBLIC -Wall -Wextra -Wpedantic)
 endif()
 
 option(FUSER_BUILD_TESTS "Build the portable contract tests" OFF)
@@ -69,14 +69,16 @@ if(FUSER_BUILD_CONTROL_TESTS)
       IMPORTED_LOCATION_DEBUG "${FUSER_DEPENDENCIES}/debug/bin/${DEBUG_DLL_NAME}.dll"
       INTERFACE_INCLUDE_DIRECTORIES "${FUSER_DEPENDENCIES}/include")
   endforeach()
+  set(FUSER_MOONLIGHT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/build/references/moonlight-common-c" CACHE PATH "Pinned Moonlight source checkout")
+  set(FUSER_STREAMING_LIBRARIES "${CMAKE_CURRENT_SOURCE_DIR}/build/streaming" CACHE PATH "Built UWP streaming libraries")
   add_library(fuser_control_test_library STATIC native/streaming/SunshineControl.cpp)
   target_compile_features(fuser_control_test_library PUBLIC cxx_std_20)
   target_compile_options(fuser_control_test_library PRIVATE /W4 /permissive-)
   target_include_directories(fuser_control_test_library PUBLIC native/streaming
-    "${CMAKE_CURRENT_SOURCE_DIR}/build/references/moonlight-common-c/src")
+    "${FUSER_MOONLIGHT_SOURCE}/src")
   target_link_libraries(fuser_control_test_library PUBLIC fuser_core fuser_libcurl fuser_libcrypto fuser_libssl fuser_libexpat
-    "${CMAKE_CURRENT_SOURCE_DIR}/build/streaming/$<CONFIG>/moonlight-common-c.lib"
-    "${CMAKE_CURRENT_SOURCE_DIR}/build/streaming/$<CONFIG>/enet.lib" ws2_32 winmm)
+    "${FUSER_STREAMING_LIBRARIES}/$<CONFIG>/moonlight-common-c.lib"
+    "${FUSER_STREAMING_LIBRARIES}/$<CONFIG>/enet.lib" ws2_32 winmm)
   add_executable(fuser_control_tests tests/control_tests.cpp)
   target_link_libraries(fuser_control_tests PRIVATE fuser_control_test_library)
   add_executable(fuser_credentials_tests tests/credentials_tests.cpp native/widget/AppCredentials.cpp)
@@ -205,4 +207,20 @@ if(FUSER_BUILD_DECODER_TESTS)
     "${CMAKE_CURRENT_SOURCE_DIR}/build/fixtures/unsupported-matrix.h264")
   set_tests_properties(fuser_benchmark_error_shutdown PROPERTIES TIMEOUT 15
     ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/build/test-runtime/$<CONFIG>")
+endif()
+
+# Session regressions use an owned loopback host and a test-only Moonlight C API
+# shim, exercising production startup/callbacks without a real source session.
+if(FUSER_BUILD_CONTROL_TESTS AND FUSER_BUILD_DECODER_TESTS)
+  add_executable(fuser_session_tests tests/session_tests.cpp
+    native/streaming/OverlaySession.cpp native/streaming/SunshineControl.cpp)
+  target_include_directories(fuser_session_tests PRIVATE native/streaming "${FUSER_MOONLIGHT_SOURCE}/src")
+  target_link_libraries(fuser_session_tests PRIVATE fuser_core fuser_decoder fuser_renderer
+    fuser_libcurl fuser_libcrypto fuser_libssl fuser_libexpat ws2_32)
+  foreach(SCENARIO session-resize session-stage-oom session-end-oom)
+    add_test(NAME fuser_${SCENARIO} COMMAND "${FUSER_TEST_PYTHON}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/control_server.py" "$<TARGET_FILE:fuser_session_tests>" ${SCENARIO})
+    set_tests_properties(fuser_${SCENARIO} PROPERTIES TIMEOUT 30
+      ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/build/test-runtime/$<CONFIG>")
+  endforeach()
 endif()

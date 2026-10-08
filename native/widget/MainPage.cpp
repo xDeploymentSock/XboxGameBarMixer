@@ -307,11 +307,16 @@ void MainPage::hud_quality_click(IInspectable const&, RoutedEventArgs const&) {
     VideoCodec().SelectedIndex(1);
     VideoBitrate().Text(L"100000");
     VideoScaling().SelectedIndex(1);
-    save_profile_click(nullptr, nullptr);
-    report(L"HUD preset saved: 1440p, HEVC, 240 requested FPS, 100 Mbps. Crisp scaling applies now; reconnect for stream changes.");
+    if (save_profile()) {
+        report(L"HUD preset saved: 1440p, HEVC, 240 requested FPS, 100 Mbps. Crisp scaling applies now; reconnect for stream changes.");
+    }
 }
 
 void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
+    (void)save_profile();
+}
+
+bool MainPage::save_profile() {
     try {
         configuration_ = read_profile(false);
         const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
@@ -328,8 +333,10 @@ void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
             session_->set_key(configuration_.key);
             report(L"Profile saved. Chroma key settings applied; video settings take effect on the next connection.");
         } else { report(L"Profile saved. No connection was started."); }
+        return true;
     } catch (const hresult_error& error) { report(error.message()); }
       catch (const std::exception& error) { report(to_hstring(error.what())); }
+    return false;
 }
 
 void MainPage::connect_click(IInspectable const&, RoutedEventArgs const&) {
@@ -456,6 +463,7 @@ fire_and_forget MainPage::connect_async() {
     if (!result.succeeded()) {
         streaming_ = false;
         set_busy(false);
+        sync_idle_renderer_size();
         report(to_hstring(result.detail));
         co_return;
     }
@@ -482,11 +490,28 @@ fire_and_forget MainPage::disconnect_async() {
     StreamSummaryText().Text(L"Not streaming");
     set_busy(false);
     if (shutting_down_) { co_return; }
-    try { if (renderer_) { renderer_->clear(); renderer_->present(); } }
+    sync_idle_renderer_size();
+    try {
+        if (renderer_) {
+            renderer_->clear();
+            renderer_->present();
+        }
+    }
     catch (...) { renderer_.reset(); }
     report(L"Disconnected.");
     } catch (...) { fuser::widget::log(L"Disconnect UI could not finish; page may have closed."); }
 }
+void MainPage::sync_idle_renderer_size() noexcept {
+    // UI ownership has returned after failed startup or joined shutdown.
+    // A resize queued while connecting/stopping may never reach the worker.
+    try {
+        if (renderer_ && VideoHost().ActualWidth() >= 1.0 && VideoHost().ActualHeight() >= 1.0) {
+            const auto scale = Windows::Graphics::Display::DisplayInformation::GetForCurrentView().RawPixelsPerViewPixel();
+            renderer_->resize(pixels(VideoHost().ActualWidth(), scale), pixels(VideoHost().ActualHeight(), scale));
+        }
+    } catch (...) { renderer_.reset(); }
+}
+
 void MainPage::update_statistics() {
     if (!streaming_ || busy_ || shutting_down_) { return; }
     const auto state = session_->snapshot();
@@ -649,6 +674,7 @@ void MainPage::clear_preview_click(IInspectable const&, RoutedEventArgs const&) 
 }
 
 void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs const&) {
+    if (shutting_down_) { return; }
     update_coverage();
     if (!renderer_ || VideoHost().ActualWidth() < 1.0 || VideoHost().ActualHeight() < 1.0) {
         return;
@@ -1163,9 +1189,12 @@ void MainPage::report(hstring const& message) {
 }
 
 void MainPage::shutdown() noexcept {
+    // The last coroutine reference can be released on its MTA worker. Once
+    // UI shutdown ran, a later destructor must not touch XAML again.
+    if (shutting_down_.exchange(true)) { return; }
     fuser::widget::log(L"MainPage shutting down.");
-    shutting_down_ = true;
-    if (stats_timer_) { stats_timer_.Stop(); }
+    try { if (stats_timer_) { stats_timer_.Stop(); } }
+    catch (...) { OutputDebugStringW(L"Software Fuser: timer cleanup encountered an error.\n"); }
     layout_requests_.invalidate();
     if (control_) { control_->cancel(); }
     if (session_) {

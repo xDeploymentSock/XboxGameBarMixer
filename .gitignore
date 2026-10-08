@@ -39,6 +39,8 @@ AppPackages/
 *.jks
 *.dat
 *.credentials
+*.protected
+*.pending
 *.etl
 *.csv
 !docs/measurement-template.csv
