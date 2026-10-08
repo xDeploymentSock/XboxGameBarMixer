@@ -13,7 +13,7 @@ spec.loader.exec_module(checkpoint)
 class CheckpointTests(unittest.TestCase):
     def test_default_selection_uses_tracked_source(self):
         with tempfile.TemporaryDirectory(prefix="fuser-checkpoint-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             subprocess.run(["git", "init", "-q", directory], check=True)
             (root / "public.txt").write_text("public", encoding="utf-8")
             (root / "runtime.protected").write_bytes(b"private synthetic fixture")
@@ -31,7 +31,7 @@ class CheckpointTests(unittest.TestCase):
 
     def test_explicit_credential_inputs_are_rejected(self):
         with tempfile.TemporaryDirectory(prefix="fuser-checkpoint-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             subprocess.run(["git", "init", "-q", directory], check=True)
             for name in ("key.jks", ".env", ".env.development", "local.settings.json",
                          ".ssh/id_rsa", ".aws/credentials"):
