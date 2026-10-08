@@ -7,178 +7,194 @@
         <Style x:Key="MenuButton" TargetType="Button">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="36" />
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="FontSize" Value="13" />
         </Style>
         <Style x:Key="MenuTab" TargetType="ToggleButton">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="MinWidth" Value="0" />
-            <Setter Property="Padding" Value="6,8" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="4,8" />
             <Setter Property="FontSize" Value="13" />
         </Style>
         <Style x:Key="Caption" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource SystemControlForegroundBaseMediumHighBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="SectionTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
     </Page.Resources>
     <Grid x:Name="VideoLayoutRoot" Background="Transparent" SizeChanged="video_layout_size_changed">
         <Grid x:Name="VideoHost" Background="Transparent" SizeChanged="video_host_size_changed" />
-        <Border x:Name="SettingsCard" Background="#F0202530" BorderThickness="1"
-                BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" CornerRadius="12"
-                Padding="14" Width="420" Height="680" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12">
+        <Border x:Name="SettingsCard" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}"
+                BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                CornerRadius="10" Padding="16" Width="420" Height="660"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12">
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
-                <Grid x:Name="MenuLayout" Height="650" RowSpacing="10">
+                <Grid x:Name="MenuLayout" Height="626" RowSpacing="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Spacing="2">
                         <TextBlock Text="Software Fuser" FontSize="22" FontWeight="SemiBold" />
-                        <TextBlock Text="Sunshine HUD overlay" Style="{StaticResource Caption}" />
+                        <TextBlock Text="Remote HUD overlay" Style="{StaticResource Caption}" />
                     </StackPanel>
-                    <Border Grid.Row="1" Background="{ThemeResource SystemControlBackgroundBaseLowBrush}" CornerRadius="8" Padding="10">
-                        <StackPanel Spacing="5">
-                            <ScrollViewer MaxHeight="72" HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
-                                <TextBlock x:Name="StatusText" Text="Choose a Sunshine PC, then pair or refresh its apps." TextWrapping="Wrap" FontSize="13" />
+                    <Border Grid.Row="1" Background="{ThemeResource SystemControlBackgroundBaseLowBrush}" CornerRadius="6" Padding="12">
+                        <StackPanel Spacing="4">
+                            <ScrollViewer MaxHeight="64" HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+                                <TextBlock x:Name="StatusText" Text="Pair or refresh apps to get started." TextWrapping="Wrap" FontSize="13"
+                                           AutomationProperties.LiveSetting="Polite" />
                             </ScrollViewer>
                             <TextBlock x:Name="StreamSummaryText" Text="Not streaming" Style="{StaticResource Caption}"
-                                       ToolTipService.ToolTip="Rx counts received units; Decode counts decoded frames; Present counts display calls. Details has the full sample." />
+                                       ToolTipService.ToolTip="Receiver activity. Full statistics are in Advanced." />
                         </StackPanel>
                     </Border>
                     <Grid Grid.Row="2">
-                        <Grid x:Name="SettingsTabs" ColumnSpacing="6" AutomationProperties.Name="Settings pages">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                            <ToggleButton x:Name="ConnectionTab" Content="Connect" Tag="0" IsChecked="True" Style="{StaticResource MenuTab}"
-                                          Click="settings_tab_click" AutomationProperties.Name="Connection settings" />
-                            <ToggleButton x:Name="HudTab" Grid.Column="1" Content="HUD" Tag="1" Style="{StaticResource MenuTab}"
-                                          Click="settings_tab_click" AutomationProperties.Name="HUD appearance settings" />
-                            <ToggleButton x:Name="LayoutTab" Grid.Column="2" Content="Layout" Tag="2" Style="{StaticResource MenuTab}"
-                                          Click="settings_tab_click" AutomationProperties.Name="Video and widget layout" />
-                            <ToggleButton x:Name="DetailsTab" Grid.Column="3" Content="Details" Tag="3" Style="{StaticResource MenuTab}"
-                                          Click="settings_tab_click" AutomationProperties.Name="Statistics and diagnostics" />
+                        <Grid x:Name="SettingsTabs" ColumnSpacing="4" AutomationProperties.Name="Settings sections">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <ToggleButton x:Name="ConnectionTab" Content="Connections" Tag="0" IsChecked="True" Style="{StaticResource MenuTab}"
+                                          Click="settings_tab_click" AutomationProperties.Name="Connections section" />
+                            <ToggleButton x:Name="AdjustmentsTab" Grid.Column="1" Content="Adjustments" Tag="1" Style="{StaticResource MenuTab}"
+                                          Click="settings_tab_click" AutomationProperties.Name="Adjustments section" />
+                            <ToggleButton x:Name="AdvancedTab" Grid.Column="2" Content="Advanced" Tag="2" Style="{StaticResource MenuTab}"
+                                          Click="settings_tab_click" AutomationProperties.Name="Advanced section" />
                         </Grid>
                         <ComboBox x:Name="SettingsSectionPicker" SelectedIndex="0" Visibility="Collapsed" HorizontalAlignment="Stretch"
-                                  SelectionChanged="settings_section_changed" AutomationProperties.Name="Settings page">
-                            <ComboBoxItem Content="Connect" /><ComboBoxItem Content="HUD" /><ComboBoxItem Content="Layout" /><ComboBoxItem Content="Details" />
+                                  SelectionChanged="settings_section_changed" AutomationProperties.Name="Settings section">
+                            <ComboBoxItem Content="Connections" /><ComboBoxItem Content="Adjustments" /><ComboBoxItem Content="Advanced" />
                         </ComboBox>
                     </Grid>
                     <ScrollViewer x:Name="SettingsScroll" Grid.Row="3" HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
-                        <Grid Margin="0,4,6,4">
-                            <StackPanel x:Name="ConnectionSection" Spacing="10">
+                        <Grid Margin="0,0,6,4">
+                            <StackPanel x:Name="ConnectionSection" Spacing="12">
                                 <TextBox x:Name="HostAddress" Header="Sunshine PC" PlaceholderText="IP address or hostname" />
-                                <StackPanel Spacing="6">
-                                    <Button x:Name="PairButton" Content="Pair with Sunshine" Style="{StaticResource MenuButton}" Click="pair_click" />
-                                    <Button x:Name="RefreshButton" Content="Refresh apps" Style="{StaticResource MenuButton}" Click="refresh_apps_click" />
-                                </StackPanel>
-                                <TextBlock x:Name="PairingPinText" TextWrapping="Wrap" FontSize="16" />
-                                <ComboBox x:Name="SourceApplication" Header="Sunshine application" HorizontalAlignment="Stretch" />
-                                <Button x:Name="HudQualityButton" Content="1440p HUD preset" Click="hud_quality_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Save 2560 x 1440, HEVC, 240 requested FPS, 100 Mbps and crisp HUD scaling. Stream changes apply on reconnect." />
-                                <ToggleButton x:Name="StreamOptionsToggle" Content="Stream options" Style="{StaticResource MenuTab}"
-                                              IsChecked="False" Checked="advanced_options_changed" Unchecked="advanced_options_changed" />
-                                <StackPanel x:Name="StreamOptionsPanel" Spacing="10" Visibility="Collapsed">
-                                  <Grid ColumnSpacing="10" RowSpacing="10">
+                                <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
-                                    <TextBox x:Name="VideoWidth" Header="Width (px)" Text="2560" InputScope="Number" />
-                                    <TextBox x:Name="VideoHeight" Grid.Column="1" Header="Height (px)" Text="1440" InputScope="Number" />
-                                    <TextBox x:Name="VideoFps" Grid.Row="1" Header="Requested FPS" Text="240" InputScope="Number" />
-                                    <ComboBox x:Name="VideoCodec" Grid.Row="1" Grid.Column="1" Header="Codec" SelectedIndex="1" HorizontalAlignment="Stretch">
-                                        <ComboBoxItem Content="H.264" /><ComboBoxItem Content="HEVC" />
-                                    </ComboBox>
-                                  </Grid>
-                                  <TextBox x:Name="VideoBitrate" Header="Bitrate (kbps)" Text="80000" InputScope="Number" />
-                                </StackPanel>
-                                <TextBlock Text="Stream changes apply on the next connection. Pin the widget and enable Game Bar click-through to keep input on this PC." Style="{StaticResource Caption}" />
+                                    <Button x:Name="RefreshButton" Content="Refresh apps" Style="{StaticResource MenuButton}" Click="refresh_apps_click" />
+                                    <Button x:Name="PairButton" Grid.Column="1" Content="Pair PC" Style="{StaticResource MenuButton}" Click="pair_click"
+                                            ToolTipService.ToolTip="Pair with Sunshine. Enter the displayed PIN on the source PC." />
+                                </Grid>
+                                <TextBlock x:Name="PairingPinText" TextWrapping="Wrap" FontSize="16" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite" />
+                                <ComboBox x:Name="SourceApplication" Header="Application" HorizontalAlignment="Stretch" />
+                                <Border BorderThickness="0,1,0,0" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" Padding="0,12,0,0">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Saved stream" FontSize="13" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="SavedProfileText" TextWrapping="Wrap" FontSize="13" />
+                                        <TextBlock Text="Ready with your saved settings. Edit stream options in Advanced." Style="{StaticResource Caption}" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Text="Pin the widget and enable Game Bar click-through to keep mouse and keyboard input on this PC." Style="{StaticResource Caption}" />
                             </StackPanel>
-                            <StackPanel x:Name="HudSection" Spacing="10" Visibility="Collapsed">
-                                <ComboBox x:Name="VideoScaling" Header="Video scaling" SelectedIndex="1" HorizontalAlignment="Stretch">
+                            <StackPanel x:Name="AdjustmentsSection" Spacing="12" Visibility="Collapsed">
+                                <TextBlock Text="HUD appearance" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="Near-black cleanup removes compression noise. Retained colors stay solid." Style="{StaticResource Caption}" />
+                                <Button x:Name="CleanBlackButton" Content="Clean near-black" Click="clean_black_click" Style="{StaticResource MenuButton}"
+                                        ToolTipService.ToolTip="Apply the baseline black cleanup now. Very dark artwork may also be removed." />
+                                <Button x:Name="ExactBlackButton" Content="Remove black only" Click="exact_black_click" Style="{StaticResource MenuButton}"
+                                        ToolTipService.ToolTip="Remove exact decoded black only. Compression noise may remain." />
+                                <ComboBox x:Name="VideoScaling" Header="Scaling" SelectedIndex="1" HorizontalAlignment="Stretch">
                                     <ComboBoxItem Content="Smooth" /><ComboBoxItem Content="Crisp HUD" />
                                 </ComboBox>
-                                <TextBlock Text="Crisp HUD keeps thin strokes sharp while fitting the feed. Smooth reduces stair-stepping in moving video. Click Apply key settings to change it live." Style="{StaticResource Caption}" />
-                                <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="2" HorizontalAlignment="Stretch" SelectionChanged="key_color_changed">
-                                    <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" /><ComboBoxItem Content="Black" />
-                                </ComboBox>
-                                <Button x:Name="ExactBlackButton" Content="Remove black only" Click="exact_black_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Remove exact decoded black. Keep every other decoded color fully opaque, without edge recovery or Game Bar fading." />
-                                <Button x:Name="CleanBlackButton" Content="Remove near-black noise" Click="clean_black_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Use a hard noise cutoff. Retained colors stay opaque; very dark artwork may be removed." />
-                                <TextBlock Text="Both buttons apply immediately at 100% HUD opacity. Remove black only preserves all other decoded colors; noise cleanup also removes near-black pixels." Style="{StaticResource Caption}" />
                                 <Slider x:Name="KeyOpacity" Header="HUD opacity" Minimum="0" Maximum="1" Value="1" StepFrequency="0.005"
                                         SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
-                                <ToggleButton x:Name="KeyOptionsToggle" Content="Fine tuning" Style="{StaticResource MenuTab}"
-                                              IsChecked="False" Checked="advanced_options_changed" Unchecked="advanced_options_changed" />
-                                <StackPanel x:Name="KeyOptionsPanel" Spacing="10" Visibility="Collapsed">
-                                  <Slider x:Name="KeyTolerance" Header="Noise cutoff" Minimum="0" Maximum="1" Value="0" StepFrequency="0.005"
-                                        SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed"
-                                        ToolTipService.ToolTip="Higher tolerance removes more background noise and near-black artwork." />
-                                  <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0" StepFrequency="0.005"
-                                        SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
-                                  <TextBlock x:Name="KeyValuesText" Style="{StaticResource Caption}" />
-                                  <CheckBox x:Name="RecoverBlackEdges" IsChecked="False">
-                                      <TextBlock Text="Blend bright edges (may fade colors)" TextWrapping="Wrap" FontSize="13" />
-                                  </CheckBox>
-                                  <TextBlock Text="Edge blending guesses transparency from brightness. Leave it off to preserve solid colors. Edge softness can also make pixels translucent." Style="{StaticResource Caption}" />
-                                  <CheckBox x:Name="FollowGameBarOpacity" IsChecked="False">
-                                      <TextBlock Text="Follow Game Bar opacity for video" TextWrapping="Wrap" FontSize="13" />
-                                  </CheckBox>
-                                  <TextBlock Text="Leave this off for natural color when pinned. HUD opacity above controls video fading separately." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                                <Button x:Name="ApplyKeyButton" Content="Apply key settings" Click="apply_key_click" Style="{StaticResource MenuButton}" />
-                            </StackPanel>
-                            <StackPanel x:Name="LayoutSection" Spacing="10" Visibility="Collapsed">
-                                <TextBlock Text="Video fit" Style="{StaticResource SectionTitle}" />
+                                <Button x:Name="ApplyKeyButton" Content="Apply appearance" Click="apply_key_click" Style="{StaticResource MenuButton}" />
+                                <TextBlock Text="Cleanup buttons apply immediately. Other appearance changes apply with the button above." Style="{StaticResource Caption}" />
+                                <TextBlock Text="Screen fit" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
+                                <Button Content="Fit my monitor" Click="fit_monitor_click" Style="{StaticResource MenuButton}" />
                                 <CheckBox x:Name="FitVideoAboveTaskbar" IsChecked="True">
-                                    <TextBlock Text="Keep full video above taskbar" TextWrapping="Wrap" FontSize="13" />
+                                    <TextBlock Text="Fit video to the usable area" TextWrapping="Wrap" FontSize="13" />
                                 </CheckBox>
-                                <TextBox x:Name="TaskbarHeight" Header="Taskbar height (physical px)" Text="48" InputScope="Number" />
+                                <TextBox x:Name="TaskbarHeight" Header="Extra bottom space (px)" Text="0" InputScope="Number"
+                                         ToolTipService.ToolTip="Physical pixels to reserve beyond the widget's visible area. Leave at 0 unless the taskbar overlaps video." />
                                 <Button Content="Apply video fit" Click="apply_video_fit_click" Style="{StaticResource MenuButton}" />
                                 <TextBlock x:Name="VideoFitText" Style="{StaticResource Caption}" />
-                                <TextBlock Text="The whole feed fills the usable area with slight compression. Use 0 for a hidden taskbar." Style="{StaticResource Caption}" />
-                                <TextBlock Text="Widget position" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
-                                <Button Content="Fit my monitor" Click="fit_monitor_click" Style="{StaticResource MenuButton}" />
-                                <Button Content="Reset widget position" Click="reset_position_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Restore a smaller movable window. Pairing and your saved profile are retained." />
-                                <Grid ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                                    <TextBox x:Name="OverlayWidth" Header="Overlay width (px)" Text="2560" InputScope="Number" />
-                                    <TextBox x:Name="OverlayHeight" Grid.Column="1" Header="Overlay height (px)" Text="1440" InputScope="Number" />
-                                </Grid>
-                                <Button Content="Apply dimensions" Click="apply_dimensions_click" Style="{StaticResource MenuButton}" />
-                                <TextBlock Text="These dimensions resize the widget. Drag or resize its edges if Game Bar constrains placement." Style="{StaticResource Caption}" />
-                                <Button Content="Try full-screen fit" Click="full_screen_fit_click" Style="{StaticResource MenuButton}"
-                                        ToolTipService.ToolTip="Game Bar may decline full screen. Fit, Apply dimensions, or Reset exits it." />
                             </StackPanel>
-                            <StackPanel x:Name="DetailsSection" Spacing="10" Visibility="Collapsed">
-                                <TextBlock Text="Receiver statistics" Style="{StaticResource SectionTitle}" />
-                                <TextBlock x:Name="StatsText" Text="Connect to view receiver rates." TextWrapping="Wrap" FontSize="13" />
-                                <TextBlock Text="The latest sample counts receive, decode, and Present activity. Present calls do not measure monitor scanout." Style="{StaticResource Caption}" />
-                                <TextBlock Text="For natural colors, use Remove black only on HUD. Video ignores Game Bar fading unless Follow Game Bar opacity for video is enabled." Style="{StaticResource Caption}" />
-                                <TextBlock Text="Game Bar and placement" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
-                                <TextBlock x:Name="WidgetStateText" TextWrapping="Wrap" FontSize="13" />
-                                <TextBlock x:Name="CoverageText" Style="{StaticResource Caption}" />
-                                <TextBlock Text="Local preview" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
-                                <Button Content="Draw test pattern" Click="draw_preview_click" Style="{StaticResource MenuButton}" />
-                                <Button Content="Clear" Click="clear_preview_click" Style="{StaticResource MenuButton}" />
-                                <TextBlock Text="Disconnect before previewing. Each click draws one local frame." Style="{StaticResource Caption}" />
+                            <StackPanel x:Name="AdvancedSection" Spacing="12" Visibility="Collapsed">
+                                <TextBlock Text="Stream settings" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="Changes apply on the next connection." Style="{StaticResource Caption}" />
+                                <ToggleButton x:Name="StreamOptionsToggle" Content="Edit stream settings" Style="{StaticResource MenuTab}"
+                                              IsChecked="False" Checked="advanced_options_changed" Unchecked="advanced_options_changed" />
+                                <StackPanel x:Name="StreamOptionsPanel" Spacing="12" Visibility="Collapsed">
+                                    <Grid ColumnSpacing="8" RowSpacing="12">
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                        <TextBox x:Name="VideoWidth" Header="Width (px)" Text="2560" InputScope="Number" />
+                                        <TextBox x:Name="VideoHeight" Grid.Column="1" Header="Height (px)" Text="1440" InputScope="Number" />
+                                        <TextBox x:Name="VideoFps" Grid.Row="1" Header="Requested FPS" Text="240" InputScope="Number" />
+                                        <ComboBox x:Name="VideoCodec" Grid.Row="1" Grid.Column="1" Header="Codec" SelectedIndex="1" HorizontalAlignment="Stretch">
+                                            <ComboBoxItem Content="H.264" /><ComboBoxItem Content="HEVC" />
+                                        </ComboBox>
+                                    </Grid>
+                                    <TextBox x:Name="VideoBitrate" Header="Bitrate (kbps)" Text="100000" InputScope="Number" />
+                                    <Button x:Name="HudQualityButton" Content="Use baseline stream settings" Click="hud_quality_click" Style="{StaticResource MenuButton}"
+                                            ToolTipService.ToolTip="Save 1440p, HEVC, 240 requested FPS, 100 Mbps and Crisp HUD scaling." />
+                                </StackPanel>
+                                <TextBlock Text="Key fine tuning" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
+                                <ToggleButton x:Name="KeyOptionsToggle" Content="Edit background removal" Style="{StaticResource MenuTab}"
+                                              IsChecked="False" Checked="advanced_options_changed" Unchecked="advanced_options_changed" />
+                                <StackPanel x:Name="KeyOptionsPanel" Spacing="12" Visibility="Collapsed">
+                                    <ComboBox x:Name="KeyColor" Header="Source background" SelectedIndex="2" HorizontalAlignment="Stretch" SelectionChanged="key_color_changed">
+                                        <ComboBoxItem Content="Green" /><ComboBoxItem Content="Magenta" /><ComboBoxItem Content="Black" />
+                                    </ComboBox>
+                                    <Slider x:Name="KeyTolerance" Header="Noise cutoff" Minimum="0" Maximum="1" Value="0.12" StepFrequency="0.005"
+                                            SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
+                                    <Slider x:Name="KeySoftness" Header="Edge softness" Minimum="0" Maximum="1" Value="0" StepFrequency="0.005"
+                                            SmallChange="0.005" LargeChange="0.025" ValueChanged="key_settings_changed" />
+                                    <TextBlock x:Name="KeyValuesText" Style="{StaticResource Caption}" />
+                                    <CheckBox x:Name="RecoverBlackEdges" IsChecked="False">
+                                        <TextBlock Text="Blend bright edges" TextWrapping="Wrap" FontSize="13" />
+                                    </CheckBox>
+                                    <CheckBox x:Name="FollowGameBarOpacity" IsChecked="False">
+                                        <TextBlock Text="Follow Game Bar opacity" TextWrapping="Wrap" FontSize="13" />
+                                    </CheckBox>
+                                    <TextBlock Text="Softness, edge blending and Game Bar opacity can fade colors. Leave them off for solid HUD colors." Style="{StaticResource Caption}" />
+                                    <Button Content="Apply appearance" Click="apply_key_click" Style="{StaticResource MenuButton}" />
+                                </StackPanel>
+                                <TextBlock Text="Placement tools" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
+                                <ToggleButton x:Name="PlacementOptionsToggle" Content="Edit widget placement" Style="{StaticResource MenuTab}"
+                                              IsChecked="False" Checked="advanced_options_changed" Unchecked="advanced_options_changed" />
+                                <StackPanel x:Name="PlacementOptionsPanel" Spacing="12" Visibility="Collapsed">
+                                    <Button Content="Reset widget position" Click="reset_position_click" Style="{StaticResource MenuButton}"
+                                            ToolTipService.ToolTip="Restore a smaller movable window. Your saved profile and pairing are retained." />
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="OverlayWidth" Header="Overlay width (px)" Text="2560" InputScope="Number" />
+                                        <TextBox x:Name="OverlayHeight" Grid.Column="1" Header="Overlay height (px)" Text="1440" InputScope="Number" />
+                                    </Grid>
+                                    <Button Content="Apply dimensions" Click="apply_dimensions_click" Style="{StaticResource MenuButton}" />
+                                    <Button Content="Try full-screen fit" Click="full_screen_fit_click" Style="{StaticResource MenuButton}" />
+                                    <TextBlock Text="Game Bar may constrain placement or decline full screen. You can also drag or resize the widget manually." Style="{StaticResource Caption}" />
+                                    <TextBlock x:Name="CoverageText" Style="{StaticResource Caption}" />
+                                </StackPanel>
+                                <TextBlock Text="Receiver statistics" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
+                                <TextBlock x:Name="StatsText" Text="Connect to view receiver rates." TextWrapping="Wrap" FontSize="13" IsTextSelectionEnabled="True" />
+                                <TextBlock Text="Present counts API calls, not displayed frames. These timings exclude the host, network and monitor scanout." Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="WidgetStateText" Style="{StaticResource Caption}" />
+                                <TextBlock Text="Test pattern" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                    <Button Content="Draw pattern" Click="draw_preview_click" Style="{StaticResource MenuButton}" />
+                                    <Button Grid.Column="1" Content="Clear" Click="clear_preview_click" Style="{StaticResource MenuButton}" />
+                                </Grid>
+                                <TextBlock Text="Disconnect first. Each click draws one local frame." Style="{StaticResource Caption}" />
                             </StackPanel>
                         </Grid>
                     </ScrollViewer>
-                    <Border Grid.Row="4" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                    <Border Grid.Row="4" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
                         <Grid ColumnSpacing="8" RowSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
                             <Button x:Name="ConnectButton" Content="Connect" Click="connect_click" Style="{StaticResource MenuButton}"
                                     Background="{ThemeResource SystemControlHighlightAccentBrush}" Foreground="{ThemeResource SystemControlHighlightAltBaseHighBrush}" />
                             <Button x:Name="DisconnectButton" Grid.Column="1" Content="Disconnect" IsEnabled="False" Click="disconnect_click" Style="{StaticResource MenuButton}" />
-                            <Button x:Name="SaveProfileButton" Grid.Row="1" Grid.ColumnSpan="2" Content="Save profile" Click="save_profile_click"
-                                    Style="{StaticResource MenuButton}" Padding="8,5" ToolTipService.ToolTip="Save connection, stream, and HUD settings. Key changes apply during streaming." />
+                            <Button x:Name="SaveProfileButton" Grid.Row="1" Grid.ColumnSpan="2" Content="Save settings" Click="save_profile_click"
+                                    Style="{StaticResource MenuButton}" Padding="8,5" ToolTipService.ToolTip="Save connection, stream and appearance. Stream changes apply on reconnect." />
                         </Grid>
                     </Border>
                 </Grid>

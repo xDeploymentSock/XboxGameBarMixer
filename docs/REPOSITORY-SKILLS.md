@@ -45,3 +45,7 @@ GitHub Actions templates remains an optional recommendation, not a verified loca
 Private host addresses, user paths, PINs, credentials, captures and runtime logs stay under ignored locations. Skill installation does not authorize unrelated deployment, shared-history rewriting or messages to other people. Preserve existing user authorization and other agents' active worktrees.
 
 The repository includes contributor guidance, generated/private-file ignore patterns, a publication/link audit and CPU-only core CI. Historical experiments remain in [development history](DEVELOPMENT-HISTORY.md). See [contributing](../CONTRIBUTING.md) for validation commands and their scope.
+
+## Widget UI design
+
+[UI/UX Pro Max](https://www.skills.sh/nextlevelbuilder/ui-ux-pro-max-skill/ui-ux-pro-max) is installed locally and recorded in the skill lock. Use its `uwp` stack search and accessibility/navigation references for widget layout work. Check that matches apply to native settings rather than a website; use system controls, theme brushes and the existing C++/WinRT architecture. Preserve saved profiles and the UWP video surface, and verify narrow/short windows, keyboard focus and live pinned behavior. The skill's general platform-migration advice does not replace Game Bar's UWP requirement.

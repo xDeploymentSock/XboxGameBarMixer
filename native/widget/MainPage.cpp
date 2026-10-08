@@ -51,6 +51,7 @@ MainPage::MainPage() {
     load_profile();
     loading_profile_ = false;
     update_key_values();
+    update_saved_profile_summary();
     select_settings_section(0);
     const auto folder = Windows::Storage::ApplicationData::Current().LocalFolder().Path();
     control_ = std::make_shared<fuser::streaming::sunshine_control>(
@@ -119,9 +120,9 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     display_ = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
     const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
     if (!values.HasKey(L"TaskbarHeightPixels") || reserved_bottom_pixels_ >= display_.ScreenHeightInRawPixels()) {
-        // Start with an adjustable estimate of 48 view pixels; do not treat it
-        // as a queried Windows taskbar rectangle.
-        reserved_bottom_pixels_ = pixels(48.0, display_.RawPixelsPerViewPixel());
+        // The visible Game Bar client already excludes host chrome. Reserve
+        // extra space only when the user explicitly requests it.
+        reserved_bottom_pixels_ = 0;
     }
     TaskbarHeight().Text(to_hstring(reserved_bottom_pixels_));
     if (!values.HasKey(L"OverlayWidth") && !values.HasKey(L"OverlayHeight")) {
@@ -211,7 +212,7 @@ void MainPage::load_profile() {
         video_fit_enabled_ = unbox_value_or<bool>(values.Lookup(L"FitVideoAboveTaskbar"), true);
     }
     if (values.HasKey(L"TaskbarHeightPixels")) {
-        reserved_bottom_pixels_ = unbox_value_or<std::uint32_t>(values.Lookup(L"TaskbarHeightPixels"), 48);
+        reserved_bottom_pixels_ = unbox_value_or<std::uint32_t>(values.Lookup(L"TaskbarHeightPixels"), 0);
     }
     FitVideoAboveTaskbar().IsChecked(video_fit_enabled_);
     TaskbarHeight().Text(to_hstring(reserved_bottom_pixels_));
@@ -236,7 +237,7 @@ void MainPage::load_profile() {
         KeyColor().SelectedIndex(index >= 0 && index <= 2 ? index : 2);
     }
     const bool black = KeyColor().SelectedIndex() == 2;
-    KeyTolerance().Value(black ? 0.0 : 0.12);
+    KeyTolerance().Value(0.12);
     KeySoftness().Value(black ? 0.0 : 0.08);
     if (values.HasKey(L"ResetWidgetPosition")) {
         reset_pending_ = unbox_value_or<bool>(values.Lookup(L"ResetWidgetPosition"), false);
@@ -263,12 +264,19 @@ void MainPage::load_profile() {
     FollowGameBarOpacity().IsChecked(follow_game_bar_opacity_);
     // Older black cleanup inferred transparency from brightness. Migrate once
     // to the requested black-only behavior, without touching pairing or layout.
-    if (black && !values.HasKey(L"OpaqueBlackPresetsVersion")) {
+    if (black && values.HasKey(L"KeyColor") && !values.HasKey(L"OpaqueBlackPresetsVersion")) {
         set_black_key_preset(fuser::black_key_preset::exact);
         configuration_.key = read_key_settings();
         save_key_settings();
         fuser::widget::log(L"Black profile upgraded: exact removal, opaque colors, independent video opacity.");
     }
+}
+
+void MainPage::update_saved_profile_summary() {
+    const auto codec = VideoCodec().SelectedIndex() == 0 ? L"H.264" : L"HEVC";
+    SavedProfileText().Text(VideoWidth().Text() + L" x " + VideoHeight().Text()
+        + L" / " + VideoFps().Text() + L" FPS / " + codec
+        + L"\n" + VideoBitrate().Text() + L" kbps");
 }
 
 void MainPage::save_key_settings() {
@@ -314,6 +322,7 @@ void MainPage::save_profile_click(IInspectable const&, RoutedEventArgs const&) {
         values.Insert(L"VideoBitrate", box_value(VideoBitrate().Text()));
         values.Insert(L"VideoCodec", box_value(VideoCodec().SelectedIndex()));
         save_key_settings();
+        update_saved_profile_summary();
         update_widget_state();
         if (streaming_ && !busy_) {
             session_->set_key(configuration_.key);
@@ -367,6 +376,7 @@ fire_and_forget MainPage::control_async(bool pairing) {
         std::ostringstream text;
         text << std::setfill('0') << std::setw(4) << value;
         pin = text.str();
+        PairingPinText().Visibility(Visibility::Visible);
         PairingPinText().Text(L"PIN: " + to_hstring(pin) + L"\nOn the source PC, open Sunshine's PIN page and enter this code. It expires here after two minutes.");
     }
     set_busy(true);
@@ -389,6 +399,7 @@ fire_and_forget MainPage::control_async(bool pairing) {
     co_await resume_foreground(foreground);
     set_busy(false);
     PairingPinText().Text(L"");
+    PairingPinText().Visibility(Visibility::Collapsed);
     if (shutting_down_) { co_return; }
     if (!error_message.empty()) { report(error_message); co_return; }
     if (!result.succeeded()) { report(to_hstring(result.detail)); co_return; }
@@ -664,8 +675,8 @@ void MainPage::video_layout_size_changed(IInspectable const&, SizeChangedEventAr
 }
 
 void MainPage::select_settings_section(std::int32_t index) {
-    const std::array sections{ConnectionSection(), HudSection(), LayoutSection(), DetailsSection()};
-    const std::array tabs{ConnectionTab(), HudTab(), LayoutTab(), DetailsTab()};
+    const std::array sections{ConnectionSection(), AdjustmentsSection(), AdvancedSection()};
+    const std::array tabs{ConnectionTab(), AdjustmentsTab(), AdvancedTab()};
     if (index < 0 || static_cast<std::size_t>(index) >= sections.size()) { return; }
     const bool changed = selected_settings_section_ != index;
     selected_settings_section_ = index;
@@ -681,7 +692,7 @@ void MainPage::select_settings_section(std::int32_t index) {
 void MainPage::settings_tab_click(IInspectable const& sender, RoutedEventArgs const&) {
     if (loading_profile_ || shutting_down_) { return; }
     const auto tag = unbox_value_or<hstring>(sender.as<Controls::Primitives::ToggleButton>().Tag(), L"");
-    if (tag.size() == 1 && tag[0] >= L'0' && tag[0] <= L'3') {
+    if (tag.size() == 1 && tag[0] >= L'0' && tag[0] <= L'2') {
         select_settings_section(static_cast<std::int32_t>(tag[0] - L'0'));
     }
 }
@@ -694,6 +705,7 @@ void MainPage::advanced_options_changed(IInspectable const&, RoutedEventArgs con
     if (loading_profile_ || shutting_down_) { return; }
     StreamOptionsPanel().Visibility(StreamOptionsToggle().IsChecked().Value() ? Visibility::Visible : Visibility::Collapsed);
     KeyOptionsPanel().Visibility(KeyOptionsToggle().IsChecked().Value() ? Visibility::Visible : Visibility::Collapsed);
+    PlacementOptionsPanel().Visibility(PlacementOptionsToggle().IsChecked().Value() ? Visibility::Visible : Visibility::Collapsed);
 }
 
 void MainPage::update_settings_layout() {
@@ -701,14 +713,14 @@ void MainPage::update_settings_layout() {
     const auto height = VideoLayoutRoot().ActualHeight();
     if (width < 1.0 || height < 1.0) { return; }
     constexpr double outer_margin = 24.0;
-    constexpr double card_insets = 30.0; // Padding and border on both sides.
+    constexpr double card_insets = 34.0; // Padding and border on both sides.
     const auto card_width = std::min(420.0, std::max(1.0, width - outer_margin));
-    const auto card_height = std::min(720.0, std::max(1.0, height - outer_margin));
+    const auto card_height = std::min(660.0, std::max(1.0, height - outer_margin));
     SettingsCard().Width(card_width);
     SettingsCard().Height(card_height);
     // A shallow window can scroll the complete menu instead of clipping actions.
-    MenuLayout().Height(std::max(420.0, card_height - card_insets));
-    const bool narrow = card_width < 340.0;
+    MenuLayout().Height(std::max(480.0, card_height - card_insets));
+    const bool narrow = card_width < 380.0;
     SettingsTabs().Visibility(narrow ? Visibility::Collapsed : Visibility::Visible);
     SettingsSectionPicker().Visibility(narrow ? Visibility::Visible : Visibility::Collapsed);
 }
@@ -1130,7 +1142,7 @@ void MainPage::update_widget_state() {
         ? (widget_.ClickThroughEnabled() ? L"Game Bar click-through enabled." : L"Game Bar click-through disabled.")
         : L"Standalone settings view. Open through Game Bar for pinning and click-through.");
     WidgetStateText().Text(WidgetStateText().Text() + L" Video surface opacity: "
-        + to_hstring(std::round(video_opacity * 100.0F)) + L"%. HUD opacity is set separately on HUD.");
+        + to_hstring(std::round(video_opacity * 100.0F)) + L"%. HUD opacity is set in Adjustments.");
     if (widget_) {
         fuser::widget::log(L"Widget state: pinned=" + to_hstring(widget_.Pinned())
             + L" visible=" + to_hstring(widget_.Visible())

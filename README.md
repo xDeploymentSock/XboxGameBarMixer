@@ -15,7 +15,7 @@ Overlay a remote PC's HUD on your local display with a transparent, pinned Xbox 
 - Black, green and magenta background removal. **Remove black only** preserves surviving decoded colors with opaque alpha.
 - Pinned, transparent video with Game Bar's user-controlled click-through.
 - Whole-feed fitting above an adjustable taskbar reservation, Smooth/Crisp HUD scaling and manual widget dimensions.
-- Connect, HUD, Layout and Details views with saved profiles and stage-specific stream statistics.
+- Connections, Adjustments and Advanced tabs with saved settings and receiver statistics.
 
 ## Getting started
 
@@ -31,13 +31,13 @@ Build the local development package from a Windows checkout using Visual Studio 
 The build restores pinned dependencies and creates an unsigned development MSIX. Deployment is explicit, closes an existing Software Fuser process and requests Windows elevation. The [build guide](docs/BUILD-LATER.md) covers prerequisites, package verification and troubleshooting.
 
 1. Press **Win+G** and open **Software Fuser** from the widget menu.
-2. On **Connect**, enter the Sunshine hostname/IP, click **Pair with Sunshine**, and enter the displayed PIN on Sunshine's PIN page.
+2. On **Connections**, enter the Sunshine hostname/IP, click **Pair PC**, and enter the displayed PIN on Sunshine's PIN page.
 3. Click **Refresh apps**, select **Desktop** or the intended application, then **Connect**. Another active Sunshine application is preserved; conflicts are reported.
-4. On **HUD**, select the source background and apply its key settings. For natural retained colors on black, click **Remove black only**. **Remove near-black noise** also deletes very dark pixels.
-5. On **Layout**, click **Apply video fit** and adjust the taskbar reservation. The complete feed fills the usable area, allowing slight vertical compression.
+4. On **Adjustments**, use **Clean near-black** for compression-noise cleanup or **Remove black only** for exact removal. Surviving decoded colors stay opaque. Background fine tuning is in **Advanced**.
+5. On **Adjustments**, use **Fit my monitor** and **Apply video fit** as needed. The complete feed fills the usable area, allowing slight vertical compression; extra bottom space defaults to 0 px.
 6. Pin the widget, enable Game Bar click-through, and close Game Bar. Use **Disconnect** to stop this client's stream.
 
-Pairing survives package updates. For sharp text, try **Crisp HUD** scaling. **Draw test pattern** is a local preview; it submits one frame. See the [menu guide](docs/WIDGET-MENU.md) for the remaining controls.
+Pairing survives package updates. For sharp text, try **Crisp HUD** scaling. **Advanced → Draw pattern** is a local preview; it submits one frame. See the [menu guide](docs/WIDGET-MENU.md) for the remaining controls.
 
 ## Architecture and technology
 
@@ -58,7 +58,7 @@ The target is **2560 x 1440 at 240 requested FPS**. Live pipeline measurements e
 
 Game Bar may constrain widget size and position. Main fits the feed above the taskbar; automatic simultaneous top-edge/taskbar coverage remains unresolved. **Fit my monitor**, **Apply dimensions** and **Reset widget position** are explicit actions. Manual placement may be needed.
 
-Rendering currently supports SDR 8-bit NV12. HDR/P010 and 4:4:4 rendering remain future work. Compression, chroma subsampling and scaling can affect text edges before keying. Black removal preserves decoded RGB; video follows Game Bar opacity only when explicitly enabled in HUD fine tuning.
+Rendering currently supports SDR 8-bit NV12. HDR/P010 and 4:4:4 rendering remain future work. Compression, chroma subsampling and scaling can affect text edges before keying. Black removal preserves decoded RGB; video follows Game Bar opacity only when explicitly enabled in Advanced background-removal settings.
 
 ## Development and testing
 

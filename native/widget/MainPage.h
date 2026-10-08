@@ -48,6 +48,7 @@ private:
     void select_settings_section(std::int32_t index);
     void update_settings_layout();
     void load_profile();
+    void update_saved_profile_summary();
     void attach_renderer();
     void update_widget_state();
     void start_layout_request();
@@ -79,7 +80,7 @@ private:
     bool video_fit_enabled_{true};
     bool follow_game_bar_opacity_{};
     std::int32_t selected_settings_section_{};
-    std::uint32_t reserved_bottom_pixels_{48};
+    std::uint32_t reserved_bottom_pixels_{0};
     fuser::widget_layout_requests layout_requests_;
     std::atomic<bool> shutting_down_{};
     fuser::pipeline_statistics previous_counters_;

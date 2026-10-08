@@ -16,6 +16,16 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
 - Documented current gameplay monitoring with about 237 received/decoded units per second while presentation throughput decreased, with user visual acceptance and unresolved display/game-impact measurements.
 
+## [0.2.1.10]
+
+UI candidate; native appearance and live acceptance remain pending.
+
+### Changed
+
+- Simplified the menu to Connections, Adjustments and Advanced, with shorter guidance, a saved-stream summary and collapsible tuning/placement tools.
+- Set fresh UI defaults to the current 1440p / HEVC / 240 FPS / 100 Mbps profile with Crisp HUD, opaque near-black cleanup and no extra bottom reservation. Existing saved settings and protected pairing are retained.
+- Used native theme brushes for a readable settings card and a three-section dropdown in narrow windows. Added the installed UI/UX Pro Max skill to the workflow and updated the menu guide.
+
 ## [0.2.1.9]
 
 Unsigned Release diagnostic checkpoint installed and verified locally. Package integrity, builds and installed executable identity are checked; live timing overhead, GPU/runtime checks and performance improvement remain pending.
@@ -202,3 +212,5 @@ Release development package installed and verified locally. Allocation reduction
 [0.2.0.4]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/f5a848f5857540c363dcfb8bcf8a667152d0ecdb...e71a187d3562a27ebe9578a872ae7b13e4fdbb54
 [0.2.0.3]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/bb428367a625bb6037391372dfabe09da1bb16b9...f5a848f5857540c363dcfb8bcf8a667152d0ecdb
 [0.2.0.2]: https://github.com/xDeploymentSock/XboxGameBarMixer/commit/bb428367a625bb6037391372dfabe09da1bb16b9
+
+[0.2.1.10]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/ac19d135dd8ea9e3135c616fae0dff6e45e05eda...HEAD
