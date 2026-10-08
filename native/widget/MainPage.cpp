@@ -65,11 +65,11 @@ MainPage::MainPage() {
         if (const auto self = weak.get()) { self->update_statistics(); }
     });
     Loaded([weak = get_weak()](auto const&, auto const&) {
-        if (const auto self = weak.get()) {
+        if (const auto self = weak.get(); self && !self->shutting_down_) {
             fuser::widget::log(L"Page loaded; video host=" + to_hstring(self->VideoHost().ActualWidth())
                 + L"x" + to_hstring(self->VideoHost().ActualHeight()));
             self->update_settings_layout();
-            self->update_video_layout();
+            self->update_widget_state();
             if (self->reset_pending_) {
                 self->reset_pending_ = false;
                 self->layout_requests_.request(fuser::widget_layout_action::reset_position);
@@ -92,7 +92,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
                 // Game Bar callbacks are not guaranteed to use the XAML thread.
                 const auto ignored = self->Dispatcher().RunAsync(
                     Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
-                        if (const auto page = weak.get()) {
+                        if (const auto page = weak.get(); page && !page->shutting_down_) {
                             page->update_widget_state();
                         }
                     });
@@ -108,7 +108,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
             if (const auto self = weak.get()) {
                 const auto ignored = self->Dispatcher().RunAsync(
                     Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
-                        if (const auto page = weak.get()) {
+                        if (const auto page = weak.get(); page && !page->shutting_down_) {
                             page->update_video_layout();
                             page->update_coverage();
                         }
@@ -132,7 +132,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
         if (const auto self = weak.get()) {
             const auto ignored = self->Dispatcher().RunAsync(
                 Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
-                    if (const auto page = weak.get()) {
+                    if (const auto page = weak.get(); page && !page->shutting_down_) {
                         // DPI can change without a change to the logical XAML size.
                         page->layout_requests_.invalidate();
                         page->update_video_layout();
@@ -153,7 +153,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
         if (const auto self = weak.get()) {
             const auto ignored = self->Dispatcher().RunAsync(
                 Windows::UI::Core::CoreDispatcherPriority::Normal, [weak] {
-                    if (const auto page = weak.get()) {
+                    if (const auto page = weak.get(); page && !page->shutting_down_) {
                         page->update_video_layout();
                         page->update_coverage();
                     }
@@ -649,6 +649,7 @@ void MainPage::clear_preview_click(IInspectable const&, RoutedEventArgs const&) 
 }
 
 void MainPage::video_host_size_changed(IInspectable const&, SizeChangedEventArgs const&) {
+    if (shutting_down_) { return; }
     update_coverage();
     if (!renderer_ || VideoHost().ActualWidth() < 1.0 || VideoHost().ActualHeight() < 1.0) {
         return;
@@ -753,6 +754,7 @@ void MainPage::apply_video_fit_click(IInspectable const&, RoutedEventArgs const&
 }
 
 void MainPage::update_video_layout() {
+    if (shutting_down_) { return; }
     if (VideoLayoutRoot().ActualWidth() < 1.0 || VideoLayoutRoot().ActualHeight() < 1.0) { return; }
     try {
         const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
@@ -1129,6 +1131,7 @@ fire_and_forget MainPage::fit_monitor_async() {
 }
 
 void MainPage::update_widget_state() {
+    if (shutting_down_) { return; }
     const bool pinned_only = widget_ && widget_.GameBarDisplayMode() == XboxGameBarDisplayMode::PinnedOnly;
     SettingsCard().Visibility(pinned_only ? Visibility::Collapsed : Visibility::Visible);
     // Keep the settings card aligned with Game Bar's opacity preference.
@@ -1149,7 +1152,9 @@ void MainPage::update_widget_state() {
             + L" mode=" + to_hstring(static_cast<int>(widget_.GameBarDisplayMode()))
             + L" requestedOpacity=" + to_hstring(widget_.RequestedOpacity())
             + L" clickThrough=" + to_hstring(widget_.ClickThroughEnabled())
-            + L" videoOpacity=" + to_hstring(video_opacity));
+            + L" videoOpacity=" + to_hstring(video_opacity)
+            + L" menuVisible=" + to_hstring(SettingsCard().Visibility() == Visibility::Visible)
+            + L" menuOpacity=" + to_hstring(SettingsCard().Opacity()));
         layout_requests_.visibility_changed(widget_.Visible());
         start_layout_request();
     }
@@ -1163,9 +1168,12 @@ void MainPage::report(hstring const& message) {
 }
 
 void MainPage::shutdown() noexcept {
+    // Shutdown can run again when the last coroutine reference is released
+    // on its worker. A closed page must never touch XAML a second time.
+    if (shutting_down_.exchange(true)) { return; }
     fuser::widget::log(L"MainPage shutting down.");
-    shutting_down_ = true;
-    if (stats_timer_) { stats_timer_.Stop(); }
+    try { if (stats_timer_) { stats_timer_.Stop(); } }
+    catch (...) { OutputDebugStringW(L"Software Fuser: timer cleanup encountered an error.\n"); }
     layout_requests_.invalidate();
     if (control_) { control_->cancel(); }
     if (session_) {

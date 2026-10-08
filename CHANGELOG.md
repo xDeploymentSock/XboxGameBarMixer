@@ -16,6 +16,25 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
 - Documented current gameplay monitoring with about 237 received/decoded units per second while presentation throughput decreased, with user visual acceptance and unresolved display/game-impact measurements.
 
+## [0.2.1.12]
+
+Unsigned Release menu recovery checkpoint installed and verified on main; all
+20 saved settings and both protected pairing files are unchanged. Live
+menu return is confirmed by the user; full OS suspension/resume coverage remains
+pending.
+The separate 0.2.1.11 testing candidate is not merged by this update.
+
+### Fixed
+
+- A stopped settings page remaining hidden after suspension: resume now reloads
+  idle settings on the retained Game Bar host, restoring visibility callbacks.
+- Repeated shutdown and queued load/size/state callbacks touching stopped XAML.
+
+### Added
+
+- Resume generation checks for duplicate, stale and closed-host notifications;
+  local menu visibility diagnostics and a [live recovery check](docs/MENU-RECOVERY.md).
+
 ## [0.2.1.10]
 
 Unsigned Release UI checkpoint installed and independently verified. All 20 existing saved settings and both protected pairing files are unchanged. Native appearance and live acceptance remain pending.
@@ -214,3 +233,5 @@ Release development package installed and verified locally. Allocation reduction
 [0.2.0.2]: https://github.com/xDeploymentSock/XboxGameBarMixer/commit/bb428367a625bb6037391372dfabe09da1bb16b9
 
 [0.2.1.10]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/ac19d135dd8ea9e3135c616fae0dff6e45e05eda...HEAD
+
+[0.2.1.12]: https://github.com/xDeploymentSock/XboxGameBarMixer/compare/4ddad76...main

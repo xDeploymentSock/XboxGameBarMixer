@@ -38,3 +38,34 @@ No implementation findings. C++ changes stay on the XAML thread, reuse existing 
 No implementation findings against “make my current settings the baseline and keep things simple.” Connections, Adjustments and Advanced replace four sections. Routine controls are visible; tuning and placement groups are collapsed. Fresh defaults match the selected non-private baseline, saved values override them, and opening/switching sections initiates no resize or stream action. The 20 saved values and two protected pairing files remain unchanged after installation. Main was updated without touching the separate testing checkout. The rendering path remains inside Game Bar UWP. Native visual simplicity and live pinned behavior still need the user's verification.
 
 Findings: Standards 0; Spec 0. Both axes retain the native-interaction verification gap.
+
+
+## Menu recovery (0.2.1.12)
+
+Reviewed the focused main working-tree changes against `4ddad76`, with the user's
+missing-menu report and [repair requirements](MENU-RECOVERY.md#repair-requirements)
+as the spec. Standards sources: AGENTS.md, CONTRIBUTING.md, .editorconfig,
+installed C++/verification/UI skills and the twelve Fowler smell heuristics.
+Separate standards and specification agents completed static reviews.
+
+### Standards
+
+Zero unresolved hard-rule findings and zero actionable heuristic smells. Resume
+uses the captured UI dispatcher, retains the original widget/window/frame, and
+rejects stale/duplicate tokens. Shutdown is idempotent; timer exceptions are
+contained. Profile/pairing code is unchanged. The repeated host/frame lookup keeps
+lifecycle ownership explicit and did not warrant a new abstraction.
+
+### Spec
+
+Zero unresolved findings. Both reviewers initially identified queued bounds/DPI
+callbacks reaching XAML after shutdown. Every queued delegate now checks the
+shutdown flag, as do layout/state/load handlers. Fresh UWP builds followed that
+repair. Resume reloads saved idle settings, with no automatic connection, profile
+write or unrelated testing-branch changes.
+
+The agents did not independently rerun tests. The primary agent ran the checks
+recorded in [validation](VALIDATION.md#installed-menu-recovery-02112). Static review
+and compilation do not establish native menu visibility. After installation the
+user confirmed normal menu return; the collected log does not establish a full OS
+suspension/resume cycle.

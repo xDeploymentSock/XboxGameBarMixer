@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <fuser/view_resume_state.h>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -332,6 +333,17 @@ int main() {
         activity.reset();
         require(!activity.snapshot().observed && activity.snapshot().age_microseconds == 0,
                 "reconnect clears prior worker activity after joining its writer");
+        fuser::view_resume_state resume;
+        const auto first_resume = resume.suspend();
+        require(resume.resume(first_resume), "suspended view resumes once");
+        require(!resume.resume(first_resume), "duplicate resume must not replace a running page");
+        const auto before_close = resume.suspend();
+        resume.invalidate();
+        require(!resume.resume(before_close), "queued resume cannot restore a closed/replaced view");
+        const auto older_suspend = resume.suspend();
+        const auto newer_suspend = resume.suspend();
+        require(!resume.resume(older_suspend) && resume.resume(newer_suspend),
+                "only the latest suspension may restore the retained host");
         std::cout << "Core contract checks passed.\n";
         return 0;
     } catch (const std::exception& error) {

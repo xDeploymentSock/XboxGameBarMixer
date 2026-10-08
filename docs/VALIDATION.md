@@ -2,6 +2,24 @@
 
 The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox Game Bar widget. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; existing live measurements exceed that threshold. Current gameplay windows average about 122-141 accepted-Present samples/s, so the idle milestone does not establish presentation performance under load. Fine FPS tuning is deferred. Black transparency and click-through were confirmed, but the user clarified that taskbar coverage required manual dragging and that automatic fitting remained buggy. Automatic coverage, actual 240 distinct displayed source frames per second, and representative local-game impact remain unverified.
 
+## Installed menu recovery (0.2.1.12)
+
+The user reported a blank settings card in foreground; closing/reopening the
+widget restored it on 0.2.1.10. The new checkpoint retains the host across
+suspension and creates idle settings on resume, with duplicate/stale notification
+protection and stopped-page callback guards. The three-section XAML, profile and
+renderer/transport remain unchanged. See [menu recovery](MENU-RECOVERY.md).
+
+Debug/Release core contracts, portable MSVC AddressSanitizer contracts and both
+UWP builds pass. The UWP build logs report zero warnings/errors. Package CRC,
+identity/version/x64, built executable and installed executable comparisons pass.
+Windows reports installed 0.2.1.12 with status OK. A private before/after comparison
+confirms all 20 saved settings and both protected pairing files unchanged.
+Independent [standards/spec reviews](CODE-REVIEW.md#menu-recovery-02112) have no
+unresolved findings. The user confirms normal menu return; runtime logs show
+foreground visibility restored after pinned-only mode. A full OS suspension/resume
+cycle remains unobserved in that collected window. No display-performance result is inferred from these checks.
+
 ## Installed three-section UI (0.2.1.10)
 
 The UWP menu now has Connections, Adjustments and Advanced. Fresh UI defaults match the selected public baseline; existing saved settings override them. A read-only app-data snapshot captured 20 saved settings and hashes of two protected pairing files before deployment, under ignored build paths.

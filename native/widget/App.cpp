@@ -20,7 +20,7 @@ App::App() {
     Suspending([weak = get_weak()](auto const&, auto const&) {
         if (const auto self = weak.get()) {
             fuser::widget::log(L"App suspending.");
-            self->shutdown_current_view();
+            self->suspend_current_view();
         }
     });
 }
@@ -55,6 +55,7 @@ void App::OnActivated(IActivatedEventArgs const& args) {
         // Keep the initial widget alive during repeat activation.
         return;
     }
+    shutdown_current_view(); // Invalidate any resume queued for an older host.
     widget_window_ = Window::Current();
     const Frame frame;
     widget_window_.Content(frame);
@@ -70,7 +71,53 @@ void App::OnActivated(IActivatedEventArgs const& args) {
     fuser::widget::log(L"Widget window activation completed.");
 }
 
+void App::suspend_current_view() noexcept {
+    try {
+        if (!widget_window_) { return; }
+        if (const auto frame = widget_window_.Content().try_as<Frame>()) {
+            if (const auto page = frame.Content().try_as<SoftwareFuser::MainPage>()) {
+                get_self<MainPage>(page)->shutdown();
+            }
+        }
+        if (resuming_registered_) { Resuming(resuming_token_); resuming_registered_ = false; }
+        const auto token = resume_state_.suspend();
+        const auto dispatcher = widget_window_.Dispatcher();
+        // Resuming is raised off the UI thread. Capture the dispatcher/token
+        // here rather than reading mutable XAML state in that callback.
+        resuming_token_ = Resuming([weak = get_weak(), dispatcher, token](auto const&, auto const&) {
+            try {
+                (void)dispatcher.RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, [weak, token] {
+                    if (const auto self = weak.get()) { self->resume_current_view(token); }
+                });
+            } catch (...) { OutputDebugStringW(L"Software Fuser: resume dispatch failed.\n"); }
+        });
+        resuming_registered_ = true;
+    } catch (...) { OutputDebugStringW(L"Software Fuser: suspend cleanup encountered an error.\n"); }
+}
+
+void App::resume_current_view(std::uint64_t token) noexcept {
+    if (!resume_state_.resume(token)) { return; }
+    try {
+        if (resuming_registered_) { Resuming(resuming_token_); resuming_registered_ = false; }
+        if (!widget_window_) { return; }
+        if (const auto frame = widget_window_.Content().try_as<Frame>()) {
+            // XboxGameBarWidget remains bound to the original CoreWindow/Frame.
+            // A fresh page reloads saved settings; it never reconnects by itself.
+            if (!frame.Navigate(xaml_typename<SoftwareFuser::MainPage>(), widget_)) {
+                throw hresult_error{E_FAIL, L"The settings page could not resume."};
+            }
+            frame.BackStack().Clear();
+            frame.ForwardStack().Clear();
+            fuser::widget::log(L"View resumed to idle settings.");
+        }
+    } catch (...) { fuser::widget::log(L"View resume failed; close and reopen the widget."); }
+}
+
 void App::shutdown_current_view() noexcept {
+    resume_state_.invalidate();
+    try {
+        if (resuming_registered_) { Resuming(resuming_token_); resuming_registered_ = false; }
+    } catch (...) { OutputDebugStringW(L"Software Fuser: resume event cleanup failed.\n"); }
     try {
         if (widget_window_) {
             if (const auto frame = widget_window_.Content().try_as<Frame>()) {

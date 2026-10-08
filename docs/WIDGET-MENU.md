@@ -22,7 +22,7 @@ The fresh UI defaults match the selected baseline: 2560 × 1440, HEVC, 240 reque
 
 The UI uses the installed **UI/UX Pro Max** skill's minimal style and UWP theme guidance, adapted to a compact Game Bar settings panel. Native Segoe UI/system controls and theme brushes provide focus, hover, pressed and disabled states. The card is opaque for legibility over changing video; status is a polite accessibility live region. No new animations, external fonts or per-frame UI work are added.
 
-The card fits the actual client, up to 420 × 660 view pixels. Below 380 view pixels wide, a dropdown replaces the navigation buttons. Each section scrolls independently; short windows can scroll the whole card to reach the footer. Changing sections resets section scrolling, without changing the video surface. The settings card still disappears in Game Bar's pinned-only mode.
+The card fits the actual client, up to 420 × 660 view pixels. Below 380 view pixels wide, a dropdown replaces the navigation buttons. Each section scrolls independently; short windows can scroll the whole card to reach the footer. Changing sections resets section scrolling, without changing the video surface. The settings card disappears in Game Bar's pinned-only mode and returns in foreground. Version 0.2.1.12 adds idle-page recovery after suspension; see the [menu recovery check](MENU-RECOVERY.md).
 
 The search's generic landing-page pattern and web typography were unsuitable for this widget and were not applied. Targeted progressive-disclosure queries also returned unrelated matches, so grouping follows the skill's general forms/navigation guidance and the user's requested three-section layout. Video stays inside the existing Game Bar UWP renderer.
 
