@@ -4,17 +4,17 @@ Version 0.2.1.0 on main adds a destination fit for the existing Game Bar UWP ren
 
 ## Controls
 
-In the menu introduced in 0.2.1.2 and included in installed 0.2.1.3, these controls are grouped under **Layout**.
+In the current menu (0.2.1.10 and later), these controls are grouped under **Adjustments**.
 
-Open Software Fuser through Win+G. Leave **Keep full video above taskbar** checked, enter **Taskbar height (physical px)** and click **Apply video fit**. The initial height is an adjustable estimate of 48 view pixels converted to physical pixels at the current DPI; it is not a measured taskbar rectangle. Use 0 for a hidden taskbar. Uncheck the option and apply to restore drawing across the full widget client.
+Open Software Fuser through Win+G. Leave **Fit video to the usable area** checked, keep **Extra bottom space (px)** at the baseline 0 and click **Apply video fit**. The extra reservation is physical pixels beyond the host's usable client area; it does not measure the taskbar. A host that already clips the client above the taskbar generally needs 0 extra pixels to avoid reserving that space twice. Add only the extra reservation needed for your placement. Uncheck the option and apply to restore drawing across the full widget client.
 
-The fit is enabled by default. Applied settings persist. Moving or resizing the widget, opening it again, or changing DPI recomputes the drawing area without requesting another host resize. If the taskbar changes height, update its physical pixel reservation. **Fit my monitor** and **Apply dimensions** still request changes to the outer widget size; **Apply video fit** only changes its drawing area and works during a stream without reconnecting.
+The fit is enabled by default and applied settings persist. Moving/resizing the widget, reopening it or changing DPI recomputes the drawing area without requesting another host resize. **Fit my monitor** in Adjustments and **Apply dimensions** under **Advanced → Edit widget placement** request changes to the outer widget size; **Apply video fit** changes only its drawing area and works during a stream without reconnecting.
 
 All four source corners should remain visible inside the fitted area. Manually enlarge or place the widget to increase the area available to the video. The host's top strip remains outside this drawing surface; full-monitor host coverage is being investigated separately on the testing branch.
 
 ## Geometry and rendering
 
-The destination is the intersection of the actual XAML client with this monitor's bounds above the reserved bottom strip, expressed in widget-local view pixels using the Game Bar bounds. A client at (0,46) with size 2558x1394 on a 2560x1440 display and a 48-physical-pixel taskbar reservation produces a 2558x1346 destination. An oversized client starting at Y=-44 uses a 44-view-pixel local offset and a 2560x1392 destination, so the input's top pixels are rescaled into the visible area rather than disappearing offscreen.
+The destination is the intersection of the actual XAML client with this monitor's bounds above the reserved bottom strip, expressed in widget-local view pixels using the Game Bar bounds. For a historical example with a 48-pixel reservation, a client at (0,46) with size 2558x1394 on a 2560x1440 display and a 48-physical-pixel taskbar reservation produces a 2558x1346 destination. An oversized client starting at Y=-44 uses a 44-view-pixel local offset and a 2560x1392 destination, so the input's top pixels are rescaled into the visible area rather than disappearing offscreen.
 
 XAML sizes and clips the video host to that destination. Its composition brush explicitly fills the destination, and the existing render-thread resize mechanism updates the swap chain. The NV12 shader continues to sample the complete decoded visible source rectangle; hardware allocation padding remains excluded. No desktop companion window, topmost HWND, layered window, CPU frame readback or source crop is added to the display path. GPU readback is confined to tests.
 
