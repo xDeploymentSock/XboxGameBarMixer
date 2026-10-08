@@ -2,13 +2,15 @@
 
 The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox Game Bar widget. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; existing live measurements exceed that threshold. Current gameplay windows average about 122-141 accepted-Present samples/s, so the idle milestone does not establish presentation performance under load. Fine FPS tuning is deferred. Black transparency and click-through were confirmed, but the user clarified that taskbar coverage required manual dragging and that automatic fitting remained buggy. Automatic coverage, actual 240 distinct displayed source frames per second, and representative local-game impact remain unverified.
 
-## Three-section UI candidate (0.2.1.10)
+## Installed three-section UI (0.2.1.10)
 
 The UWP menu now has Connections, Adjustments and Advanced. Fresh UI defaults match the selected public baseline; existing saved settings override them. A read-only app-data snapshot captured 20 saved settings and hashes of two protected pairing files before deployment, under ignored build paths.
 
 Fresh Debug and Release widget builds complete with zero warnings/errors. Both MSIX archives pass CRC, package identity/version/x64 checks, and contain executables identical to their build outputs. The portable core contract passes. The source check finds 55 unique XAML names, preserves all 48 non-navigation controls, verifies all 23 event handlers against declarations/definitions, and checks card bounds at five client sizes from 240×240 through 2560×1440. Referenced theme resources exist in the target Windows SDK. The tracked-file publication/link audit and whitespace check pass.
 
-These are compilation, package and structural checks. Native appearance, enlarged text, Narrator/high-contrast behavior, scrolling and live pinned interaction still require the [installed menu procedure](WIDGET-MENU.md#live-verification). Native desktop-control APIs are unavailable in this session. No renderer/transport hot path changed and no new performance or visual acceptance is claimed; UWP sanitizer/hardware benchmarks are outside this UI-only check.
+Release deployment succeeds. An independent Windows query confirms 0.2.1.10 with status OK and an executable SHA-256 matching the checked Release build. All 20 pre-update saved settings compare equal, including exact double-value bits after JSON import normalization, and both protected pairing files retain their SHA-256. The two requested review agents stopped at usage limits; the primary agent completed the [local standards/spec review](CODE-REVIEW.md#ui-checkpoint-02110).
+
+These are compilation, package, persistence and structural checks. Native appearance, enlarged text, Narrator/high-contrast behavior, scrolling and live pinned interaction still require the [installed menu procedure](WIDGET-MENU.md#live-verification). Native desktop-control APIs are unavailable in this session. No renderer/transport hot path changed and no new performance or visual acceptance is claimed; UWP sanitizer/hardware benchmarks are outside this UI-only check.
 
 ## Passive trace diagnostic checkpoint
 

@@ -18,7 +18,7 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ## [0.2.1.10]
 
-UI candidate; native appearance and live acceptance remain pending.
+Unsigned Release UI checkpoint installed and independently verified. All 20 existing saved settings and both protected pairing files are unchanged. Native appearance and live acceptance remain pending.
 
 ### Changed
 

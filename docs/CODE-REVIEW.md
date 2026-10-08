@@ -24,3 +24,17 @@ The production render loop has no fixed four-millisecond polling wait. Its one-m
 Release and Debug results are recorded in [validation](VALIDATION.md). The checks exercise portable contracts, controlled pairing and Desktop selection, encrypted credential storage, GPU keying/color sampling, sequential/concurrent hardware decoding, and benchmark failure cleanup.
 
 No package deployment or real-host performance run was performed for this review. Installed 0.2.1.7 shade stability, Game Bar display timing, and representative local-game load still need live verification. Host-frame coverage remains a separate testing-branch investigation.
+
+## UI checkpoint 0.2.1.10
+
+Local review of `ac19d13...81c738c`, the three-section UI feature commit. The requirements were the user's request to clean up the UI with the installed design skill, make current settings the baseline and keep the interface simple. The standards sources were AGENTS.md, CONTRIBUTING.md, .editorconfig, C++ Core Guidelines and the installed UI skill's native-layout guidance. Both independent review agents stopped at usage limits without returning reports; the primary agent performed the two reviews below. This is not an independent review.
+
+### Standards
+
+No implementation findings. C++ changes stay on the XAML thread, reuse existing controls/settings keys, validate section indices and preserve renderer/session ownership and shutdown. Named controls and handlers compile in Debug/Release; theme keys exist in the target SDK. No decoder, transport or rendering hot path changes. Native controls provide normal focus/pressed/disabled behavior, while narrow windows use a section dropdown. Native keyboard, enlarged text, high-contrast and screen-reader behavior remain unverified.
+
+### Spec
+
+No implementation findings against “make my current settings the baseline and keep things simple.” Connections, Adjustments and Advanced replace four sections. Routine controls are visible; tuning and placement groups are collapsed. Fresh defaults match the selected non-private baseline, saved values override them, and opening/switching sections initiates no resize or stream action. The 20 saved values and two protected pairing files remain unchanged after installation. Main was updated without touching the separate testing checkout. The rendering path remains inside Game Bar UWP. Native visual simplicity and live pinned behavior still need the user's verification.
+
+Findings: Standards 0; Spec 0. Both axes retain the native-interaction verification gap.
