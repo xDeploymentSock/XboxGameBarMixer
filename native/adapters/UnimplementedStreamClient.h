@@ -11,12 +11,12 @@ public:
         return pending();
     }
     operation_result list_applications(const host_endpoint&,
-                      std::vector<host_application>& applications) override {
+                                       std::vector<host_application>& applications) override {
         applications.clear();
         return pending();
     }
-    operation_result connect(const overlay_configuration&, const host_application&,
-                             stream_callbacks) override {
+    operation_result
+    connect(const overlay_configuration&, const host_application&, stream_callbacks) override {
         return pending();
     }
     void stop() noexcept override {}

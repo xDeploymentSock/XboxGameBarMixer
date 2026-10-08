@@ -69,3 +69,23 @@ recorded in [validation](VALIDATION.md#installed-menu-recovery-02112). Static re
 and compilation do not establish native menu visibility. After installation the
 user confirmed normal menu return; the collected log does not establish a full OS
 suspension/resume cycle.
+
+## Release readability cleanup
+
+Compared the staged cleanup against `d9a3cb8`. Requirements: prepare main for release, make native code readable, and keep the README short and understandable. No runtime feature or package-version change is included.
+
+### Standards
+
+Independent review: 0 unresolved documented-standard findings and 0 actionable judgment-call smells. All 28 reformatted native files retain the original lexical tokens, comments and string literals. Include order, ownership, locking and frame lifetimes are preserved. The formatter checks 32 tracked project-owned native files using a pinned version. FFmpeg headers are classified as external; project code retains `/W4 /permissive-`.
+
+### Spec
+
+Independent review: 0 unresolved findings. The README focuses on local installation and everyday use; detailed guides have an index. Coding standards, formatter enforcement, sanitized portable CI and a release guide support source readiness. License selection and signing/distribution remain explicit decisions before a public package is published.
+
+### Verification
+
+Fresh Debug/Release portable contracts, 12 timing-summary tests, MSVC AddressSanitizer contracts, formatting, publication/link audits and staged whitespace checks pass. Complete Debug/Release widget builds, including streaming libraries, finish without compiler warnings or errors. Both MSIX packages pass CRC and identity checks, and their executable bytes match the corresponding build.
+
+Linux AddressSanitizer/UndefinedBehaviorSanitizer checks are enforced by the new CI job. Local MSVC verification supplies AddressSanitizer only. This cleanup does not establish new GPU, live performance or OS suspension results, and it does not reinstall the widget.
+
+Findings: Standards 0 unresolved; Spec 0 unresolved.

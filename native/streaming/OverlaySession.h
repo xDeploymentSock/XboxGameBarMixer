@@ -24,11 +24,14 @@ struct session_snapshot {
     timing_distribution render_timing, present_intervals;
     // CPU wall time: includes scheduling/context-lock waits, not GPU execution
     // or display timing. Ready and timed-out capacity waits stay separate.
-    timing_distribution decode_call_timing, ready_wait_timing, timeout_wait_timing, draw_call_timing, present_call_timing;
+    timing_distribution decode_call_timing, ready_wait_timing, timeout_wait_timing,
+        draw_call_timing, present_call_timing;
     worker_activity_snapshot decoder_activity, render_activity;
     std::uint64_t transport_queue_overflows{};
-    std::uint64_t replaced_pending_frames{}, gpu_slot_retries{}, present_retries{}, presentation_wait_timeouts{};
-    std::uint64_t receive_timing_samples{}, assembly_microseconds{}, queue_microseconds{}, max_queue_microseconds{};
+    std::uint64_t replaced_pending_frames{}, gpu_slot_retries{}, present_retries{},
+        presentation_wait_timeouts{};
+    std::uint64_t receive_timing_samples{}, assembly_microseconds{}, queue_microseconds{},
+        max_queue_microseconds{};
     std::uint64_t host_latency_samples{}, host_latency_tenths_ms{}, zero_host_latency_frames{};
     std::uint16_t max_host_latency_tenths_ms{};
     stream_profile negotiated;
@@ -45,16 +48,19 @@ struct session_snapshot {
 class overlay_session final {
 public:
     explicit overlay_session(std::shared_ptr<sunshine_control> control,
-        std::function<void(const std::string&)> logger = {});
+                             std::function<void(const std::string&)> logger = {});
     ~overlay_session();
     void prepare_action() noexcept;
-    operation_result begin(const overlay_configuration&, const host_application&,
-        std::shared_ptr<windows::d3d11_renderer>, int display_refresh_x100);
+    operation_result begin(const overlay_configuration&,
+                           const host_application&,
+                           std::shared_ptr<windows::d3d11_renderer>,
+                           int display_refresh_x100);
     void cancel() noexcept;
     void stop() noexcept;
     void resize(std::uint32_t width, std::uint32_t height);
     void set_key(const chroma_key_settings& key);
     session_snapshot snapshot() const;
+
 private:
     static int setup(int format, int width, int height, int fps, void* context, int flags) noexcept;
     static int submit(void* unit) noexcept; // Bridge uses the typed C API in .cpp.
@@ -75,15 +81,21 @@ private:
     std::atomic<bool> cancelled_{}, render_stop_{}, connected_{}, finished_{};
     std::atomic<std::uint64_t> received_{}, decoded_{}, presented_{}, decode_errors_{};
     std::atomic<std::uint32_t> last_frame_number_{}, peak_decode_queue_{};
-    std::atomic<std::uint64_t> missing_frame_numbers_{}, decode_microseconds_{}, max_decode_microseconds_{};
-    std::atomic<std::uint64_t> render_latency_samples_{}, render_microseconds_{}, max_render_microseconds_{};
+    std::atomic<std::uint64_t> missing_frame_numbers_{}, decode_microseconds_{},
+        max_decode_microseconds_{};
+    std::atomic<std::uint64_t> render_latency_samples_{}, render_microseconds_{},
+        max_render_microseconds_{};
     timing_histogram render_timing_, present_intervals_;
-    timing_histogram decode_call_timing_, ready_wait_timing_, timeout_wait_timing_, draw_call_timing_, present_call_timing_;
+    timing_histogram decode_call_timing_, ready_wait_timing_, timeout_wait_timing_,
+        draw_call_timing_, present_call_timing_;
     worker_activity decoder_activity_, render_activity_;
     std::atomic<std::uint64_t> transport_queue_overflows_{};
-    std::atomic<std::uint64_t> gpu_slot_retries_{}, present_retries_{}, presentation_wait_timeouts_{};
-    std::atomic<std::uint64_t> receive_timing_samples_{}, assembly_microseconds_{}, queue_microseconds_{}, max_queue_microseconds_{};
-    std::atomic<std::uint64_t> host_latency_samples_{}, host_latency_tenths_ms_{}, zero_host_latency_frames_{};
+    std::atomic<std::uint64_t> gpu_slot_retries_{}, present_retries_{},
+        presentation_wait_timeouts_{};
+    std::atomic<std::uint64_t> receive_timing_samples_{}, assembly_microseconds_{},
+        queue_microseconds_{}, max_queue_microseconds_{};
+    std::atomic<std::uint64_t> host_latency_samples_{}, host_latency_tenths_ms_{},
+        zero_host_latency_frames_{};
     std::atomic<std::uint16_t> max_host_latency_tenths_ms_{};
     mutable std::mutex state_mutex_;
     std::condition_variable changed_;

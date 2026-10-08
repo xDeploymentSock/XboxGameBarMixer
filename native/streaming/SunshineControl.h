@@ -49,13 +49,21 @@ public:
     explicit sunshine_control(std::shared_ptr<credential_store> credentials);
     [[nodiscard]] operation_result inspect(const host_endpoint&, host_information&);
     [[nodiscard]] operation_result pair(const host_endpoint&, const std::string& pin);
-    [[nodiscard]] operation_result list_applications(const host_endpoint&, std::vector<host_application>&);
-    [[nodiscard]] operation_result start_stream(const overlay_configuration&, const host_application&,
-        const std::array<unsigned char, 16>& input_key, const std::array<unsigned char, 16>& input_iv,
-        launch_information&);
-    void cancel() noexcept { cancelled_.store(true); }
+    [[nodiscard]] operation_result list_applications(const host_endpoint&,
+                                                     std::vector<host_application>&);
+    [[nodiscard]] operation_result start_stream(const overlay_configuration&,
+                                                const host_application&,
+                                                const std::array<unsigned char, 16>& input_key,
+                                                const std::array<unsigned char, 16>& input_iv,
+                                                launch_information&);
+    void cancel() noexcept {
+        cancelled_.store(true);
+    }
     // Call before queuing a new explicit user action, never from a worker.
-    void prepare_action() noexcept { cancelled_.store(false); }
+    void prepare_action() noexcept {
+        cancelled_.store(false);
+    }
+
 private:
     std::shared_ptr<credential_store> credentials_;
     std::atomic<bool> cancelled_{};

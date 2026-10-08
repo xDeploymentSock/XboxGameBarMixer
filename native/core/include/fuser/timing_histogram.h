@@ -21,7 +21,8 @@ public:
         if (microseconds > maximum_.load(std::memory_order_relaxed)) {
             maximum_.store(microseconds, std::memory_order_relaxed);
         }
-        const auto index = static_cast<std::size_t>(std::min(microseconds / bucket_width, bucket_count));
+        const auto index =
+            static_cast<std::size_t>(std::min(microseconds / bucket_width, bucket_count));
         buckets_[index].fetch_add(1, std::memory_order_release);
     }
 
@@ -34,13 +35,16 @@ public:
         }
         result.total_microseconds = total_.load(std::memory_order_relaxed);
         result.max_microseconds = maximum_.load(std::memory_order_relaxed);
-        if (!result.samples) { return result; }
+        if (!result.samples) {
+            return result;
+        }
         const auto percentile = [&](std::uint64_t rank) {
             std::uint64_t cumulative{};
             for (std::size_t index = 0; index < counts.size(); ++index) {
                 cumulative += counts[index];
                 if (cumulative >= rank) {
-                    return index < bucket_count ? (index + 1) * bucket_width : result.max_microseconds;
+                    return index < bucket_count ? (index + 1) * bucket_width
+                                                : result.max_microseconds;
                 }
             }
             return result.max_microseconds;
@@ -51,7 +55,9 @@ public:
     }
 
     void reset() noexcept {
-        for (auto& count : buckets_) { count.store(0, std::memory_order_relaxed); }
+        for (auto& count : buckets_) {
+            count.store(0, std::memory_order_relaxed);
+        }
         total_.store(0, std::memory_order_relaxed);
         maximum_.store(0, std::memory_order_relaxed);
     }

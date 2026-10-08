@@ -38,3 +38,26 @@ jobs:
         run: cmake --build build/core --config Release --parallel 2
       - name: Run portable tests
         run: ctest --test-dir build/core -C Release --output-on-failure
+
+  quality:
+    name: Formatting and sanitized core
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install pinned formatter
+        run: python -m pip install clang-format==18.1.8
+      - name: Check native C++ formatting
+        run: python tools/format_cpp.py --check
+      - name: Configure sanitized portable tests
+        run: >-
+          cmake -S . -B build/sanitized -DFUSER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build sanitized portable tests
+        run: cmake --build build/sanitized --parallel 2
+      - name: Run sanitized portable tests
+        run: ctest --test-dir build/sanitized --output-on-failure

@@ -7,14 +7,17 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ## [Unreleased]
 
+### Changed
+
+- Shortened the README around installation and everyday use; collected detailed guides in a documentation index.
+- Formatted project-owned native C++ consistently, expanding dense control flow without changing runtime behavior.
+- Added concise coding standards and a release guide separating local development packages from public distribution.
+- Marked upstream FFmpeg headers as external while retaining compiler warnings for project code.
+
 ### Added
 
-- Recorded restarted HEVC gameplay monitoring and rejected active-target DXGI captures, including a file-backed missing-event control.
-- Added an optional bounded passive DXGI API event collector with an owned ETW transport test, explicit incomplete-capture rejection and private CSV output.
-- Recorded same-adapter GPU-engine utilization and late transport queue overflow after the saved gameplay window; their causes remain unverified.
-- Documented passive trace-collection failures, owned active-producer/elevation controls and the requirement to validate display measurements before drawing optimization conclusions.
-- Recorded installed 0.2.1.8 HEVC/H.264 live HUD receiver results and the user's preference for near-black cleanup, with display and gaming verification limits.
-- Documented current gameplay monitoring with about 237 received/decoded units per second while presentation throughput decreased, with user visual acceptance and unresolved display/game-impact measurements.
+- Pinned native C++ formatting checks and Linux AddressSanitizer/UndefinedBehaviorSanitizer core tests in CI.
+- Additional private profiling and gameplay observations; results and measurement limits are recorded in [validation](docs/VALIDATION.md).
 
 ## [0.2.1.12]
 

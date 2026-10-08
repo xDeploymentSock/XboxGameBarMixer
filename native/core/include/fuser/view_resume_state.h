@@ -12,7 +12,9 @@ public:
         return ++generation_;
     }
     [[nodiscard]] bool resume(std::uint64_t token) noexcept {
-        if (!pending_ || token != generation_) { return false; }
+        if (!pending_ || token != generation_) {
+            return false;
+        }
         pending_ = false;
         return true;
     }
@@ -20,6 +22,7 @@ public:
         ++generation_;
         pending_ = false;
     }
+
 private:
     std::uint64_t generation_{};
     bool pending_{};

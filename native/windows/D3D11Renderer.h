@@ -34,17 +34,27 @@ public:
     void resize(std::uint32_t width, std::uint32_t height);
     void draw_diagnostic(const chroma_key_settings& key, std::uint64_t sequence);
     [[nodiscard]] operation_result draw_frame(const decoded_frame& frame,
-                                             const chroma_key_settings& key);
+                                              const chroma_key_settings& key);
     void present();
     [[nodiscard]] bool wait_to_present(std::uint32_t timeout_ms);
     [[nodiscard]] bool try_present();
     void clear();
 
-    [[nodiscard]] ID3D11Device* device() const noexcept { return device_.Get(); }
-    [[nodiscard]] ID3D11DeviceContext* context() const noexcept { return context_.Get(); }
-    [[nodiscard]] std::shared_ptr<std::recursive_mutex> context_lock() const noexcept { return context_lock_; }
-    [[nodiscard]] IDXGISwapChain1* swap_chain() const noexcept { return swap_chain_.Get(); }
-    [[nodiscard]] std::uint64_t present_calls() const noexcept { return present_calls_; }
+    [[nodiscard]] ID3D11Device* device() const noexcept {
+        return device_.Get();
+    }
+    [[nodiscard]] ID3D11DeviceContext* context() const noexcept {
+        return context_.Get();
+    }
+    [[nodiscard]] std::shared_ptr<std::recursive_mutex> context_lock() const noexcept {
+        return context_lock_;
+    }
+    [[nodiscard]] IDXGISwapChain1* swap_chain() const noexcept {
+        return swap_chain_.Get();
+    }
+    [[nodiscard]] std::uint64_t present_calls() const noexcept {
+        return present_calls_;
+    }
     [[nodiscard]] renderer_resource_counts resources_created() const {
         const std::lock_guard guard{*context_lock_};
         return resources_created_;
@@ -52,7 +62,9 @@ public:
 
 private:
     struct handle_deleter {
-        void operator()(void* handle) const noexcept { CloseHandle(handle); }
+        void operator()(void* handle) const noexcept {
+            CloseHandle(handle);
+        }
     };
     struct alignas(16) shader_parameters {
         std::array<float, 4> key_color_tolerance{};
@@ -75,7 +87,8 @@ private:
     struct video_plane_views {
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> luminance, chrominance;
     };
-    [[nodiscard]] const video_plane_views& prepare_video_views(ID3D11Texture2D* texture, UINT array_size, UINT slice);
+    [[nodiscard]] const video_plane_views&
+    prepare_video_views(ID3D11Texture2D* texture, UINT array_size, UINT slice);
 
     struct in_flight_frame {
         decoded_frame frame;

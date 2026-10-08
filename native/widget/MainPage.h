@@ -14,29 +14,53 @@ struct MainPage : MainPageT<MainPage> {
     MainPage();
     ~MainPage();
     void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& args);
-    void save_profile_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void hud_quality_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void connect_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void pair_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void refresh_apps_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void disconnect_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void draw_preview_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void clear_preview_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void fit_monitor_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void apply_dimensions_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void full_screen_fit_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void reset_position_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void key_color_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
-    void key_settings_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const&);
-    void clean_black_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void exact_black_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void apply_key_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void settings_tab_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void settings_section_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
-    void advanced_options_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
-    void video_host_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
-    void video_layout_size_changed(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::SizeChangedEventArgs const&);
-    void apply_video_fit_click(Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&);
+    void save_profile_click(Windows::Foundation::IInspectable const&,
+                            Windows::UI::Xaml::RoutedEventArgs const&);
+    void hud_quality_click(Windows::Foundation::IInspectable const&,
+                           Windows::UI::Xaml::RoutedEventArgs const&);
+    void connect_click(Windows::Foundation::IInspectable const&,
+                       Windows::UI::Xaml::RoutedEventArgs const&);
+    void pair_click(Windows::Foundation::IInspectable const&,
+                    Windows::UI::Xaml::RoutedEventArgs const&);
+    void refresh_apps_click(Windows::Foundation::IInspectable const&,
+                            Windows::UI::Xaml::RoutedEventArgs const&);
+    void disconnect_click(Windows::Foundation::IInspectable const&,
+                          Windows::UI::Xaml::RoutedEventArgs const&);
+    void draw_preview_click(Windows::Foundation::IInspectable const&,
+                            Windows::UI::Xaml::RoutedEventArgs const&);
+    void clear_preview_click(Windows::Foundation::IInspectable const&,
+                             Windows::UI::Xaml::RoutedEventArgs const&);
+    void fit_monitor_click(Windows::Foundation::IInspectable const&,
+                           Windows::UI::Xaml::RoutedEventArgs const&);
+    void apply_dimensions_click(Windows::Foundation::IInspectable const&,
+                                Windows::UI::Xaml::RoutedEventArgs const&);
+    void full_screen_fit_click(Windows::Foundation::IInspectable const&,
+                               Windows::UI::Xaml::RoutedEventArgs const&);
+    void reset_position_click(Windows::Foundation::IInspectable const&,
+                              Windows::UI::Xaml::RoutedEventArgs const&);
+    void key_color_changed(Windows::Foundation::IInspectable const&,
+                           Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
+    void key_settings_changed(
+        Windows::Foundation::IInspectable const&,
+        Windows::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const&);
+    void clean_black_click(Windows::Foundation::IInspectable const&,
+                           Windows::UI::Xaml::RoutedEventArgs const&);
+    void exact_black_click(Windows::Foundation::IInspectable const&,
+                           Windows::UI::Xaml::RoutedEventArgs const&);
+    void apply_key_click(Windows::Foundation::IInspectable const&,
+                         Windows::UI::Xaml::RoutedEventArgs const&);
+    void settings_tab_click(Windows::Foundation::IInspectable const&,
+                            Windows::UI::Xaml::RoutedEventArgs const&);
+    void settings_section_changed(Windows::Foundation::IInspectable const&,
+                                  Windows::UI::Xaml::Controls::SelectionChangedEventArgs const&);
+    void advanced_options_changed(Windows::Foundation::IInspectable const&,
+                                  Windows::UI::Xaml::RoutedEventArgs const&);
+    void video_host_size_changed(Windows::Foundation::IInspectable const&,
+                                 Windows::UI::Xaml::SizeChangedEventArgs const&);
+    void video_layout_size_changed(Windows::Foundation::IInspectable const&,
+                                   Windows::UI::Xaml::SizeChangedEventArgs const&);
+    void apply_video_fit_click(Windows::Foundation::IInspectable const&,
+                               Windows::UI::Xaml::RoutedEventArgs const&);
     void shutdown() noexcept;
 
 private:

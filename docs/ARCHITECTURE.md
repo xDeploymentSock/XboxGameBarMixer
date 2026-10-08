@@ -2,7 +2,7 @@
 
 ## Agreed behavior
 
-The source PC renders HUD content on a fixed green or magenta background. Sunshine captures and encodes that display. A Windows 11 Game Bar widget receives the stream, decodes into GPU memory, removes the reserved background, and presents a premultiplied-alpha surface. Input stays on the local PC through Game Bar's user-controlled click-through setting. Audio and remote input forwarding are outside this first implementation.
+The source PC renders HUD content on a reserved black, green or magenta background. Sunshine captures and encodes that display. A Windows 11 Game Bar widget receives the stream, decodes into GPU memory, removes the reserved background, and presents a premultiplied-alpha surface. Input stays on the local PC through Game Bar's user-controlled click-through setting. Audio and remote input forwarding are outside this first implementation.
 
 240 is a requested stream rate, not a claim about displayed FPS or synchronized scanout. The monitor, source generation, capture, encoder, transport, decoder, renderer, and compositor must each be measured. No implementation may silently substitute a lower rate and label it 240 FPS.
 
@@ -43,8 +43,8 @@ The shell connects a `CreateSwapChainForComposition` swap chain through `ICompos
 
 ## Startup, shutdown, and limitations
 
-Initial activation shows settings and performs no GPU allocation or remote connection. Drawing a diagnostic frame is an explicit action. Game Bar repeat activation retains the first widget connection. Pinned-only mode hides controls. The installed runtime reports RequestedOpacity as 1.0 in foreground and 0.85 when pinned, despite API prose saying 0-100. Version 0.2.0.1 follows Microsoft's transparency sample and applies the normalized value directly to the composition visual. Live opacity validation is still required.
+Initial activation shows settings and performs no GPU allocation or remote connection. Drawing a diagnostic frame is an explicit action. Game Bar repeat activation retains the first widget connection. Pinned-only mode hides controls. The installed runtime reports RequestedOpacity as 1.0 in foreground and 0.85 when pinned, despite API prose saying 0-100. The settings card follows that host opacity. Video stays opaque by default and follows it only when explicitly enabled in Advanced. Black-removal presets keep surviving decoded colors opaque.
 
-Close/suspend cancels the current action. Stream shutdown joins workers before a new session can acquire the core, preventing callbacks from entering a later connection. Device/presentation errors are terminal and require reconnect. Visibility, DPI changes without logical resizing, and monitor transitions need live validation; add handling where evidence requires it. Rendering drains its leased GPU reads before destruction; measure shutdown under device removal.
+Close/suspend cancels the current action. Suspension retains the Game Bar host; resume rebuilds an idle settings page and never reconnects automatically. Generation checks reject stale or duplicate resume notifications. See [menu recovery](MENU-RECOVERY.md) for verification limits. Stream shutdown joins workers before a new session can acquire the core, preventing callbacks from entering a later connection. Device/presentation errors are terminal and require reconnect. Visibility, DPI changes without logical resizing, and monitor transitions need live validation; add handling where evidence requires it. Rendering drains its leased GPU reads before destruction; measure shutdown under device removal.
 
 Exact screen-edge coverage, actual 240 displayed FPS, fullscreen Vulkan/OpenGL behavior, and local-game performance cost are unverified. If Game Bar is the demonstrated blocker, record the evidence and discuss a desktop overlay alternative with the user before changing the chosen platform.

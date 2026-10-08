@@ -22,7 +22,7 @@ public:
                    std::shared_ptr<std::recursive_mutex> context_lock);
     ~ffmpeg_decoder() override;
     [[nodiscard]] operation_result initialize(const stream_profile& profile,
-                                      std::function<void(decoded_frame)> on_frame) override;
+                                              std::function<void(decoded_frame)> on_frame) override;
     [[nodiscard]] operation_result submit(encoded_frame frame) override;
     [[nodiscard]] operation_result flush(); // Explicit end-of-input; never called by stop.
     void stop() noexcept override;

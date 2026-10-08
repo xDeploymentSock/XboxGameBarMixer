@@ -28,10 +28,13 @@ public:
     }
 
     void apply_dimensions(widget_pixel_extent pixels) noexcept {
-        pending_ = widget_layout_request{widget_layout_action::apply_dimensions, ++revision_, pixels};
+        pending_ =
+            widget_layout_request{widget_layout_action::apply_dimensions, ++revision_, pixels};
     }
 
-    [[nodiscard]] bool has_pending() const noexcept { return pending_.has_value(); }
+    [[nodiscard]] bool has_pending() const noexcept {
+        return pending_.has_value();
+    }
 
     [[nodiscard]] std::optional<widget_layout_request> take() noexcept {
         return std::exchange(pending_, std::nullopt);
@@ -47,7 +50,9 @@ public:
     }
 
     void visibility_changed(bool visible) noexcept {
-        if (!visible) { invalidate(); }
+        if (!visible) {
+            invalidate();
+        }
     }
 
 private:

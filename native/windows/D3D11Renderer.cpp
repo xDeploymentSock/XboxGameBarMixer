@@ -24,8 +24,8 @@ d3d11_renderer::~d3d11_renderer() noexcept {
         BOOL complete = FALSE;
         HRESULT status = S_FALSE;
         // Device removal terminates the wait; a failed device cannot read a pool slot.
-        while ((status = context_->GetData(pending->completed.Get(), &complete,
-                 sizeof(complete), 0)) == S_FALSE) {
+        while ((status = context_->GetData(
+                    pending->completed.Get(), &complete, sizeof(complete), 0)) == S_FALSE) {
             Sleep(1);
         }
         pending.reset();
@@ -36,8 +36,10 @@ void d3d11_renderer::retire_completed_frames() {
     for (auto& pending : in_flight_) {
         if (pending) {
             BOOL complete = FALSE;
-            const auto status = context_->GetData(pending->completed.Get(), &complete,
-                                                  sizeof(complete), D3D11_ASYNC_GETDATA_DONOTFLUSH);
+            const auto status = context_->GetData(pending->completed.Get(),
+                                                  &complete,
+                                                  sizeof(complete),
+                                                  D3D11_ASYNC_GETDATA_DONOTFLUSH);
             winrt::check_hresult(status);
             if (status == S_OK && complete) {
                 pending.reset();
@@ -55,10 +57,17 @@ void d3d11_renderer::initialize(std::uint32_t width, std::uint32_t height) {
         throw std::invalid_argument{"Render dimensions must be positive."};
     }
     constexpr std::array levels{D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
-    winrt::check_hresult(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
-        D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
-        levels.data(), static_cast<UINT>(levels.size()), D3D11_SDK_VERSION,
-        device_.GetAddressOf(), nullptr, context_.GetAddressOf()));
+    winrt::check_hresult(
+        D3D11CreateDevice(nullptr,
+                          D3D_DRIVER_TYPE_HARDWARE,
+                          nullptr,
+                          D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
+                          levels.data(),
+                          static_cast<UINT>(levels.size()),
+                          D3D11_SDK_VERSION,
+                          device_.GetAddressOf(),
+                          nullptr,
+                          context_.GetAddressOf()));
 
     ComPtr<IDXGIDevice> dxgi_device;
     winrt::check_hresult(device_.As(&dxgi_device));
@@ -78,18 +87,20 @@ void d3d11_renderer::initialize(std::uint32_t width, std::uint32_t height) {
     description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     description.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
     description.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
-    winrt::check_hresult(factory->CreateSwapChainForComposition(device_.Get(),
-        &description, nullptr, swap_chain_.GetAddressOf()));
+    winrt::check_hresult(factory->CreateSwapChainForComposition(
+        device_.Get(), &description, nullptr, swap_chain_.GetAddressOf()));
     ComPtr<IDXGISwapChain2> paced_chain;
     winrt::check_hresult(swap_chain_.As(&paced_chain));
     winrt::check_hresult(paced_chain->SetMaximumFrameLatency(1));
     presentation_ready_.reset(paced_chain->GetFrameLatencyWaitableObject());
-    if (!presentation_ready_) { throw std::runtime_error{"Presentation wait handle is unavailable."}; }
+    if (!presentation_ready_) {
+        throw std::runtime_error{"Presentation wait handle is unavailable."};
+    }
 
-    winrt::check_hresult(device_->CreateVertexShader(g_fullscreen_vs,
-        sizeof(g_fullscreen_vs), nullptr, vertex_shader_.GetAddressOf()));
-    winrt::check_hresult(device_->CreatePixelShader(g_chroma_key_ps,
-        sizeof(g_chroma_key_ps), nullptr, pixel_shader_.GetAddressOf()));
+    winrt::check_hresult(device_->CreateVertexShader(
+        g_fullscreen_vs, sizeof(g_fullscreen_vs), nullptr, vertex_shader_.GetAddressOf()));
+    winrt::check_hresult(device_->CreatePixelShader(
+        g_chroma_key_ps, sizeof(g_chroma_key_ps), nullptr, pixel_shader_.GetAddressOf()));
     D3D11_BUFFER_DESC buffer{};
     buffer.ByteWidth = static_cast<UINT>(sizeof(shader_parameters));
     buffer.Usage = D3D11_USAGE_DEFAULT;
@@ -116,8 +127,8 @@ void d3d11_renderer::initialize(std::uint32_t width, std::uint32_t height) {
 void d3d11_renderer::create_target() {
     ComPtr<ID3D11Texture2D> back_buffer;
     winrt::check_hresult(swap_chain_->GetBuffer(0, IID_PPV_ARGS(back_buffer.GetAddressOf())));
-    winrt::check_hresult(device_->CreateRenderTargetView(back_buffer.Get(), nullptr,
-                                                       target_.GetAddressOf()));
+    winrt::check_hresult(
+        device_->CreateRenderTargetView(back_buffer.Get(), nullptr, target_.GetAddressOf()));
 }
 
 void d3d11_renderer::resize(std::uint32_t width, std::uint32_t height) {
@@ -128,22 +139,28 @@ void d3d11_renderer::resize(std::uint32_t width, std::uint32_t height) {
     context_->OMSetRenderTargets(0, nullptr, nullptr);
     target_.Reset();
     context_->Flush();
-    winrt::check_hresult(swap_chain_->ResizeBuffers(2, width, height,
-        DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT));
+    winrt::check_hresult(
+        swap_chain_->ResizeBuffers(2,
+                                   width,
+                                   height,
+                                   DXGI_FORMAT_B8G8R8A8_UNORM,
+                                   DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT));
     width_ = width;
     height_ = height;
     create_target();
 }
 
-d3d11_renderer::shader_parameters d3d11_renderer::parameters(
-    const chroma_key_settings& key, std::uint64_t sequence) const {
+d3d11_renderer::shader_parameters d3d11_renderer::parameters(const chroma_key_settings& key,
+                                                             std::uint64_t sequence) const {
     shader_parameters result{};
     result.key_color_tolerance = {key.color[0], key.color[1], key.color[2], key.tolerance};
     result.controls = {key.softness, key.spill_suppression, key.opacity, 0.0F};
     result.key_options[0] = key.recover_black_edges ? 1.0F : 0.0F;
     result.key_options[1] = key.crisp_scaling ? 1.0F : 0.0F;
-    result.dimensions_sequence = {static_cast<float>(width_), static_cast<float>(height_),
-                                 static_cast<float>(sequence % 256), key.enabled ? 1.0F : 0.0F};
+    result.dimensions_sequence = {static_cast<float>(width_),
+                                  static_cast<float>(height_),
+                                  static_cast<float>(sequence % 256),
+                                  key.enabled ? 1.0F : 0.0F};
     return result;
 }
 
@@ -155,15 +172,17 @@ void d3d11_renderer::draw_diagnostic(const chroma_key_settings& key, std::uint64
     draw(parameters(key, sequence));
 }
 
-d3d11_renderer::video_plane_views const& d3d11_renderer::prepare_video_views(
-    ID3D11Texture2D* texture, UINT array_size, UINT slice) {
+d3d11_renderer::video_plane_views const&
+d3d11_renderer::prepare_video_views(ID3D11Texture2D* texture, UINT array_size, UINT slice) {
     if (video_texture_.Get() != texture) {
         video_views_.clear();
         video_views_.resize(array_size);
         video_texture_ = texture;
     }
     auto& cached = video_views_[slice];
-    if (cached.luminance && cached.chrominance) { return cached; }
+    if (cached.luminance && cached.chrominance) {
+        return cached;
+    }
     D3D11_SHADER_RESOURCE_VIEW_DESC description{};
     description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
     description.Texture2DArray.MipLevels = 1;
@@ -171,10 +190,12 @@ d3d11_renderer::video_plane_views const& d3d11_renderer::prepare_video_views(
     description.Texture2DArray.FirstArraySlice = slice;
     description.Format = DXGI_FORMAT_R8_UNORM;
     ComPtr<ID3D11ShaderResourceView> luminance, chrominance;
-    winrt::check_hresult(device_->CreateShaderResourceView(texture, &description, luminance.GetAddressOf()));
+    winrt::check_hresult(
+        device_->CreateShaderResourceView(texture, &description, luminance.GetAddressOf()));
     ++resources_created_.plane_views;
     description.Format = DXGI_FORMAT_R8G8_UNORM;
-    winrt::check_hresult(device_->CreateShaderResourceView(texture, &description, chrominance.GetAddressOf()));
+    winrt::check_hresult(
+        device_->CreateShaderResourceView(texture, &description, chrominance.GetAddressOf()));
     ++resources_created_.plane_views;
     cached.luminance = std::move(luminance);
     cached.chrominance = std::move(chrominance);
@@ -182,29 +203,33 @@ d3d11_renderer::video_plane_views const& d3d11_renderer::prepare_video_views(
 }
 
 operation_result d3d11_renderer::draw_frame(const decoded_frame& frame,
-                                           const chroma_key_settings& key) {
+                                            const chroma_key_settings& key) {
     const std::lock_guard guard{*context_lock_};
     if (!context_) {
         return {operation_code::unavailable, "Renderer has not been initialized."};
     }
     retire_completed_frames();
-    const auto slot = std::find_if(in_flight_.begin(), in_flight_.end(),
-                                  [](const auto& pending) { return !pending; });
+    const auto slot = std::find_if(
+        in_flight_.begin(), in_flight_.end(), [](const auto& pending) { return !pending; });
     if (slot == in_flight_.end()) {
         // A nonblocking Present can decline submission. Ensure queued read
         // fences reach the GPU before the owner retries outside this lock.
         context_->Flush();
-        return {operation_code::unavailable, "GPU still owns all display slots; keep the newest decoded frame for a later presentation."};
+        return {
+            operation_code::unavailable,
+            "GPU still owns all display slots; keep the newest decoded frame for a later presentation."};
     }
     const auto surface = std::dynamic_pointer_cast<const d3d11_surface>(frame.surface);
     if (!surface || !surface->texture() || frame.format != pixel_format::nv12 ||
         frame.matrix == color_matrix::bt2020 || frame.width == 0 || frame.height == 0) {
-        return {operation_code::unsupported_format, "Foundation renderer accepts SDR NV12 BT.601/BT.709 GPU surfaces."};
+        return {operation_code::unsupported_format,
+                "Foundation renderer accepts SDR NV12 BT.601/BT.709 GPU surfaces."};
     }
     ComPtr<ID3D11Device> source_device;
     surface->texture()->GetDevice(source_device.GetAddressOf());
     if (source_device.Get() != device_.Get()) {
-        return {operation_code::unsupported_format, "Decoder texture must belong to the renderer's D3D11 device."};
+        return {operation_code::unsupported_format,
+                "Decoder texture must belong to the renderer's D3D11 device."};
     }
     D3D11_TEXTURE2D_DESC texture_description{};
     surface->texture()->GetDesc(&texture_description);
@@ -215,33 +240,33 @@ operation_result d3d11_renderer::draw_frame(const decoded_frame& frame,
         frame.width > texture_description.Width - frame.source_x ||
         frame.height > texture_description.Height - frame.source_y ||
         ((frame.source_x | frame.source_y | frame.width | frame.height) & 1U) != 0) {
-        return {operation_code::unsupported_format, "NV12 needs shader-resource binding and an even, in-bounds visible rectangle."};
+        return {operation_code::unsupported_format,
+                "NV12 needs shader-resource binding and an even, in-bounds visible rectangle."};
     }
-    const auto& cached = prepare_video_views(surface->texture(), texture_description.ArraySize, surface->array_slice());
+    const auto& cached = prepare_video_views(
+        surface->texture(), texture_description.ArraySize, surface->array_slice());
     ID3D11ShaderResourceView* views[]{cached.luminance.Get(), cached.chrominance.Get()};
     context_->PSSetShaderResources(0, 2, views);
     auto values = parameters(key, frame.sequence);
     values.controls[3] = 1.0F;
     const auto allocation_width = static_cast<float>(texture_description.Width);
     const auto allocation_height = static_cast<float>(texture_description.Height);
-    values.source_rectangle = {
-        static_cast<float>(frame.source_x) / allocation_width,
-        static_cast<float>(frame.source_y) / allocation_height,
-        static_cast<float>(frame.width) / allocation_width,
-        static_cast<float>(frame.height) / allocation_height};
+    values.source_rectangle = {static_cast<float>(frame.source_x) / allocation_width,
+                               static_cast<float>(frame.source_y) / allocation_height,
+                               static_cast<float>(frame.width) / allocation_width,
+                               static_cast<float>(frame.height) / allocation_height};
     const bool limited = frame.range == color_range::limited;
     const bool rec709 = frame.matrix == color_matrix::bt709;
-    values.offsets = {limited ? 16.0F / 255.0F : 0.0F, 128.0F / 255.0F,
-                      128.0F / 255.0F, 0.0F};
+    values.offsets = {limited ? 16.0F / 255.0F : 0.0F, 128.0F / 255.0F, 128.0F / 255.0F, 0.0F};
     if (limited) {
         values.matrix_row0 = {1.1644F, 0.0F, rec709 ? 1.7927F : 1.5960F, 0.0F};
-        values.matrix_row1 = {1.1644F, rec709 ? -0.2132F : -0.3918F,
-                              rec709 ? -0.5329F : -0.8130F, 0.0F};
+        values.matrix_row1 = {
+            1.1644F, rec709 ? -0.2132F : -0.3918F, rec709 ? -0.5329F : -0.8130F, 0.0F};
         values.matrix_row2 = {1.1644F, rec709 ? 2.1124F : 2.0172F, 0.0F, 0.0F};
     } else {
         values.matrix_row0 = {1.0F, 0.0F, rec709 ? 1.5748F : 1.4020F, 0.0F};
-        values.matrix_row1 = {1.0F, rec709 ? -0.1873F : -0.3441F,
-                              rec709 ? -0.4681F : -0.7141F, 0.0F};
+        values.matrix_row1 = {
+            1.0F, rec709 ? -0.1873F : -0.3441F, rec709 ? -0.4681F : -0.7141F, 0.0F};
         values.matrix_row2 = {1.0F, rec709 ? 1.8556F : 1.7720F, 0.0F, 0.0F};
     }
     // No allocations or throwing API calls after GPU reads are submitted.
@@ -258,8 +283,8 @@ void d3d11_renderer::draw(const shader_parameters& values) {
     context_->UpdateSubresource(constants_.Get(), 0, nullptr, &values, 0, 0);
     ID3D11RenderTargetView* targets[]{target_.Get()};
     context_->OMSetRenderTargets(1, targets, nullptr);
-    const D3D11_VIEWPORT viewport{0.0F, 0.0F, static_cast<float>(width_),
-                                 static_cast<float>(height_), 0.0F, 1.0F};
+    const D3D11_VIEWPORT viewport{
+        0.0F, 0.0F, static_cast<float>(width_), static_cast<float>(height_), 0.0F, 1.0F};
     context_->RSSetViewports(1, &viewport);
     context_->IASetInputLayout(nullptr);
     context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -277,12 +302,18 @@ void d3d11_renderer::present() {
 }
 
 bool d3d11_renderer::wait_to_present(std::uint32_t timeout_ms) {
-    if (!presentation_ready_) { throw std::logic_error{"Initialize the renderer before waiting."}; }
-    if (presentation_slot_ready_) { return true; }
+    if (!presentation_ready_) {
+        throw std::logic_error{"Initialize the renderer before waiting."};
+    }
+    if (presentation_slot_ready_) {
+        return true;
+    }
     // The owner thread waits before selecting a frame, without the context lock.
     // Decode continues and the mailbox replaces older display frames meanwhile.
     const auto result = WaitForSingleObjectEx(presentation_ready_.get(), timeout_ms, FALSE);
-    if (result == WAIT_TIMEOUT) { return false; }
+    if (result == WAIT_TIMEOUT) {
+        return false;
+    }
     winrt::check_bool(result == WAIT_OBJECT_0);
     presentation_slot_ready_ = true;
     return true;
@@ -299,7 +330,9 @@ bool d3d11_renderer::try_present() {
     // every submitted frame to stay on screen for a full refresh interval.
     // Never stall FFmpeg's shared context while DXGI's present queue is full.
     const auto result = swap_chain_->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
-    if (result == DXGI_ERROR_WAS_STILL_DRAWING) { return false; }
+    if (result == DXGI_ERROR_WAS_STILL_DRAWING) {
+        return false;
+    }
     winrt::check_hresult(result);
     presentation_slot_ready_ = false;
     ++present_calls_;

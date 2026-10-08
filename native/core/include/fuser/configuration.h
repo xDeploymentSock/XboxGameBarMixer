@@ -50,7 +50,7 @@ struct validation_issue {
     std::string message;
 };
 
-[[nodiscard]] std::vector<validation_issue> validate(
-    const overlay_configuration& configuration, bool require_host = true);
+[[nodiscard]] std::vector<validation_issue> validate(const overlay_configuration& configuration,
+                                                     bool require_host = true);
 
 } // namespace fuser

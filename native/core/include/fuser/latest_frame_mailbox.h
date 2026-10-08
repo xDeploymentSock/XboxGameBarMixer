@@ -43,10 +43,15 @@ public:
         std::optional<decoded_frame> displaced;
         {
             const std::scoped_lock lock{mutex_};
-            if (!frame_) { return false; }
+            if (!frame_) {
+                return false;
+            }
             displaced.swap(pending);
             pending.swap(frame_);
-            if (displaced) { ++replaced_frames_; ++replaced_pending_frames_; }
+            if (displaced) {
+                ++replaced_frames_;
+                ++replaced_pending_frames_;
+            }
         }
         return true;
     }

@@ -1,0 +1,25 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 100
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakStringLiterals: false
+BinPackArguments: false
+BinPackParameters: false
+SortIncludes: Never
+ReflowComments: false
+FixNamespaceComments: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+LineEnding: LF
+InsertNewlineAtEOF: true
+...
