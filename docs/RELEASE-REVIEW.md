@@ -60,7 +60,9 @@ Final specification re-review found **0 unresolved confirmed findings**. The ear
 | PowerShell tools | All tool scripts parsed; synthetic `Deploy -ValidateOnly` fixtures accept matching manifests and reject mismatched version/architecture/publisher |
 | Prepared MSIX contents | Final Debug/Release CRC, manifest/version/x64 and executable hashes verified; all nine notice files and nine Release/ten Debug DLLs match their build inputs. `ValidateOnly` passed for both; candidate remains uninstalled. |
 | Private recovery archive | Created from staged source/current package/selected local logs; 150 input hashes and ZIP CRC verified. Records installed 0.2.1.10 separately from prepared 0.2.1.11. Archive/receipt remain ignored and are not public release bundles. |
-| GitHub Actions | Portable Windows/Linux and Linux ASan/UBSan jobs added; push-run results pending |
+| GitHub Actions | All three jobs passed on `cf6cac7`: portable Windows/Linux and Linux ASan/UBSan. [Run evidence](https://github.com/xDeploymentSock/XboxGameBarMixer/actions/runs/37724111238). The initial Windows fixture comparison failed on a short-path alias; canonicalizing the disposable fixture root fixed it. |
+
+Windows checks reused pinned dependency/source/runtime caches read-only from main; candidate application, streaming libraries and tests were compiled in the testing worktree. This was not a clean-cache dependency rebuild.
 
 The native suite uses owned fixtures and offscreen surfaces. It does not certify Game Bar composition, 240 distinct displayed frames, source quality, capture exclusion, game impact or optical latency. Existing measured performance remains in [validation](VALIDATION.md) and [receiver performance](RECEIVER-PERFORMANCE.md); no latency gain is claimed for this correctness cleanup.
 
