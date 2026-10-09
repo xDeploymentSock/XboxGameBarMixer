@@ -16,7 +16,7 @@ reports status OK; its executable matches the verified Release build.
 The user reports the overlay is still visible in a Win+Shift+S capture with the
 toggle on. Runtime evidence confirms `requested=true` and
 `screenCaptureEnabled=false`: API acceptance did not protect that capture.
-Game Bar foreground/dismissed state was not confirmed. The cause is unresolved;
+The user confirmed Game Bar was closed and the widget pinned. The cause is unresolved;
 this is a failed Snipping Tool exclusion test, not a general capture guarantee.
 
 Full off/on/off comparisons, other capture tools, compact/keyboard interaction,

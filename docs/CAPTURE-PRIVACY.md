@@ -10,7 +10,7 @@ A save failure restores the previous switch state. An API failure retains the sa
 
 On the installed 0.2.1.13 package, the user enabled blocking and took a **Win+Shift+S (Snipping Tool)** capture. The overlay remained visible: **exclusion failed in this test**. The runtime log independently records `requested=true` and `screenCaptureEnabled=false`, so the API setter/readback succeeded while capture still included the overlay.
 
-The exact host/capture interaction causing this is not established. The report does not confirm whether Game Bar was dismissed, so no foreground-versus-pinned distinction is inferred. Do not rely on this experiment for screenshot protection. Other tools and an off/on/off comparison remain unverified.
+The user confirmed **Game Bar was closed and Software Fuser was pinned** during the failed capture. The exact host/capture interaction causing this is not established. Foreground behavior with Game Bar open remains untested. Do not rely on this experiment for screenshot protection. Other tools and an off/on/off comparison remain unverified.
 
 ## Live verification
 
