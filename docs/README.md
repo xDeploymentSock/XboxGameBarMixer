@@ -24,3 +24,4 @@ Start with the [project README](../README.md) for installation and first use.
 - [Validation](VALIDATION.md) and [code reviews](CODE-REVIEW.md): evidence and remaining checks.
 - [Receiver performance](RECEIVER-PERFORMANCE.md) and [passive trace collection](PASSIVE-TRACE.md).
 - [Development history](DEVELOPMENT-HISTORY.md) and [installed skills](REPOSITORY-SKILLS.md).
+- [Experimental capture privacy](CAPTURE-PRIVACY.md): saved toggle and per-tool live verification.

@@ -1,6 +1,6 @@
 # Release guide
 
-Main contains the usable-area Game Bar widget. The current package version is **0.2.1.12**; this is an unsigned development preview. Formatting and documentation cleanup does not change widget behavior or the package version.
+Main contains the usable-area Game Bar widget. The current package version is **0.2.1.13**; this is an unsigned development preview. Capture blocking is experimental; see [capture privacy](CAPTURE-PRIVACY.md) for verification limits.
 
 ## Prepare main
 

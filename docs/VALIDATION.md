@@ -2,6 +2,21 @@
 
 The target is 2560x1440 at 240 requested FPS, composited as a transparent Xbox Game Bar widget. The current milestone accepts measured throughput above 200 FPS with the source display at 244 Hz; existing live measurements exceed that threshold. Current gameplay windows average about 122-141 accepted-Present samples/s, so the idle milestone does not establish presentation performance under load. Fine FPS tuning is deferred. Black transparency and click-through were confirmed, but the user clarified that taskbar coverage required manual dragging and that automatic fitting remained buggy. Automatic coverage, actual 240 distinct displayed source frames per second, and representative local-game impact remain unverified.
 
+## Experimental capture blocking (0.2.1.13)
+
+Added a saved, default-off Advanced toggle controlling the current UWP view's
+capture property. Navigation reapplies the choice; shutdown does not reset it.
+The render pipeline is unchanged. Standards and specification reviews found no
+blocking issues. x64 Debug and Release UWP builds, Release core contracts,
+12 timing-summary tests and native formatting pass. Both UWP build logs show zero
+warnings/errors. Both packages pass CRC, identity, version, x64 and built-executable
+matching checks. The staged publication audit has no findings. Installation and
+capture-tool behavior require an idle window.
+
+Live off/on/off capture results, compact/keyboard interaction, preference
+persistence and actual OS suspension/resume acceptance remain pending. Readback
+acceptance cannot establish Game Bar capture exclusion. See [capture privacy](CAPTURE-PRIVACY.md).
+
 ## Installed menu recovery (0.2.1.12)
 
 The user reported a blank settings card in foreground; closing/reopening the

@@ -158,6 +158,7 @@ void MainPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs 
     contents_token_ =
         Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated(display_changed);
     application_view_ = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+    apply_capture_blocking(L"navigation");
     client_bounds_token_ =
         application_view_.VisibleBoundsChanged([weak = get_weak()](auto const&, auto const&) {
             if (const auto self = weak.get()) {
@@ -237,6 +238,9 @@ void MainPage::load_profile() {
         reserved_bottom_pixels_ =
             unbox_value_or<std::uint32_t>(values.Lookup(L"TaskbarHeightPixels"), 0);
     }
+    block_screen_capture_ = values.HasKey(L"BlockScreenCapture") &&
+                            unbox_value_or<bool>(values.Lookup(L"BlockScreenCapture"), false);
+    BlockScreenCaptureToggle().IsOn(block_screen_capture_);
     FitVideoAboveTaskbar().IsChecked(video_fit_enabled_);
     TaskbarHeight().Text(to_hstring(reserved_bottom_pixels_));
     const auto restore_text = [&values](hstring const& name, auto const& box) {
@@ -294,6 +298,60 @@ void MainPage::load_profile() {
         save_key_settings();
         fuser::widget::log(
             L"Black profile upgraded: exact removal, opaque colors, independent video opacity.");
+    }
+}
+
+void MainPage::capture_blocking_changed(Windows::Foundation::IInspectable const&,
+                                        Windows::UI::Xaml::RoutedEventArgs const&) {
+    if (loading_profile_ || shutting_down_) {
+        return;
+    }
+    const bool requested = BlockScreenCaptureToggle().IsOn();
+    // Also suppress the synchronous event when restoring a failed save.
+    if (requested == block_screen_capture_) {
+        return;
+    }
+    try {
+        const auto values = Windows::Storage::ApplicationData::Current().LocalSettings().Values();
+        values.Insert(L"BlockScreenCapture", box_value(requested));
+    } catch (hresult_error const& error) {
+        BlockScreenCaptureToggle().IsOn(block_screen_capture_);
+        CaptureBlockingStatus().Text(L"Preference could not be saved. Previous choice retained.");
+        fuser::widget::log(L"Capture blocking save failed: requested=" + to_hstring(requested) +
+                           L" error=" + to_hstring(static_cast<int32_t>(error.code())));
+        return;
+    }
+    block_screen_capture_ = requested;
+    apply_capture_blocking(L"toggle");
+}
+
+void MainPage::apply_capture_blocking(hstring const& trigger) {
+    const auto request = L"Capture blocking: requested=" + to_hstring(block_screen_capture_) +
+                         L" trigger=" + trigger;
+    if (!application_view_) {
+        CaptureBlockingStatus().Text(
+            L"Could not apply: application view unavailable. Choice saved.");
+        fuser::widget::log(request + L" view unavailable error=" +
+                           to_hstring(static_cast<int32_t>(E_UNEXPECTED)));
+        return;
+    }
+    try {
+        application_view_.IsScreenCaptureEnabled(!block_screen_capture_);
+        const bool enabled = application_view_.IsScreenCaptureEnabled();
+        fuser::widget::log(request + L" screenCaptureEnabled=" + to_hstring(enabled));
+        if (enabled != !block_screen_capture_) {
+            fuser::widget::log(request + L" readback mismatch error=" +
+                               to_hstring(static_cast<int32_t>(E_FAIL)));
+            CaptureBlockingStatus().Text(L"Could not apply Windows setting. Choice saved.");
+        } else if (block_screen_capture_) {
+            CaptureBlockingStatus().Text(
+                L"Windows setting applied; capture result unverified. Test your capture tool.");
+        } else {
+            CaptureBlockingStatus().Text(L"Off. Windows capture is enabled for this view.");
+        }
+    } catch (hresult_error const& error) {
+        CaptureBlockingStatus().Text(L"Could not apply Windows setting. Choice saved.");
+        fuser::widget::log(request + L" error=" + to_hstring(static_cast<int32_t>(error.code())));
     }
 }
 

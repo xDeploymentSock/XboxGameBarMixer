@@ -19,6 +19,13 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 - Pinned native C++ formatting checks and Linux AddressSanitizer/UndefinedBehaviorSanitizer core tests in CI.
 - Additional private profiling and gameplay observations; results and measurement limits are recorded in [validation](docs/VALIDATION.md).
 
+## 0.2.1.13
+
+### Added
+
+- Advanced-tab experimental capture blocking, saved independently and applied immediately through the UWP application view. Defaults off and reapplies when the page is recreated.
+- Separate status for Windows setting acceptance and unverified capture behavior. Captured output may be black; this is not a guarantee of exclusion in Game Bar.
+
 ## [0.2.1.12]
 
 Unsigned Release menu recovery checkpoint installed and verified on main; all

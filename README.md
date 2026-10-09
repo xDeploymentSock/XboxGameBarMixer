@@ -8,7 +8,7 @@ Supports H.264/HEVC hardware decoding, black/green/magenta removal, saved pairin
 
 ## Install
 
-**Development preview: 0.2.1.12.** Build locally; a signed download is not available yet.
+**Development preview: 0.2.1.13.** Build locally; a signed download is not available yet.
 
 The receiving PC needs Windows 11 x64, Xbox Game Bar and a D3D11 hardware-decoding GPU. Install [Sunshine](https://github.com/LizardByte/Sunshine) on the source PC. Wired Ethernet is recommended.
 

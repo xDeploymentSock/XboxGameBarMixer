@@ -61,6 +61,8 @@ struct MainPage : MainPageT<MainPage> {
                                    Windows::UI::Xaml::SizeChangedEventArgs const&);
     void apply_video_fit_click(Windows::Foundation::IInspectable const&,
                                Windows::UI::Xaml::RoutedEventArgs const&);
+    void capture_blocking_changed(Windows::Foundation::IInspectable const&,
+                                  Windows::UI::Xaml::RoutedEventArgs const&);
     void shutdown() noexcept;
 
 private:
@@ -72,6 +74,7 @@ private:
     void select_settings_section(std::int32_t index);
     void update_settings_layout();
     void load_profile();
+    void apply_capture_blocking(hstring const& trigger);
     void update_saved_profile_summary();
     void attach_renderer();
     void update_widget_state();
@@ -103,6 +106,7 @@ private:
     bool loading_profile_{true}, fitting_monitor_{}, reset_pending_{};
     bool video_fit_enabled_{true};
     bool follow_game_bar_opacity_{};
+    bool block_screen_capture_{};
     std::int32_t selected_settings_section_{};
     std::uint32_t reserved_bottom_pixels_{0};
     fuser::widget_layout_requests layout_requests_;
