@@ -6,6 +6,12 @@ The widget sets `ApplicationView.IsScreenCaptureEnabled` on its own UWP view. It
 
 A save failure restores the previous switch state. An API failure retains the saved request and reports that it was not applied. Disconnecting does not change the setting. Turning it off enables capture on the same view again.
 
+## Observed result
+
+On the installed 0.2.1.13 package, the user enabled blocking and took a **Win+Shift+S (Snipping Tool)** capture. The overlay remained visible: **exclusion failed in this test**. The runtime log independently records `requested=true` and `screenCaptureEnabled=false`, so the API setter/readback succeeded while capture still included the overlay.
+
+The exact host/capture interaction causing this is not established. The report does not confirm whether Game Bar was dismissed, so no foreground-versus-pinned distinction is inferred. Do not rely on this experiment for screenshot protection. Other tools and an off/on/off comparison remain unverified.
+
 ## Live verification
 
 Use an owned moving test HUD over a recognizable local background during an idle window. Record each tool separately: Snipping Tool, Print Screen, Game Bar capture and OBS Display Capture.
@@ -15,6 +21,6 @@ Use an owned moving test HUD over a recognizable local background during an idle
 3. Turn blocking off and confirm the original capture behavior returns.
 4. Reopen/restart with blocking on, then test actual Windows suspension/resume. Check saved choice, menu return, streaming and click-through.
 
-Live tool results and suspension/resume acceptance are pending. Keep captures and runtime logs in ignored local evidence paths.
+Additional capture-tool results and suspension/resume acceptance are pending. Keep captures and runtime logs in ignored local evidence paths.
 
 Microsoft documents black captured output for a disabled view: [IsScreenCaptureEnabled](https://learn.microsoft.com/en-us/uwp/api/windows.ui.viewmanagement.applicationview.isscreencaptureenabled). [Game Bar widgets](https://learn.microsoft.com/en-us/xbox/game-bar/overview) render a separate UWP app into the host UI; this experiment must be tested in that host.

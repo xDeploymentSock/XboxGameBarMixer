@@ -9,6 +9,8 @@ Build results, live acceptance and measurement limits belong in [validation](doc
 
 ### Changed
 
+- Warn in the capture privacy menu that Snipping Tool still included the overlay in the tested Game Bar setup; record failed live exclusion despite successful API readback. This wording is a source update awaiting deployment.
+
 - Shortened the README around installation and everyday use; collected detailed guides in a documentation index.
 - Formatted project-owned native C++ consistently, expanding dense control flow without changing runtime behavior.
 - Added concise coding standards and a release guide separating local development packages from public distribution.

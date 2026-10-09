@@ -10,11 +10,17 @@ The render pipeline is unchanged. Standards and specification reviews found no
 blocking issues. x64 Debug and Release UWP builds, Release core contracts,
 12 timing-summary tests and native formatting pass. Both UWP build logs show zero
 warnings/errors. Both packages pass CRC, identity, version, x64 and built-executable
-matching checks. The staged publication audit has no findings. Installation and
-capture-tool behavior require an idle window.
+matching checks. The staged publication audit has no findings. Installed 0.2.1.13
+reports status OK; its executable matches the verified Release build.
 
-Live off/on/off capture results, compact/keyboard interaction, preference
-persistence and actual OS suspension/resume acceptance remain pending. Readback
+The user reports the overlay is still visible in a Win+Shift+S capture with the
+toggle on. Runtime evidence confirms `requested=true` and
+`screenCaptureEnabled=false`: API acceptance did not protect that capture.
+Game Bar foreground/dismissed state was not confirmed. The cause is unresolved;
+this is a failed Snipping Tool exclusion test, not a general capture guarantee.
+
+Full off/on/off comparisons, other capture tools, compact/keyboard interaction,
+preference persistence and actual OS suspension/resume acceptance remain pending. Readback
 acceptance cannot establish Game Bar capture exclusion. See [capture privacy](CAPTURE-PRIVACY.md).
 
 ## Installed menu recovery (0.2.1.12)

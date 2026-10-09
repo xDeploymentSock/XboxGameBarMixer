@@ -161,7 +161,7 @@
                                               AutomationProperties.Name="Block screen capture (experimental)">
                                     <ToggleSwitch.Header><TextBlock Text="Block screen capture (experimental)" TextWrapping="Wrap" FontSize="13" /></ToggleSwitch.Header>
                                 </ToggleSwitch>
-                                <TextBlock Text="Saves and applies immediately. Captures may show a black rectangle across the widget area. Experimental in Game Bar; verify with your capture tool." Style="{StaticResource Caption}" />
+                                <TextBlock Text="Saves and applies immediately. Snipping Tool still captured the overlay in our Game Bar test. Do not rely on this for screenshot protection. Other capture tools remain unverified." Style="{StaticResource Caption}" />
                                 <TextBlock x:Name="CaptureBlockingStatus" Text="Off." Style="{StaticResource Caption}" AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Text="Placement tools" Style="{StaticResource SectionTitle}" Margin="0,8,0,0" />
                                 <ToggleButton x:Name="PlacementOptionsToggle" Content="Edit widget placement" Style="{StaticResource MenuTab}"
